@@ -31,6 +31,7 @@ set(VERSION ${VERSION_STRING})
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/../cmake/modules)
 
 if(MSVC)
+# include_directories(getopt)
 add_definitions(/D _CRT_SECURE_NO_WARNINGS)
 else()
 add_definitions(-Wall)

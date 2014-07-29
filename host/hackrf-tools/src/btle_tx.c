@@ -1,8 +1,10 @@
+// BTLE packet transmit tool by Jiao Xianjun (putaoshu@gmail.com)
+
 /*
  * Copyright 2012 Jared Boone <jared@sharebrained.com>
  * Copyright 2013-2014 Benjamin Vernoux <titanmkd@gmail.com>
  *
- * This file is part of HackRF: BTLE_tx tool. (by putaoshu@gmail.com)
+ * This file is part of HackRF.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,6 +27,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+//#include <getopt.h>
 #include <time.h>
 
 #include <sys/types.h>
