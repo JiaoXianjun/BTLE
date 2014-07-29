@@ -104,75 +104,29 @@ volatile uint32_t byte_count = 0;
 struct timeval time_start;
 struct timeval t_start;
 
-uint64_t freq_hz;
+uint64_t freq_hz = 2480000000ull;
 uint32_t sample_rate_hz;
 uint32_t baseband_filter_bw_hz;
 
-int valid_length = 0;
-int valid_length_test = 0;
-bool callback_state = false;
+int tx_buf_len = 0;
+volatile int valid_length_test = 0;
+volatile bool callback_state = false;
 int tx_len_test_callback(hackrf_transfer* transfer) {
   valid_length_test = transfer->valid_length;
   callback_state = true;
   return(0);
-//	size_t bytes_to_read;
-//
-//	if( fd != NULL )
-//	{
-//		ssize_t bytes_read;
-//		byte_count += transfer->valid_length;
-//		bytes_to_read = transfer->valid_length;
-//		if (limit_num_samples) {
-//			if (bytes_to_read >= bytes_to_xfer) {
-//				/*
-//				 * In this condition, we probably tx some of the previous
-//				 * buffer contents at the end.  :-(
-//				 */
-//				bytes_to_read = bytes_to_xfer;
-//			}
-//			bytes_to_xfer -= bytes_to_read;
-//		}
-//		bytes_read = fread(transfer->buffer, 1, bytes_to_read, fd);
-//		if ((bytes_read != bytes_to_read)
-//				|| (limit_num_samples && (bytes_to_xfer == 0))) {
-//			return -1;
-//		} else {
-//			return 0;
-//		}
-//	} else {
-//		return -1;
-//	}
 }
 
+volatile bool stop_tx = false;
+volatile  char *tx_buf;
 int tx_callback(hackrf_transfer* transfer) {
+  if (~stop_tx) {
+    memcpy(transfer->buffer, tx_buf, tx_buf_len);
+    stop_tx = true;
+  } else {
+    memset(transfer->buffer, 0, tx_buf_len);
+  }
   return(0);
-//	size_t bytes_to_read;
-//
-//	if( fd != NULL )
-//	{
-//		ssize_t bytes_read;
-//		byte_count += transfer->valid_length;
-//		bytes_to_read = transfer->valid_length;
-//		if (limit_num_samples) {
-//			if (bytes_to_read >= bytes_to_xfer) {
-//				/*
-//				 * In this condition, we probably tx some of the previous
-//				 * buffer contents at the end.  :-(
-//				 */
-//				bytes_to_read = bytes_to_xfer;
-//			}
-//			bytes_to_xfer -= bytes_to_read;
-//		}
-//		bytes_read = fread(transfer->buffer, 1, bytes_to_read, fd);
-//		if ((bytes_read != bytes_to_read)
-//				|| (limit_num_samples && (bytes_to_xfer == 0))) {
-//			return -1;
-//		} else {
-//			return 0;
-//		}
-//	} else {
-//		return -1;
-//	}
 }
 
 static hackrf_device* device = NULL;
@@ -224,70 +178,63 @@ static void usage() {
 }
 
 #define NUM_LEN_TEST 10
-int get_tx_buffer_len() {
+inline int get_tx_buffer_len() {
   int tmp_len[NUM_LEN_TEST];
-  int i = 0;
+  int i, result;
 
+  int sum_len = 0;
+  int diff_count = 0;
   for (i = 0; i<NUM_LEN_TEST; i++) {
     result = hackrf_stop_tx(device);
     if( result != HACKRF_SUCCESS ) {
-      printf("hackrf_stop_tx() failed: %s (%d)\n", hackrf_error_name(result), result);
+      printf("get_tx_buffer_len: hackrf_stop_tx() failed: %s (%d)\n", hackrf_error_name(result), result);
       return(-1);
     }
 
     result = hackrf_start_tx(device, tx_len_test_callback, NULL);
     if( result != HACKRF_SUCCESS ) {
-      printf("hackrf_start_?x() failed: %s (%d)\n", hackrf_error_name(result), result);
+      printf("get_tx_buffer_len: hackrf_start_?x() failed: %s (%d)\n", hackrf_error_name(result), result);
       usage();
-      return EXIT_FAILURE;
+      return(-1);
     }
 
-
-    gettimeofday(&t_start, NULL);
-    gettimeofday(&time_start, NULL);
-
-    int count = 0;
-    printf("Stop with Ctrl-C\n");
+    do_exit = false;
     while( (hackrf_is_streaming(device) == HACKRF_TRUE) &&
         (do_exit == false) )
     {
       if (callback_state) {
-        printf("%d\n", valid_length);
-        printf("do_exit %d\n", do_exit);
         callback_state = false;
-        count++;
-        if (count == 10)
-          break;
+        tmp_len[i] = valid_length_test;
+        valid_length_test = 0;
+        break;
       }
-
     }
-
 
     result = hackrf_is_streaming(device);
     if (do_exit)
     {
-      printf("\nUser cancel, exiting...\n");
-    } else {
-      printf("\nExiting... hackrf_is_streaming() result: %s (%d)\n", hackrf_error_name(result), result);
+      printf("\nget_tx_buffer_len: Abnormal, exiting...\n");
+      return(-1);
     }
 
-    gettimeofday(&t_end, NULL);
-    time_diff = TimevalDiff(&t_end, &t_start);
-    printf("Total time: %5.5f s\n", time_diff);
-
+    sum_len = sum_len + tmp_len[i];
+    if (i>0) {
+      diff_count = diff_count + ( (tmp_len[i] == tmp_len[i-1])? 0 : 1 );
+    }
   }
 
+  if (diff_count == 0) {
+    return(sum_len/NUM_LEN_TEST);
+  }
+  else {
+    printf("get_tx_buffer_len: diff_count %d\n", diff_count);
+    return(-1);
+  }
 }
 
-int main(int argc, char** argv) {
-
-	int result;
-	time_t rawtime;
-	struct tm * timeinfo;
-	int exit_code = EXIT_SUCCESS;
-	struct timeval t_end;
-	float time_diff;
-	unsigned int lna_gain=8, vga_gain=20, txvga_gain=47;
+inline int open_board() {
+  int result;
+  unsigned int txvga_gain=47;
 
   sample_rate_hz = DEFAULT_SAMPLE_RATE_HZ;
 
@@ -296,16 +243,16 @@ int main(int argc, char** argv) {
 
 	result = hackrf_init();
 	if( result != HACKRF_SUCCESS ) {
-		printf("hackrf_init() failed: %s (%d)\n", hackrf_error_name(result), result);
+		printf("open_board: hackrf_init() failed: %s (%d)\n", hackrf_error_name(result), result);
 		usage();
-		return EXIT_FAILURE;
+		return(-1);
 	}
 
 	result = hackrf_open(&device);
 	if( result != HACKRF_SUCCESS ) {
-		printf("hackrf_open() failed: %s (%d)\n", hackrf_error_name(result), result);
+		printf("open_board: hackrf_open() failed: %s (%d)\n", hackrf_error_name(result), result);
 		usage();
-		return EXIT_FAILURE;
+		return(-1);
 	}
 
 #ifdef _MSC_VER
@@ -318,61 +265,161 @@ int main(int argc, char** argv) {
 	signal(SIGTERM, &sigint_callback_handler);
 	signal(SIGABRT, &sigint_callback_handler);
 #endif
-	printf("call hackrf_sample_rate_set(%u Hz/%.03f MHz)\n", sample_rate_hz,((float)sample_rate_hz/(float)FREQ_ONE_MHZ));
+
+	printf("open_board: call hackrf_sample_rate_set(%u Hz/%.03f MHz)\n", sample_rate_hz,((float)sample_rate_hz/(float)FREQ_ONE_MHZ));
 	result = hackrf_set_sample_rate_manual(device, sample_rate_hz, 1);
 	if( result != HACKRF_SUCCESS ) {
-		printf("hackrf_sample_rate_set() failed: %s (%d)\n", hackrf_error_name(result), result);
+		printf("open_board: hackrf_sample_rate_set() failed: %s (%d)\n", hackrf_error_name(result), result);
 		usage();
-		return EXIT_FAILURE;
+		return(-1);
 	}
 
-	printf("call hackrf_baseband_filter_bandwidth_set(%d Hz/%.03f MHz)\n",
+	printf("open_board: call hackrf_baseband_filter_bandwidth_set(%d Hz/%.03f MHz)\n",
 			baseband_filter_bw_hz, ((float)baseband_filter_bw_hz/(float)FREQ_ONE_MHZ));
+
 	result = hackrf_set_baseband_filter_bandwidth(device, baseband_filter_bw_hz);
 	if( result != HACKRF_SUCCESS ) {
-		printf("hackrf_baseband_filter_bandwidth_set() failed: %s (%d)\n", hackrf_error_name(result), result);
+		printf("open_board: hackrf_baseband_filter_bandwidth_set() failed: %s (%d)\n", hackrf_error_name(result), result);
 		usage();
-		return EXIT_FAILURE;
+		return(-1);
 	}
-    result = hackrf_set_txvga_gain(device, txvga_gain);
-    printf("call hackrf_set_freq(%.03f MHz)\n", ((double)freq_hz/(double)FREQ_ONE_MHZ) );
-    result = hackrf_set_freq(device, freq_hz);
-    if( result != HACKRF_SUCCESS ) {
-      printf("hackrf_set_freq() failed: %s (%d)\n", hackrf_error_name(result), result);
-      usage();
-      return EXIT_FAILURE;
-    }
 
-    printf("call hackrf_set_amp_enable(%u)\n", 1);
-    result = hackrf_set_amp_enable(device, (uint8_t)1);
-    if( result != HACKRF_SUCCESS ) {
-      printf("hackrf_set_amp_enable() failed: %s (%d)\n", hackrf_error_name(result), result);
-      usage();
-      return EXIT_FAILURE;
-    }
+  result = hackrf_set_txvga_gain(device, txvga_gain);
+  if( result != HACKRF_SUCCESS ) {
+    printf("open_board: hackrf_set_txvga_gain() failed: %s (%d)\n", hackrf_error_name(result), result);
+    usage();
+    return(-1);
+  }
 
+  printf("open_board: call hackrf_set_freq(%.03f MHz)\n", ((double)freq_hz/(double)FREQ_ONE_MHZ) );
+  result = hackrf_set_freq(device, freq_hz);
+  if( result != HACKRF_SUCCESS ) {
+    printf("open_board: hackrf_set_freq() failed: %s (%d)\n", hackrf_error_name(result), result);
+    usage();
+    return(-1);
+  }
+
+  printf("open_board: call hackrf_set_amp_enable(%u)\n", 1);
+  result = hackrf_set_amp_enable(device, (uint8_t)1);
+  if( result != HACKRF_SUCCESS ) {
+    printf("open_board: hackrf_set_amp_enable() failed: %s (%d)\n", hackrf_error_name(result), result);
+    usage();
+    return(-1);
+  }
+
+  return(0);
+}
+
+inline void close_board() {
+  int result;
 
 	if(device != NULL)
 	{
     result = hackrf_stop_tx(device);
     if( result != HACKRF_SUCCESS ) {
-      printf("hackrf_stop_tx() failed: %s (%d)\n", hackrf_error_name(result), result);
+      printf("close_board: hackrf_stop_tx() failed: %s (%d)\n", hackrf_error_name(result), result);
     }else {
-      printf("hackrf_stop_tx() done\n");
+      printf("close_board: hackrf_stop_tx() done\n");
     }
 
 		result = hackrf_close(device);
 		if( result != HACKRF_SUCCESS )
 		{
-			printf("hackrf_close() failed: %s (%d)\n", hackrf_error_name(result), result);
+			printf("close_board: hackrf_close() failed: %s (%d)\n", hackrf_error_name(result), result);
 		}else {
-			printf("hackrf_close() done\n");
+			printf("close_board: hackrf_close() done\n");
 		}
 
 		hackrf_exit();
 		printf("hackrf_exit() done\n");
 	}
+}
 
+inline int tx_one_buf() {
+  int result;
+
+  result = hackrf_stop_tx(device);
+  if( result != HACKRF_SUCCESS ) {
+    printf("tx_one_buf: hackrf_stop_tx() failed: %s (%d)\n", hackrf_error_name(result), result);
+    return(-1);
+  }
+
+  stop_tx = false;
+
+  result = hackrf_start_tx(device, tx_callback, NULL);
+  if( result != HACKRF_SUCCESS ) {
+    printf("tx_one_buf: hackrf_start_?x() failed: %s (%d)\n", hackrf_error_name(result), result);
+    usage();
+    return(-1);
+  }
+
+  do_exit = false;
+  while( (hackrf_is_streaming(device) == HACKRF_TRUE) &&
+      (do_exit == false) )
+  {
+    if (stop_tx) {
+      break;
+    }
+  }
+
+  result = hackrf_is_streaming(device);
+  if (do_exit)
+  {
+    printf("\ntx_one_buf: Abnormal, exiting...\n");
+    return(-1);
+  }
+
+  result = hackrf_stop_tx(device);
+  if( result != HACKRF_SUCCESS ) {
+    printf("tx_one_buf: hackrf_stop_tx() failed: %s (%d)\n", hackrf_error_name(result), result);
+    return(-1);
+  }
+
+  do_exit = false;
+
+  return(0);
+}
+
+int main(int argc, char** argv) {
+
+  int result, i;
+
+  if ( open_board() == -1 )
+    return(-1);
+
+  tx_buf_len = get_tx_buffer_len();
+  if ( tx_buf_len == -1 ) {
+    close_board();
+    return(-1);
+  }
+  printf("tx buf len %d\n", tx_buf_len);
+
+  tx_buf = malloc(sizeof(char)*tx_buf_len);
+  if (tx_buf == NULL) {
+    close_board();
+    return(-1);
+  }
+
+  FILE *fp = fopen("ibeacon_single_packet.bin", "rb");
+  fread(tx_buf, sizeof(char), 6224, fp);
+  fclose(fp);
+
+  for (i=0; i<100; i++) {
+    result = tx_one_buf();
+    if ( result == -1 ) {
+      close_board();
+      free(tx_buf);
+      return(-1);
+    }
+    printf("%d\n", i);
+    sleep(5);
+
+    if (do_exit)
+      break;
+  }
+
+  close_board();
+  free(tx_buf);
 	printf("exit\n");
-	return exit_code;
+	return(0);
 }
