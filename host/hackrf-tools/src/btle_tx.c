@@ -102,7 +102,7 @@ uint32_t baseband_filter_bw_hz;
 
 volatile bool do_exit = false;
 
-volatile bool stop_tx = true;
+volatile int stop_tx = 1;
 volatile char tx_buf[MAX_NUM_SAMPLE*2];
 volatile int tx_len;
 int tx_callback(hackrf_transfer* transfer) {
@@ -110,9 +110,10 @@ int tx_callback(hackrf_transfer* transfer) {
     if ( tx_len <= transfer->valid_length ) {
       memcpy(transfer->buffer, (char *)tx_buf, tx_len);
       memset(transfer->buffer + tx_len, 0, transfer->valid_length - tx_len);
-      stop_tx = true;
+      stop_tx = 1;
     } else {
       memset(transfer->buffer, 0, transfer->valid_length);
+      stop_tx = 2;
       return(-1);
     }
   } else {
@@ -171,7 +172,7 @@ static void usage() {
 
 inline int open_board() {
   int result;
-  unsigned int txvga_gain=47;
+  unsigned int txvga_gain=20;
 
 	/* Compute nearest freq for bw filter */
   baseband_filter_bw_hz = hackrf_compute_baseband_filter_bw(DEFAULT_BASEBAND_FILTER_BANDWIDTH);
@@ -226,13 +227,6 @@ inline int open_board() {
     return(-1);
   }
 
-  result = hackrf_start_tx(device, tx_callback, NULL);
-  if( result != HACKRF_SUCCESS ) {
-    printf("open_board: hackrf_start_tx() failed: %s (%d)\n", hackrf_error_name(result), result);
-    usage();
-    return(-1);
-  }
-
   printf("open_board: call hackrf_set_freq(%.03f MHz)\n", ((double)freq_hz/(double)FREQ_ONE_MHZ) );
   result = hackrf_set_freq(device, freq_hz);
   if( result != HACKRF_SUCCESS ) {
@@ -241,8 +235,8 @@ inline int open_board() {
     return(-1);
   }
 
-  printf("open_board: call hackrf_set_amp_enable(%u)\n", 1);
-  result = hackrf_set_amp_enable(device, (uint8_t)1);
+  printf("open_board: call hackrf_set_amp_enable(%u)\n", 0);
+  result = hackrf_set_amp_enable(device, (uint8_t)0);
   if( result != HACKRF_SUCCESS ) {
     printf("open_board: hackrf_set_amp_enable() failed: %s (%d)\n", hackrf_error_name(result), result);
     usage();
@@ -278,28 +272,49 @@ inline void close_board() {
 }
 
 inline int tx_one_buf(char *buf, int length) {
+  int result;
+
   memcpy((char *)tx_buf, buf, length);
   tx_len = length;
 
+  printf("stop_tx %d\n", stop_tx);
   stop_tx = false;
 
+  result = hackrf_start_tx(device, tx_callback, NULL);
+  if( result != HACKRF_SUCCESS ) {
+    printf("tx_one_buf: hackrf_start_tx() failed: %s (%d)\n", hackrf_error_name(result), result);
+    return(-1);
+  }
+
+//  while(~stop_tx);
   while( (hackrf_is_streaming(device) == HACKRF_TRUE) &&
       (do_exit == false) )
   {
     if (stop_tx) {
+      printf("stop_tx %d\n", stop_tx);
+      printf("do_exit %d\n", do_exit);
       break;
     }
   }
 
   if (do_exit)
   {
-    printf("\ntx_one_buf: Abnormal, exiting...\n");
+    printf("\ntx_one_buf-1: Abnormal, exiting...\n");
     return(-1);
   }
+
+  result = hackrf_stop_tx(device);
+  if( result != HACKRF_SUCCESS ) {
+    printf("tx_one_buf: hackrf_stop_tx() failed: %s (%d)\n", hackrf_error_name(result), result);
+    return(-1);
+  }
+
+  do_exit = false;
 
   return(0);
 }
 
+#define FILE_LEN 6224
 int main(int argc, char** argv) {
 
   int i;
@@ -307,19 +322,26 @@ int main(int argc, char** argv) {
   if ( open_board() == -1 )
     return(-1);
 
-  char buf[6352];
-  FILE *fp = fopen("fnd_single_packet.bin", "rb");
-  fread(buf, sizeof(char), 6352, fp);
+  char buf[FILE_LEN];
+  FILE *fp = fopen("ibeacon_single_packet.bin", "rb");
+  fread(buf, sizeof(char), FILE_LEN, fp);
   fclose(fp);
 
-  for (i=0; i<10; i++) {
-    if ( tx_one_buf(buf, 6352) == -1 ){
+  struct timeval time_now, time_start;
+  for (i=0; i<20; i++) {
+    if ( tx_one_buf(buf, FILE_LEN) == -1 ){
       close_board();
       return(-1);
     }
     printf("%d\n", i);
-    sleep(0.05);
+//    sleep(0.1);
 
+    gettimeofday(&time_start, NULL);
+    while(TimevalDiff(&time_now, &time_start)<0.5) {
+      gettimeofday(&time_now, NULL);
+    }
+
+//    memset(buf, 0, FILE_LEN);
     if (do_exit)
       break;
   }
