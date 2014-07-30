@@ -400,7 +400,7 @@ int main(int argc, char** argv) {
       return(-1);
     }
     printf("%d\n", i);
-    sleep(0.03);
+    sleep(0.05);
 
     if (do_exit)
       break;
