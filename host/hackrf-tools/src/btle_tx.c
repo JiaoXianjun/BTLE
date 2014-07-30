@@ -82,9 +82,6 @@ int gettimeofday(struct timeval *tv, void* ignored)
 #include <signal.h>
 
 #define FREQ_ONE_MHZ (1000000ull)
-
-#define DEFAULT_SAMPLE_RATE_HZ (8000000) /* 8MHz default sample rate */
-
 #define DEFAULT_BASEBAND_FILTER_BANDWIDTH (5000000) /* 5MHz default */
 
 #if defined _WIN32
@@ -97,34 +94,38 @@ TimevalDiff(const struct timeval *a, const struct timeval *b)
    return (a->tv_sec - b->tv_sec) + 1e-6f * (a->tv_usec - b->tv_usec);
 }
 
-volatile bool do_exit = false;
-
-volatile uint32_t byte_count = 0;
-
-struct timeval time_start;
-struct timeval t_start;
+#define MAX_NUM_SAMPLE (8192)
 
 uint64_t freq_hz = 2480000000ull;
-uint32_t sample_rate_hz;
+const uint32_t sample_rate_hz = 8000000;
 uint32_t baseband_filter_bw_hz;
 
-int tx_buf_len = 0;
-volatile int valid_length_test = 0;
-volatile bool callback_state = false;
-int tx_len_test_callback(hackrf_transfer* transfer) {
-  valid_length_test = transfer->valid_length;
-  callback_state = true;
-  return(0);
-}
+volatile bool do_exit = false;
+
+//volatile int tx_buf_len = 0;
+//volatile int valid_length_test = 0;
+//volatile bool callback_state = false;
+//int tx_len_test_callback(hackrf_transfer* transfer) {
+//  valid_length_test = transfer->valid_length;
+//  callback_state = true;
+//  return(0);
+//}
 
 volatile bool stop_tx = false;
-volatile  char *tx_buf;
+volatile char tx_buf[MAX_NUM_SAMPLE*2];
+volatile int tx_len;
 int tx_callback(hackrf_transfer* transfer) {
   if (~stop_tx) {
-    memcpy(transfer->buffer, tx_buf, tx_buf_len);
-    stop_tx = true;
+    if ( tx_len <= transfer->valid_length ) {
+      memcpy(transfer->buffer, (char *)tx_buf, tx_len);
+      memset(transfer->buffer + tx_len, 0, transfer->valid_length - tx_len);
+      stop_tx = true;
+    } else {
+      memset(transfer->buffer, 0, transfer->valid_length);
+      return(-1);
+    }
   } else {
-    memset(transfer->buffer, 0, tx_buf_len);
+    memset(transfer->buffer, 0, transfer->valid_length);
   }
   return(0);
 }
@@ -177,66 +178,64 @@ static void usage() {
 //	printf("\t[-b baseband_filter_bw_hz] # Set baseband filter bandwidth in MHz.\n\tPossible values: 1.75/2.5/3.5/5/5.5/6/7/8/9/10/12/14/15/20/24/28MHz, default < sample_rate_hz.\n" );
 }
 
-#define NUM_LEN_TEST 10
-inline int get_tx_buffer_len() {
-  int tmp_len[NUM_LEN_TEST];
-  int i, result;
-
-  int sum_len = 0;
-  int diff_count = 0;
-  for (i = 0; i<NUM_LEN_TEST; i++) {
-    result = hackrf_stop_tx(device);
-    if( result != HACKRF_SUCCESS ) {
-      printf("get_tx_buffer_len: hackrf_stop_tx() failed: %s (%d)\n", hackrf_error_name(result), result);
-      return(-1);
-    }
-
-    result = hackrf_start_tx(device, tx_len_test_callback, NULL);
-    if( result != HACKRF_SUCCESS ) {
-      printf("get_tx_buffer_len: hackrf_start_?x() failed: %s (%d)\n", hackrf_error_name(result), result);
-      usage();
-      return(-1);
-    }
-
-    do_exit = false;
-    while( (hackrf_is_streaming(device) == HACKRF_TRUE) &&
-        (do_exit == false) )
-    {
-      if (callback_state) {
-        callback_state = false;
-        tmp_len[i] = valid_length_test;
-        valid_length_test = 0;
-        break;
-      }
-    }
-
-    result = hackrf_is_streaming(device);
-    if (do_exit)
-    {
-      printf("\nget_tx_buffer_len: Abnormal, exiting...\n");
-      return(-1);
-    }
-
-    sum_len = sum_len + tmp_len[i];
-    if (i>0) {
-      diff_count = diff_count + ( (tmp_len[i] == tmp_len[i-1])? 0 : 1 );
-    }
-  }
-
-  if (diff_count == 0) {
-    return(sum_len/NUM_LEN_TEST);
-  }
-  else {
-    printf("get_tx_buffer_len: diff_count %d\n", diff_count);
-    return(-1);
-  }
-}
+//#define NUM_LEN_TEST 10
+//inline int get_tx_buffer_len() {
+//  int tmp_len[NUM_LEN_TEST];
+//  int i, result;
+//
+//  int sum_len = 0;
+//  int diff_count = 0;
+//  for (i = 0; i<NUM_LEN_TEST; i++) {
+//    result = hackrf_stop_tx(device);
+//    if( result != HACKRF_SUCCESS ) {
+//      printf("get_tx_buffer_len: hackrf_stop_tx() failed: %s (%d)\n", hackrf_error_name(result), result);
+//      return(-1);
+//    }
+//
+//    result = hackrf_start_tx(device, tx_len_test_callback, NULL);
+//    if( result != HACKRF_SUCCESS ) {
+//      printf("get_tx_buffer_len: hackrf_start_?x() failed: %s (%d)\n", hackrf_error_name(result), result);
+//      usage();
+//      return(-1);
+//    }
+//
+//    do_exit = false;
+//    while( (hackrf_is_streaming(device) == HACKRF_TRUE) &&
+//        (do_exit == false) )
+//    {
+//      if (callback_state) {
+//        callback_state = false;
+//        tmp_len[i] = valid_length_test;
+//        valid_length_test = 0;
+//        break;
+//      }
+//    }
+//
+//    result = hackrf_is_streaming(device);
+//    if (do_exit)
+//    {
+//      printf("\nget_tx_buffer_len: Abnormal, exiting...\n");
+//      return(-1);
+//    }
+//
+//    sum_len = sum_len + tmp_len[i];
+//    if (i>0) {
+//      diff_count = diff_count + ( (tmp_len[i] == tmp_len[i-1])? 0 : 1 );
+//    }
+//  }
+//
+//  if (diff_count == 0) {
+//    return(sum_len/NUM_LEN_TEST);
+//  }
+//  else {
+//    printf("get_tx_buffer_len: diff_count %d\n", diff_count);
+//    return(-1);
+//  }
+//}
 
 inline int open_board() {
   int result;
   unsigned int txvga_gain=47;
-
-  sample_rate_hz = DEFAULT_SAMPLE_RATE_HZ;
 
 	/* Compute nearest freq for bw filter */
   baseband_filter_bw_hz = hackrf_compute_baseband_filter_bw(DEFAULT_BASEBAND_FILTER_BANDWIDTH);
@@ -335,14 +334,11 @@ inline void close_board() {
 	}
 }
 
-inline int tx_one_buf() {
+inline int tx_one_buf(char *buf, int length) {
   int result;
 
-  result = hackrf_stop_tx(device);
-  if( result != HACKRF_SUCCESS ) {
-    printf("tx_one_buf: hackrf_stop_tx() failed: %s (%d)\n", hackrf_error_name(result), result);
-    return(-1);
-  }
+  memcpy((char *)tx_buf, buf, length);
+  tx_len = length;
 
   stop_tx = false;
 
@@ -362,7 +358,6 @@ inline int tx_one_buf() {
     }
   }
 
-  result = hackrf_is_streaming(device);
   if (do_exit)
   {
     printf("\ntx_one_buf: Abnormal, exiting...\n");
@@ -387,39 +382,31 @@ int main(int argc, char** argv) {
   if ( open_board() == -1 )
     return(-1);
 
-  tx_buf_len = get_tx_buffer_len();
-  if ( tx_buf_len == -1 ) {
-    close_board();
-    return(-1);
-  }
-  printf("tx buf len %d\n", tx_buf_len);
+//  tx_buf_len = get_tx_buffer_len();
+//  if ( tx_buf_len == -1 ) {
+//    close_board();
+//    return(-1);
+//  }
+//  printf("tx buf len %d\n", tx_buf_len);
 
-  tx_buf = malloc(sizeof(char)*tx_buf_len);
-  if (tx_buf == NULL) {
-    close_board();
-    return(-1);
-  }
-
-  FILE *fp = fopen("ibeacon_single_packet.bin", "rb");
-  fread(tx_buf, sizeof(char), 6224, fp);
+  char buf[6352];
+  FILE *fp = fopen("fnd_single_packet.bin", "rb");
+  fread(buf, sizeof(char), 6352, fp);
   fclose(fp);
 
-  for (i=0; i<100; i++) {
-    result = tx_one_buf();
-    if ( result == -1 ) {
+  for (i=0; i<10; i++) {
+    if ( tx_one_buf(buf, 6352) == -1 ){
       close_board();
-      free(tx_buf);
       return(-1);
     }
     printf("%d\n", i);
-    sleep(5);
+    sleep(0.03);
 
     if (do_exit)
       break;
   }
 
   close_board();
-  free(tx_buf);
 	printf("exit\n");
 	return(0);
 }
