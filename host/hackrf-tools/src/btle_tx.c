@@ -102,16 +102,7 @@ uint32_t baseband_filter_bw_hz;
 
 volatile bool do_exit = false;
 
-//volatile int tx_buf_len = 0;
-//volatile int valid_length_test = 0;
-//volatile bool callback_state = false;
-//int tx_len_test_callback(hackrf_transfer* transfer) {
-//  valid_length_test = transfer->valid_length;
-//  callback_state = true;
-//  return(0);
-//}
-
-volatile bool stop_tx = false;
+volatile bool stop_tx = true;
 volatile char tx_buf[MAX_NUM_SAMPLE*2];
 volatile int tx_len;
 int tx_callback(hackrf_transfer* transfer) {
@@ -178,61 +169,6 @@ static void usage() {
 //	printf("\t[-b baseband_filter_bw_hz] # Set baseband filter bandwidth in MHz.\n\tPossible values: 1.75/2.5/3.5/5/5.5/6/7/8/9/10/12/14/15/20/24/28MHz, default < sample_rate_hz.\n" );
 }
 
-//#define NUM_LEN_TEST 10
-//inline int get_tx_buffer_len() {
-//  int tmp_len[NUM_LEN_TEST];
-//  int i, result;
-//
-//  int sum_len = 0;
-//  int diff_count = 0;
-//  for (i = 0; i<NUM_LEN_TEST; i++) {
-//    result = hackrf_stop_tx(device);
-//    if( result != HACKRF_SUCCESS ) {
-//      printf("get_tx_buffer_len: hackrf_stop_tx() failed: %s (%d)\n", hackrf_error_name(result), result);
-//      return(-1);
-//    }
-//
-//    result = hackrf_start_tx(device, tx_len_test_callback, NULL);
-//    if( result != HACKRF_SUCCESS ) {
-//      printf("get_tx_buffer_len: hackrf_start_?x() failed: %s (%d)\n", hackrf_error_name(result), result);
-//      usage();
-//      return(-1);
-//    }
-//
-//    do_exit = false;
-//    while( (hackrf_is_streaming(device) == HACKRF_TRUE) &&
-//        (do_exit == false) )
-//    {
-//      if (callback_state) {
-//        callback_state = false;
-//        tmp_len[i] = valid_length_test;
-//        valid_length_test = 0;
-//        break;
-//      }
-//    }
-//
-//    result = hackrf_is_streaming(device);
-//    if (do_exit)
-//    {
-//      printf("\nget_tx_buffer_len: Abnormal, exiting...\n");
-//      return(-1);
-//    }
-//
-//    sum_len = sum_len + tmp_len[i];
-//    if (i>0) {
-//      diff_count = diff_count + ( (tmp_len[i] == tmp_len[i-1])? 0 : 1 );
-//    }
-//  }
-//
-//  if (diff_count == 0) {
-//    return(sum_len/NUM_LEN_TEST);
-//  }
-//  else {
-//    printf("get_tx_buffer_len: diff_count %d\n", diff_count);
-//    return(-1);
-//  }
-//}
-
 inline int open_board() {
   int result;
   unsigned int txvga_gain=47;
@@ -290,6 +226,13 @@ inline int open_board() {
     return(-1);
   }
 
+  result = hackrf_start_tx(device, tx_callback, NULL);
+  if( result != HACKRF_SUCCESS ) {
+    printf("open_board: hackrf_start_tx() failed: %s (%d)\n", hackrf_error_name(result), result);
+    usage();
+    return(-1);
+  }
+
   printf("open_board: call hackrf_set_freq(%.03f MHz)\n", ((double)freq_hz/(double)FREQ_ONE_MHZ) );
   result = hackrf_set_freq(device, freq_hz);
   if( result != HACKRF_SUCCESS ) {
@@ -335,21 +278,11 @@ inline void close_board() {
 }
 
 inline int tx_one_buf(char *buf, int length) {
-  int result;
-
   memcpy((char *)tx_buf, buf, length);
   tx_len = length;
 
   stop_tx = false;
 
-  result = hackrf_start_tx(device, tx_callback, NULL);
-  if( result != HACKRF_SUCCESS ) {
-    printf("tx_one_buf: hackrf_start_?x() failed: %s (%d)\n", hackrf_error_name(result), result);
-    usage();
-    return(-1);
-  }
-
-  do_exit = false;
   while( (hackrf_is_streaming(device) == HACKRF_TRUE) &&
       (do_exit == false) )
   {
@@ -364,30 +297,15 @@ inline int tx_one_buf(char *buf, int length) {
     return(-1);
   }
 
-  result = hackrf_stop_tx(device);
-  if( result != HACKRF_SUCCESS ) {
-    printf("tx_one_buf: hackrf_stop_tx() failed: %s (%d)\n", hackrf_error_name(result), result);
-    return(-1);
-  }
-
-  do_exit = false;
-
   return(0);
 }
 
 int main(int argc, char** argv) {
 
-  int result, i;
+  int i;
 
   if ( open_board() == -1 )
     return(-1);
-
-//  tx_buf_len = get_tx_buffer_len();
-//  if ( tx_buf_len == -1 ) {
-//    close_board();
-//    return(-1);
-//  }
-//  printf("tx buf len %d\n", tx_buf_len);
 
   char buf[6352];
   FILE *fp = fopen("fnd_single_packet.bin", "rb");
