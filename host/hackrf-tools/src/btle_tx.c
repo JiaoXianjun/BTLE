@@ -82,7 +82,7 @@ int gettimeofday(struct timeval *tv, void* ignored)
 #include <signal.h>
 
 #define FREQ_ONE_MHZ (1000000ull)
-#define DEFAULT_BASEBAND_FILTER_BANDWIDTH (5000000) /* 5MHz default */
+#define DEFAULT_BASEBAND_FILTER_BANDWIDTH (8000000) /* 8MHz default */
 
 #if defined _WIN32
 	#define sleep(a) Sleep( (a*1000) )
@@ -108,8 +108,9 @@ volatile int tx_len;
 int tx_callback(hackrf_transfer* transfer) {
   if (~stop_tx) {
     if ( tx_len <= transfer->valid_length ) {
-      memcpy(transfer->buffer, (char *)tx_buf, tx_len);
-      memset(transfer->buffer + tx_len, 0, transfer->valid_length - tx_len);
+// don't feed data to the beginning of transfer->buffer, because tx needs warming up
+      memset(transfer->buffer, 0, transfer->valid_length);
+      memcpy(transfer->buffer+1024, (char *)(tx_buf), tx_len);
       stop_tx = 1;
     } else {
       memset(transfer->buffer, 0, transfer->valid_length);
@@ -172,7 +173,7 @@ static void usage() {
 
 inline int open_board() {
   int result;
-  unsigned int txvga_gain=40;
+  unsigned int txvga_gain=47;
 
 	/* Compute nearest freq for bw filter */
   baseband_filter_bw_hz = hackrf_compute_baseband_filter_bw(DEFAULT_BASEBAND_FILTER_BANDWIDTH);
@@ -274,7 +275,7 @@ inline void close_board() {
 inline int tx_one_buf(char *buf, int length) {
   int result;
 
-  memcpy((char *)tx_buf, buf, length);
+  memcpy((char *)(tx_buf), buf, length);
   tx_len = length;
 
 //  printf("stop_tx %d\n", stop_tx);
@@ -313,7 +314,69 @@ inline int tx_one_buf(char *buf, int length) {
   return(0);
 }
 
-#define FILE_LEN 6224
+typedef enum
+{
+    ADV_IND,
+    ADV_DIRECT_IND,
+    ADV_NONCONN_IND,
+    ADV_SCAN_IND,
+    SCAN_REQ,
+    SCAN_RSP,
+    CONNECT_REQ,
+    LL_DATA,
+    LL_CONNECTION_UPDATE_REQ,
+    LL_CHANNEL_MAP_REQ,
+    LL_TERMINATE_IND,
+    LL_ENC_REQ,
+    LL_ENC_RSP,
+    LL_START_ENC_REQ,
+    LL_START_ENC_RSP,
+    LL_UNKNOWN_RSP,
+    LL_FEATURE_REQ,
+    LL_FEATURE_RSP,
+    LL_PAUSE_ENC_REQ,
+    LL_PAUSE_ENC_RSP,
+    LL_VERSION_IND,
+    LL_REJECT_IND,
+    NUM_PKT_TYPE
+} pkt_type;
+
+int pdu_format[NUM_PKT_TYPE][7] = { {2,6,0,-1,-1,-1,-1},
+{2,6,6,-1,-1,-1,-1},
+{2,6,0,-1,-1,-1,-1},
+{2,6,0,-1,-1,-1,-1},
+{2,6,6,-1,-1,-1,-1},
+{2,6,0,-1,-1,-1,-1},
+{3,6,6,22,-1,-1,-1},
+{2,1,0,-1,-1,-1,-1},
+{6,1,2,2,2,2,2},
+{2,5,2,-1,-1,-1,-1},
+{1,1,-1,-1,-1,-1,-1},
+{4,8,2,8,4,-1,-1},
+{2,8,4,-1,-1,-1,-1},
+{1,0,-1,-1,-1,-1,-1},
+{1,0,-1,-1,-1,-1,-1},
+{1,1,-1,-1,-1,-1,-1},
+{1,8,-1,-1,-1,-1,-1},
+{1,8,-1,-1,-1,-1,-1},
+{1,0,-1,-1,-1,-1,-1},
+{1,0,-1,-1,-1,-1,-1},
+{3,1,2,2,-1,-1,-1},
+{1,1,-1,-1,-1,-1,-1}
+};
+
+#define SAMPLE_PER_SYMBOL 8
+typedef struct
+{
+    int channel_number;
+    pkt_type packet_type;
+    char original_hex_string[128];
+    char info_bit[4];
+    char phy_bit[4];
+    char phy_sample[4];
+} pkt_content;
+
+#define FILE_LEN 5968
 int main(int argc, char** argv) {
 
   int i;
@@ -322,13 +385,21 @@ int main(int argc, char** argv) {
     return(-1);
 
   char buf[FILE_LEN];
+
   FILE *fp = fopen("ibeacon_single_packet.bin", "rb");
   fread(buf, sizeof(char), FILE_LEN, fp);
   fclose(fp);
 
   struct timeval time_now, time_start;
+
+  // don't know why the first tx won't work. do the 1st as pre warming.
+  if ( tx_one_buf(buf, FILE_LEN) == -1 ){
+    close_board();
+    return(-1);
+  }
+
   gettimeofday(&time_start, NULL);
-  for (i=0; i<50; i++) {
+  for (i=0; i<3; i++) {
     if ( tx_one_buf(buf, FILE_LEN) == -1 ){
       close_board();
       return(-1);
