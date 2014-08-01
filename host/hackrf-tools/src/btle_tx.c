@@ -172,7 +172,7 @@ static void usage() {
 
 inline int open_board() {
   int result;
-  unsigned int txvga_gain=20;
+  unsigned int txvga_gain=40;
 
 	/* Compute nearest freq for bw filter */
   baseband_filter_bw_hz = hackrf_compute_baseband_filter_bw(DEFAULT_BASEBAND_FILTER_BANDWIDTH);
@@ -277,7 +277,7 @@ inline int tx_one_buf(char *buf, int length) {
   memcpy((char *)tx_buf, buf, length);
   tx_len = length;
 
-  printf("stop_tx %d\n", stop_tx);
+//  printf("stop_tx %d\n", stop_tx);
   stop_tx = false;
 
   result = hackrf_start_tx(device, tx_callback, NULL);
@@ -286,13 +286,12 @@ inline int tx_one_buf(char *buf, int length) {
     return(-1);
   }
 
-//  while(~stop_tx);
   while( (hackrf_is_streaming(device) == HACKRF_TRUE) &&
       (do_exit == false) )
   {
     if (stop_tx) {
-      printf("stop_tx %d\n", stop_tx);
-      printf("do_exit %d\n", do_exit);
+//      printf("stop_tx %d\n", stop_tx);
+//      printf("do_exit %d\n", do_exit);
       break;
     }
   }
@@ -328,20 +327,19 @@ int main(int argc, char** argv) {
   fclose(fp);
 
   struct timeval time_now, time_start;
-  for (i=0; i<20; i++) {
+  gettimeofday(&time_start, NULL);
+  for (i=0; i<50; i++) {
     if ( tx_one_buf(buf, FILE_LEN) == -1 ){
       close_board();
       return(-1);
     }
     printf("%d\n", i);
-//    sleep(0.1);
 
-    gettimeofday(&time_start, NULL);
-    while(TimevalDiff(&time_now, &time_start)<0.5) {
+    while(TimevalDiff(&time_now, &time_start)<0.1) {
       gettimeofday(&time_now, NULL);
     }
+    gettimeofday(&time_start, NULL);
 
-//    memset(buf, 0, FILE_LEN);
     if (do_exit)
       break;
   }
