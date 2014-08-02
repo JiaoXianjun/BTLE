@@ -44,5 +44,5 @@ LIST(APPEND TOOLS_LINK_LIBS libgetopt_static)
 endif()
 
 
-target_link_libraries(btle_tx ${TOOLS_LINK_LIBS})
+target_link_libraries(btle_tx ${TOOLS_LINK_LIBS} m)
 

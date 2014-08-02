@@ -28,6 +28,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <ctype.h>
+#include <math.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -94,7 +96,15 @@ TimevalDiff(const struct timeval *a, const struct timeval *b)
    return (a->tv_sec - b->tv_sec) + 1e-6f * (a->tv_usec - b->tv_usec);
 }
 
-#define MAX_NUM_SAMPLE (8192)
+#define AMPLITUDE (110.0)
+#define MOD_IDX (0.5)
+#define SAMPLE_PER_SYMBOL (8)
+#define LEN_GAUSS_FILTER (3)
+#define MAX_NUM_INFO_BYTE (43)
+#define MAX_NUM_PHY_BYTE (47)
+#define MAX_NUM_PHY_SAMPLE ((MAX_NUM_PHY_BYTE*8*SAMPLE_PER_SYMBOL)+(LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL))
+
+float gauss_coef[LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL] = {8.05068379156060e-05,	0.000480405201766898,	0.00232683283115742,	0.00917699278400763,	0.0295990801678164,	0.0785284246648025,	0.172747370208161,	0.318566802305277,	0.499919493162062,	0.680941868522779,	0.824924599006030,	0.912294476105987,	0.940801824540822,	0.912294476105987,	0.824924599006030,	0.680941868522779,	0.499919493162062,	0.318566802305277,	0.172747370208161,	0.0785284246648025,	0.0295990801678164,	0.00917699278400763,	0.00232683283115742,	0.000480405201766898};
 
 uint64_t freq_hz = 2480000000ull;
 const uint32_t sample_rate_hz = 8000000;
@@ -103,14 +113,15 @@ uint32_t baseband_filter_bw_hz;
 volatile bool do_exit = false;
 
 volatile int stop_tx = 1;
-volatile char tx_buf[MAX_NUM_SAMPLE*2];
+volatile char tx_buf[MAX_NUM_PHY_SAMPLE*2];
 volatile int tx_len;
+#define NUM_PRE_SEND_DATA (1024)
 int tx_callback(hackrf_transfer* transfer) {
   if (~stop_tx) {
-    if ( tx_len <= transfer->valid_length ) {
+    if ( (tx_len+NUM_PRE_SEND_DATA) <= transfer->valid_length ) {
 // don't feed data to the beginning of transfer->buffer, because tx needs warming up
       memset(transfer->buffer, 0, transfer->valid_length);
-      memcpy(transfer->buffer+1024, (char *)(tx_buf), tx_len);
+      memcpy(transfer->buffer+NUM_PRE_SEND_DATA, (char *)(tx_buf), tx_len);
       stop_tx = 1;
     } else {
       memset(transfer->buffer, 0, transfer->valid_length);
@@ -316,6 +327,8 @@ inline int tx_one_buf(char *buf, int length) {
 
 typedef enum
 {
+    INVALID_TYPE,
+    RAW,
     ADV_IND,
     ADV_DIRECT_IND,
     ADV_NONCONN_IND,
@@ -339,83 +352,600 @@ typedef enum
     LL_VERSION_IND,
     LL_REJECT_IND,
     NUM_PKT_TYPE
-} pkt_type;
+} PKT_TYPE;
 
-int pdu_format[NUM_PKT_TYPE][7] = { {2,6,0,-1,-1,-1,-1},
-{2,6,6,-1,-1,-1,-1},
-{2,6,0,-1,-1,-1,-1},
-{2,6,0,-1,-1,-1,-1},
-{2,6,6,-1,-1,-1,-1},
-{2,6,0,-1,-1,-1,-1},
-{3,6,6,22,-1,-1,-1},
-{2,1,0,-1,-1,-1,-1},
-{6,1,2,2,2,2,2},
-{2,5,2,-1,-1,-1,-1},
-{1,1,-1,-1,-1,-1,-1},
-{4,8,2,8,4,-1,-1},
-{2,8,4,-1,-1,-1,-1},
-{1,0,-1,-1,-1,-1,-1},
-{1,0,-1,-1,-1,-1,-1},
-{1,1,-1,-1,-1,-1,-1},
-{1,8,-1,-1,-1,-1,-1},
-{1,8,-1,-1,-1,-1,-1},
-{1,0,-1,-1,-1,-1,-1},
-{1,0,-1,-1,-1,-1,-1},
-{3,1,2,2,-1,-1,-1},
-{1,1,-1,-1,-1,-1,-1}
-};
-
-#define SAMPLE_PER_SYMBOL 8
+#define MAX_NUM_CHAR_CMD (256)
+char tmp_str[MAX_NUM_CHAR_CMD];
+float tmp_phy_bit_over_sampling[MAX_NUM_PHY_SAMPLE + 2*LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL];
+float tmp_phy_bit_over_sampling1[MAX_NUM_PHY_SAMPLE];
 typedef struct
 {
     int channel_number;
-    pkt_type packet_type;
-    char original_hex_string[128];
-    char info_bit[4];
-    char phy_bit[4];
-    char phy_sample[4];
-} pkt_content;
+    PKT_TYPE pkt_type;
+    char cmd_str[MAX_NUM_CHAR_CMD]; // hex string format command input
+    int num_info_bit;
+    char info_bit[MAX_NUM_INFO_BYTE*8]; // without preamble and CRC
+    int num_phy_bit;
+    char phy_bit[MAX_NUM_PHY_BYTE*8]; // all bits which will be fed to GFSK modulator
+    int num_phy_sample;
+    char phy_sample[2*MAX_NUM_PHY_SAMPLE]; // GFSK output to D/A (hackrf board)
+    int space; // how many millisecond null signal shouwl be padded after this packet
+} PKT_INFO;
 
-#define FILE_LEN 5968
-int main(int argc, char** argv) {
+int get_num_repeat(char *input_str, int *repeat_specific){
+  int num_repeat;
 
+  if (input_str[0] == 'r' || input_str[0] == 'R') {
+    num_repeat = atol(input_str+1);
+    (*repeat_specific) = 1;
+
+    if (strlen(input_str)>1) {
+      if (num_repeat < -1) {
+        num_repeat = 1;
+        printf("Detect num_repeat < -1! (-1 means inf). Set to %d\n", num_repeat);
+      } else if (num_repeat == 0) {
+        num_repeat = 1;
+        if ( input_str[1] == '0') {
+          printf("Detect num_repeat = 0! (-1 means inf). Set to %d\n", num_repeat);
+        } else {
+          printf("Detect invalid num_repeat! (-1 means inf). Set to %d\n", num_repeat);
+        }
+      }
+    } else {
+      num_repeat = 1;
+      printf("num_repeat not specified! (-1 means inf). Set to %d\n", num_repeat);
+    }
+  } else if (isdigit(input_str[0])) {
+    (*repeat_specific) = 0;
+    num_repeat = 1;
+    printf("num_repeat not specified! (-1 means inf). Set to %d\n", num_repeat);
+  } else {
+    num_repeat = -2;
+    printf("Invalid last parameter! (It should be num_repeat. -1 means inf)\n");
+  }
+
+  return(num_repeat);
+}
+
+#define MAX_NUM_PACKET (128)
+PKT_INFO packets[MAX_NUM_PACKET];
+
+char* get_next_field(char *str_input, char *p_out, char *seperator) {
+  char *tmp_p = strstr(str_input, seperator);
+
+  if (tmp_p == str_input){
+    printf("Duplicated seperator %s!\n", seperator);
+    return(NULL);
+  } else if (tmp_p == NULL) {
+    strcpy(p_out, str_input);
+    return(str_input);
+  }
+
+  char *p;
+  for (p=str_input; p<tmp_p; p++) {
+    p_out[p-str_input] = (*p);
+  }
+  p_out[p-str_input] = 0;
+
+  return(tmp_p+1);
+}
+
+char* toupper_str(char *input_str, char *output_str) {
+  int len_str = strlen(input_str);
   int i;
 
-  if ( open_board() == -1 )
-    return(-1);
+  for (i=0; i<=len_str; i++) {
+    output_str[i] = toupper( input_str[i] );
+  }
 
-  char buf[FILE_LEN];
+  return(output_str);
+}
 
-  FILE *fp = fopen("ibeacon_single_packet.bin", "rb");
-  fread(buf, sizeof(char), FILE_LEN, fp);
-  fclose(fp);
+void octet_hex_to_bit(char *hex, char *bit) {
+  char tmp_hex[3];
 
-  struct timeval time_now, time_start;
+  tmp_hex[0] = hex[0];
+  tmp_hex[1] = hex[1];
+  tmp_hex[2] = 0;
 
-  // don't know why the first tx won't work. do the 1st as pre warming.
-  if ( tx_one_buf(buf, FILE_LEN) == -1 ){
-    close_board();
+  int n = strtol(tmp_hex, NULL, 16);
+
+  bit[0] = 0x01&(n>>0);
+  bit[1] = 0x01&(n>>1);
+  bit[2] = 0x01&(n>>2);
+  bit[3] = 0x01&(n>>3);
+  bit[4] = 0x01&(n>>4);
+  bit[5] = 0x01&(n>>5);
+  bit[6] = 0x01&(n>>6);
+  bit[7] = 0x01&(n>>7);
+}
+
+int convert_hex_to_bit(char *hex, char *bit){
+  int num_hex = strlen(hex);
+
+  if (num_hex%2 != 0) {
     return(-1);
   }
 
-  gettimeofday(&time_start, NULL);
-  for (i=0; i<3; i++) {
-    if ( tx_one_buf(buf, FILE_LEN) == -1 ){
-      close_board();
+  int num_bit = num_hex*4;
+
+  int i, j;
+  for (i=0; i<num_hex; i=i+2) {
+    j = i*4;
+    octet_hex_to_bit(hex+i, bit+j);
+  }
+
+  return(num_bit);
+}
+
+int gen_sample_from_phy_bit(char *bit, char *sample, int num_bit) {
+  int num_sample = (num_bit*SAMPLE_PER_SYMBOL)+(LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL);
+
+  int i, j;
+
+  for (i=0; i<(LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL-1); i++) {
+    tmp_phy_bit_over_sampling[i] = 0.0;
+  }
+  for (i=(LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL-1+num_bit*SAMPLE_PER_SYMBOL); i<(2*LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL-2+num_bit*SAMPLE_PER_SYMBOL); i++) {
+    tmp_phy_bit_over_sampling[i] = 0.0;
+  }
+  for (i=0; i<(num_bit*SAMPLE_PER_SYMBOL); i++) {
+    if (i%SAMPLE_PER_SYMBOL == 0) {
+      tmp_phy_bit_over_sampling[i+(LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL-1)] = (float)( bit[i/SAMPLE_PER_SYMBOL] ) * 2.0 - 1.0;
+    } else {
+      tmp_phy_bit_over_sampling[i+(LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL-1)] = 0.0;
+    }
+  }
+
+  int len_conv_result = num_sample - 1;
+  for (i=0; i<len_conv_result; i++) {
+    float acc = 0;
+    for (j=0; j<(LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL); j++) {
+      acc = acc + gauss_coef[(LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL)-j-1]*tmp_phy_bit_over_sampling[i+j];
+    }
+    tmp_phy_bit_over_sampling1[i] = acc;
+  }
+
+  float tmp = 0;
+
+  sample[0] = (char)AMPLITUDE;
+  sample[1] = 0;
+  for (i=1; i<num_sample; i++) {
+    tmp = tmp + (M_PI*MOD_IDX)*tmp_phy_bit_over_sampling1[i-1]/((float)SAMPLE_PER_SYMBOL);
+    sample[i*2 + 0] = (char)( cos(tmp)*(float)AMPLITUDE );
+    sample[i*2 + 1] = (char)( sin(tmp)*(float)AMPLITUDE );
+  }
+
+  return(num_sample);
+}
+
+#define DEFAULT_SPACE_MS (200)
+int calculate_sample_for_RAW(char *pkt_str, PKT_INFO *pkt) {
+  char *current_p, *next_p;
+
+  pkt->num_info_bit = 0;
+  printf("num_info_bit %d\n", pkt->num_info_bit);
+
+  current_p = pkt_str;
+  next_p = get_next_field(current_p, tmp_str, "-");
+  if (next_p == NULL) {
+    return(-1);
+  }
+  if ( strlen(tmp_str)>(MAX_NUM_PHY_BYTE*2) ) {
+    printf("Too many octets! Maximum allowed number of phy_byte is %d\n", MAX_NUM_PHY_BYTE);
+    return(-1);
+  }
+  pkt->num_phy_bit = convert_hex_to_bit(tmp_str, pkt->phy_bit);
+  if ( pkt->num_phy_bit == -1 ) {
+    return(-1);
+  }
+  printf("num_phy_bit %d\n", pkt->num_phy_bit);
+
+  pkt->num_phy_sample = gen_sample_from_phy_bit(pkt->phy_bit, pkt->phy_sample, pkt->num_phy_bit);
+  printf("num_phy_sample %d\n", pkt->num_phy_sample);
+
+  if (next_p == current_p) {
+    pkt->space = DEFAULT_SPACE_MS;
+    printf("space %d\n", pkt->space);
+    return(0);
+  }
+
+  current_p = next_p;
+  next_p = get_next_field(current_p, tmp_str, "-");
+  if (next_p == NULL) {
+    return(-1);
+  }
+
+  if (strcmp(toupper_str(tmp_str, tmp_str), "SPACE") != 0) {
+    printf("SPACE field is expected!\n");
+    return(-1);
+  }
+
+  if (next_p == current_p) {
+    pkt->space = DEFAULT_SPACE_MS;
+    printf("space %d\n", pkt->space);
+    return(0);
+  }
+
+  current_p = next_p;
+  next_p = get_next_field(current_p, tmp_str, "-");
+  if (next_p == NULL) {
+    return(-1);
+  }
+
+  int space = atol(tmp_str);
+
+  if (space <= 0) {
+    printf("Invalid space!\n");
+    return(-1);
+  }
+
+  pkt->space = space;
+  printf("space %d\n", pkt->space);
+
+  return(0);
+}
+int calculate_sample_for_ADV_IND(char *pkt_str, PKT_INFO *pkt) {
+  return(0);
+}
+int calculate_sample_for_ADV_DIRECT_IND(char *pkt_str, PKT_INFO *pkt) {
+  return(0);
+}
+int calculate_sample_for_ADV_NONCONN_IND(char *pkt_str, PKT_INFO *pkt) {
+  return(0);
+}
+int calculate_sample_for_ADV_SCAN_IND(char *pkt_str, PKT_INFO *pkt) {
+  return(0);
+}
+int calculate_sample_for_SCAN_REQ(char *pkt_str, PKT_INFO *pkt) {
+  return(0);
+}
+int calculate_sample_for_SCAN_RSP(char *pkt_str, PKT_INFO *pkt) {
+  return(0);
+}
+int calculate_sample_for_CONNECT_REQ(char *pkt_str, PKT_INFO *pkt) {
+  return(0);
+}
+int calculate_sample_for_LL_DATA(char *pkt_str, PKT_INFO *pkt) {
+  return(0);
+}
+int calculate_sample_for_LL_CONNECTION_UPDATE_REQ(char *pkt_str, PKT_INFO *pkt) {
+  return(0);
+}
+int calculate_sample_for_LL_CHANNEL_MAP_REQ(char *pkt_str, PKT_INFO *pkt) {
+  return(0);
+}
+int calculate_sample_for_LL_TERMINATE_IND(char *pkt_str, PKT_INFO *pkt) {
+  return(0);
+}
+int calculate_sample_for_LL_ENC_REQ(char *pkt_str, PKT_INFO *pkt) {
+  return(0);
+}
+int calculate_sample_for_LL_ENC_RSP(char *pkt_str, PKT_INFO *pkt) {
+  return(0);
+}
+int calculate_sample_for_LL_START_ENC_REQ(char *pkt_str, PKT_INFO *pkt) {
+  return(0);
+}
+int calculate_sample_for_LL_START_ENC_RSP(char *pkt_str, PKT_INFO *pkt) {
+  return(0);
+}
+int calculate_sample_for_LL_UNKNOWN_RSP(char *pkt_str, PKT_INFO *pkt) {
+  return(0);
+}
+int calculate_sample_for_LL_FEATURE_REQ(char *pkt_str, PKT_INFO *pkt) {
+  return(0);
+}
+int calculate_sample_for_LL_FEATURE_RSP(char *pkt_str, PKT_INFO *pkt) {
+  return(0);
+}
+int calculate_sample_for_LL_PAUSE_ENC_REQ(char *pkt_str, PKT_INFO *pkt) {
+  return(0);
+}
+int calculate_sample_for_LL_PAUSE_ENC_RSP(char *pkt_str, PKT_INFO *pkt) {
+  return(0);
+}
+int calculate_sample_for_LL_VERSION_IND(char *pkt_str, PKT_INFO *pkt) {
+  return(0);
+}
+int calculate_sample_for_LL_REJECT_IND(char *pkt_str, PKT_INFO *pkt) {
+  return(0);
+}
+
+int calculate_sample_from_pkt_type(char *type_str, char *pkt_str, PKT_INFO *pkt) {
+  if ( strcmp( toupper_str(type_str, tmp_str), "RAW" ) == 0 ) {
+    pkt->pkt_type = RAW;
+    printf("pkt_type RAW\n");
+    if ( calculate_sample_for_RAW(pkt_str, pkt) == -1 ) {
       return(-1);
     }
-    printf("%d\n", i);
-
-    while(TimevalDiff(&time_now, &time_start)<0.1) {
-      gettimeofday(&time_now, NULL);
+  } else if ( strcmp( toupper_str(type_str, tmp_str), "ADV_IND" ) == 0 ) {
+    pkt->pkt_type = ADV_IND;
+    printf("pkt_type ADV_IND\n");
+    if ( calculate_sample_for_ADV_IND(pkt_str, pkt) == -1 ) {
+      return(-1);
     }
-    gettimeofday(&time_start, NULL);
-
-    if (do_exit)
-      break;
+  } else if ( strcmp( toupper_str(type_str, tmp_str), "ADV_DIRECT_IND" ) == 0 ) {
+    pkt->pkt_type = ADV_DIRECT_IND;
+    printf("pkt_type ADV_DIRECT_IND\n");
+    if ( calculate_sample_for_ADV_DIRECT_IND(pkt_str, pkt) == -1 ) {
+      return(-1);
+    }
+  } else if ( strcmp( toupper_str(type_str, tmp_str), "ADV_NONCONN_IND" ) == 0 ) {
+    pkt->pkt_type = ADV_NONCONN_IND;
+    printf("pkt_type ADV_NONCONN_IND\n");
+    if ( calculate_sample_for_ADV_NONCONN_IND(pkt_str, pkt) == -1 ) {
+      return(-1);
+    }
+  } else if ( strcmp( toupper_str(type_str, tmp_str), "ADV_SCAN_IND" ) == 0 ) {
+    pkt->pkt_type = ADV_SCAN_IND;
+    printf("pkt_type ADV_SCAN_IND\n");
+    if ( calculate_sample_for_ADV_SCAN_IND(pkt_str, pkt) == -1 ) {
+      return(-1);
+    }
+  } else if ( strcmp( toupper_str(type_str, tmp_str), "SCAN_REQ" ) == 0 ) {
+    pkt->pkt_type = SCAN_REQ;
+    printf("pkt_type SCAN_REQ\n");
+    if ( calculate_sample_for_SCAN_REQ(pkt_str, pkt) == -1 ) {
+      return(-1);
+    }
+  } else if ( strcmp( toupper_str(type_str, tmp_str), "SCAN_RSP" ) == 0 ) {
+    pkt->pkt_type = SCAN_RSP;
+    printf("pkt_type SCAN_RSP\n");
+    if ( calculate_sample_for_SCAN_RSP(pkt_str, pkt) == -1 ) {
+      return(-1);
+    }
+  } else if ( strcmp( toupper_str(type_str, tmp_str), "CONNECT_REQ" ) == 0 ) {
+    pkt->pkt_type = CONNECT_REQ;
+    printf("pkt_type CONNECT_REQ\n");
+    if ( calculate_sample_for_CONNECT_REQ(pkt_str, pkt) == -1 ) {
+      return(-1);
+    }
+  } else if ( strcmp( toupper_str(type_str, tmp_str), "LL_DATA" ) == 0 ) {
+    pkt->pkt_type = LL_DATA;
+    printf("pkt_type LL_DATA\n");
+    if ( calculate_sample_for_LL_DATA(pkt_str, pkt) == -1 ) {
+      return(-1);
+    }
+  } else if ( strcmp( toupper_str(type_str, tmp_str), "LL_CONNECTION_UPDATE_REQ" ) == 0 ) {
+    pkt->pkt_type = LL_CONNECTION_UPDATE_REQ;
+    printf("pkt_type LL_CONNECTION_UPDATE_REQ\n");
+    if ( calculate_sample_for_LL_CONNECTION_UPDATE_REQ(pkt_str, pkt) == -1 ) {
+      return(-1);
+    }
+  } else if ( strcmp( toupper_str(type_str, tmp_str), "LL_CHANNEL_MAP_REQ" ) == 0 ) {
+    pkt->pkt_type = LL_CHANNEL_MAP_REQ;
+    printf("pkt_type LL_CHANNEL_MAP_REQ\n");
+    if ( calculate_sample_for_LL_CHANNEL_MAP_REQ(pkt_str, pkt) == -1 ) {
+      return(-1);
+    }
+  } else if ( strcmp( toupper_str(type_str, tmp_str), "LL_TERMINATE_IND" ) == 0 ) {
+    pkt->pkt_type = LL_TERMINATE_IND;
+    printf("pkt_type LL_TERMINATE_IND\n");
+    if ( calculate_sample_for_LL_TERMINATE_IND(pkt_str, pkt) == -1 ) {
+      return(-1);
+    }
+  } else if ( strcmp( toupper_str(type_str, tmp_str), "LL_ENC_REQ" ) == 0 ) {
+    pkt->pkt_type = LL_ENC_REQ;
+    printf("pkt_type LL_ENC_REQ\n");
+    if ( calculate_sample_for_LL_ENC_REQ(pkt_str, pkt) == -1 ) {
+      return(-1);
+    }
+  } else if ( strcmp( toupper_str(type_str, tmp_str), "LL_ENC_RSP" ) == 0 ) {
+    pkt->pkt_type = LL_ENC_RSP;
+    printf("pkt_type LL_ENC_RSP\n");
+    if ( calculate_sample_for_LL_ENC_RSP(pkt_str, pkt) == -1 ) {
+      return(-1);
+    }
+  } else if ( strcmp( toupper_str(type_str, tmp_str), "LL_START_ENC_REQ" ) == 0 ) {
+    pkt->pkt_type = LL_START_ENC_REQ;
+    printf("pkt_type LL_START_ENC_REQ\n");
+    if ( calculate_sample_for_LL_START_ENC_REQ(pkt_str, pkt) == -1 ) {
+      return(-1);
+    }
+  } else if ( strcmp( toupper_str(type_str, tmp_str), "LL_START_ENC_RSP" ) == 0 ) {
+    pkt->pkt_type = LL_START_ENC_RSP;
+    printf("pkt_type LL_START_ENC_RSP\n");
+    if ( calculate_sample_for_LL_START_ENC_RSP(pkt_str, pkt) == -1 ) {
+      return(-1);
+    }
+  } else if ( strcmp( toupper_str(type_str, tmp_str), "LL_UNKNOWN_RSP" ) == 0 ) {
+    pkt->pkt_type = LL_UNKNOWN_RSP;
+    printf("pkt_type LL_UNKNOWN_RSP\n");
+    if ( calculate_sample_for_LL_UNKNOWN_RSP(pkt_str, pkt) == -1 ) {
+      return(-1);
+    }
+  } else if ( strcmp( toupper_str(type_str, tmp_str), "LL_FEATURE_REQ" ) == 0 ) {
+    pkt->pkt_type = LL_FEATURE_REQ;
+    printf("pkt_type LL_FEATURE_REQ\n");
+    if ( calculate_sample_for_LL_FEATURE_REQ(pkt_str, pkt) == -1 ) {
+      return(-1);
+    }
+  } else if ( strcmp( toupper_str(type_str, tmp_str), "LL_FEATURE_RSP" ) == 0 ) {
+    pkt->pkt_type = LL_FEATURE_RSP;
+    printf("pkt_type LL_FEATURE_RSP\n");
+    if ( calculate_sample_for_LL_FEATURE_RSP(pkt_str, pkt) == -1 ) {
+      return(-1);
+    }
+  } else if ( strcmp( toupper_str(type_str, tmp_str), "LL_PAUSE_ENC_REQ" ) == 0 ) {
+    pkt->pkt_type = LL_PAUSE_ENC_REQ;
+    printf("pkt_type LL_PAUSE_ENC_REQ\n");
+    if ( calculate_sample_for_LL_PAUSE_ENC_REQ(pkt_str, pkt) == -1 ) {
+      return(-1);
+    }
+  } else if ( strcmp( toupper_str(type_str, tmp_str), "LL_PAUSE_ENC_RSP" ) == 0 ) {
+    pkt->pkt_type = LL_PAUSE_ENC_RSP;
+    printf("pkt_type LL_PAUSE_ENC_RSP\n");
+    if ( calculate_sample_for_LL_PAUSE_ENC_RSP(pkt_str, pkt) == -1 ) {
+      return(-1);
+    }
+  } else if ( strcmp( toupper_str(type_str, tmp_str), "LL_VERSION_IND" ) == 0 ) {
+    pkt->pkt_type = LL_VERSION_IND;
+    printf("pkt_type LL_VERSION_IND\n");
+    if ( calculate_sample_for_LL_VERSION_IND(pkt_str, pkt) == -1 ) {
+      return(-1);
+    }
+  } else if ( strcmp( toupper_str(type_str, tmp_str), "LL_REJECT_IND" ) == 0 ) {
+    pkt->pkt_type = LL_REJECT_IND;
+    printf("pkt_type LL_REJECT_IND\n");
+    if ( calculate_sample_for_LL_REJECT_IND(pkt_str, pkt) == -1 ) {
+      return(-1);
+    }
+  } else {
+    pkt->pkt_type = INVALID_TYPE;
+    printf("pkt_type INVALID_TYPE\n");
+    return(-1);
   }
 
-  close_board();
-	printf("exit\n");
+  return(0);
+}
+
+int calculate_pkt_info( PKT_INFO *pkt ){
+  char *cmd_str = pkt->cmd_str;
+  char *next_p;
+
+  // get channel number
+  next_p = get_next_field(cmd_str, tmp_str, "-");
+  if ( next_p == NULL || next_p==cmd_str ) {
+    printf("Getting channel number failed! It should be 0~39.\n");
+    return(-1);
+  }
+
+  int channel_number = atol(tmp_str);
+
+  if (channel_number < 0 || channel_number > 39){
+    printf("Invalid channel number is found. It should be 0~39.\n");
+    return(-1);
+  }
+
+  if (channel_number == 0) {
+    if (tmp_str[0] != '0' ||  tmp_str[1] != 0  ) {
+      printf("Invalid channel number is found. It should be 0~39.\n");
+      return(-1);
+    }
+  }
+
+  pkt->channel_number = channel_number;
+  printf("channel_number %d\n", channel_number);
+
+  // get pkt_type
+  char *current_p = next_p;
+  next_p = get_next_field(current_p, tmp_str, "-");
+  if ( next_p == NULL  || next_p==current_p ) {
+    printf("Getting packet type failed!\n");
+    return(-1);
+  }
+
+  if ( calculate_sample_from_pkt_type(tmp_str, next_p, pkt) == -1 ){
+    if ( pkt->pkt_type == INVALID_TYPE ) {
+      printf("Invalid packet type!\n");
+    } else {
+      printf("Invalid packet content for specific packet type!\n");
+    }
+    return(-1);
+  }
+
+  return(0);
+}
+
+int parse_input(int num_input, char** argv){
+  int repeat_specific = 0;
+
+  int num_repeat = get_num_repeat(argv[num_input-1], &repeat_specific);
+  if (num_repeat == -2) {
+    return(-2);
+  }
+
+  int num_packet = 0;
+  if (repeat_specific == 1){
+    num_packet = num_input - 2;
+  } else {
+    num_packet = num_input - 1;
+  }
+
+  printf("num_repeat %d\n", num_repeat);
+  printf("num_packet %d\n", num_packet);
+
+  int i;
+  for (i=0; i<num_packet; i++) {
+
+    if (strlen(argv[1+i]) > MAX_NUM_CHAR_CMD-1) {
+      printf("Too long packet descriptor of packet %d! Maximum allowed are %d characters\n", i, MAX_NUM_CHAR_CMD-1);
+      return(-2);
+    }
+    strcpy(packets[i].cmd_str, argv[1+i]);
+    printf("\npacket %d\n", i);
+    if (calculate_pkt_info( &(packets[i]) ) == -1){
+      return(-2);
+    }
+
+    // display for debug
+    int j;
+    for (j=0; j<packets[i].num_phy_sample; j++) {
+      printf("%d ", packets[i].phy_sample[j]);
+    }
+  }
+
+  return(num_repeat);
+}
+
+int main(int argc, char** argv) {
+  int num_pkt = 0;
+  int num_repeat = 0; // -1: inf; 0: 1; other: specific
+
+  if (argc < 2) {
+    usage();
+  } else if ( (argc-1-1) > MAX_NUM_PACKET ){
+    printf("Too many packets input! Maximum allowed is %d\n", MAX_NUM_PACKET);
+  } else {
+    num_repeat = parse_input(argc, argv);
+    if ( num_repeat == -2 ){
+      return(-1);
+    }
+  }
+
+
+// // ---------already test-------------------------
+//#define FILE_LEN (5968)
+//  int i;
+//
+//  if ( open_board() == -1 )
+//    return(-1);
+//
+//  char buf[FILE_LEN];
+//
+//  FILE *fp = fopen("ibeacon_single_packet.bin", "rb");
+//  fread(buf, sizeof(char), FILE_LEN, fp);
+//  fclose(fp);
+//
+//  struct timeval time_now, time_start;
+//
+//  // don't know why the first tx won't work. do the 1st as pre warming.
+//  if ( tx_one_buf(buf, FILE_LEN) == -1 ){
+//    close_board();
+//    return(-1);
+//  }
+//
+//  gettimeofday(&time_start, NULL);
+//  for (i=0; i<3; i++) {
+//    if ( tx_one_buf(buf, FILE_LEN) == -1 ){
+//      close_board();
+//      return(-1);
+//    }
+//    printf("%d\n", i);
+//
+//    while(TimevalDiff(&time_now, &time_start)<0.1) {
+//      gettimeofday(&time_now, NULL);
+//    }
+//    gettimeofday(&time_start, NULL);
+//
+//    if (do_exit)
+//      break;
+//  }
+//
+//  close_board();
+//	printf("exit\n");
+// // ---------already test-------------------------
+
 	return(0);
 }
