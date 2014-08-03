@@ -97,7 +97,7 @@ TimevalDiff(const struct timeval *a, const struct timeval *b)
 }
 
 #define AMPLITUDE (110.0)
-#define MOD_IDX (0.6)
+#define MOD_IDX (0.55)
 #define SAMPLE_PER_SYMBOL (8)
 #define LEN_GAUSS_FILTER (3)
 #define MAX_NUM_INFO_BYTE (43)
@@ -641,18 +641,39 @@ char* get_next_field_bit(char *current_p, char *bit_return, int *num_bit_return,
   return(next_p);
 }
 
+char *get_next_field_name_value(char *input_p, char *name, int *val, int *ret_last){
+// ret_last: -1 failed; 0 success; 1 success and this is the last field
+  int ret;
+  char *current_p = input_p;
+
+  char *next_p = get_next_field_name(current_p, name, &ret);
+  if (ret != 0) { // failed or the last
+    (*ret_last) = -1;
+    return(NULL);
+  }
+
+  current_p = next_p;
+  next_p = get_next_field_value(current_p, val, &ret);
+  (*ret_last) = ret;
+  if (ret == -1) { // failed
+    return(NULL);
+  }
+
+  return(next_p);
+}
+
 #define DEFAULT_SPACE_MS (200)
 int calculate_sample_for_RAW(char *pkt_str, PKT_INFO *pkt) {
 // example
 // ./btle_tx 39-RAW-AAD6BE898E5F134B5D86F2999CC3D7DF5EDF15DEE39AA2E5D0728EB68B0E449B07C547B80EAA8DD257A0E5EACB0B-SPACE-1000
-  char *current_p, *next_p;
+  char *current_p;
   int ret;
 
   pkt->num_info_bit = 0;
   printf("num_info_bit %d\n", pkt->num_info_bit);
 
   current_p = pkt_str;
-  next_p = get_next_field_bit(current_p, pkt->phy_bit, &(pkt->num_phy_bit), 0, MAX_NUM_PHY_BYTE, &ret);
+  current_p = get_next_field_bit(current_p, pkt->phy_bit, &(pkt->num_phy_bit), 0, MAX_NUM_PHY_BYTE, &ret);
   if (ret == -1) {
     return(-1);
   }
@@ -667,21 +688,9 @@ int calculate_sample_for_RAW(char *pkt_str, PKT_INFO *pkt) {
     return(0);
   }
 
-  current_p = next_p;
-  next_p = get_next_field_name(current_p, "SPACE", &ret);
-  if (ret == -1) { // failed
-    return(-1);
-  }
-  if (ret == 1) { // last field
-    pkt->space = DEFAULT_SPACE_MS;
-    printf("space %d\n", pkt->space);
-    return(0);
-  }
-
-  current_p = next_p;
   int space;
-  get_next_field_value(current_p, &space, &ret);
-  if (ret == -1) {
+  current_p = get_next_field_name_value(current_p, "SPACE", &space, &ret);
+  if (ret == -1) { // failed
     return(-1);
   }
 
@@ -794,108 +803,95 @@ void fill_adv_pdu_header(PKT_TYPE pkt_type, int txadd, int rxadd, int payload_le
   bit_out[15] = 0;
 }
 
+char *get_next_field_name_bit(char *input_p, char *name, char *out_bit, int *num_bit, int flip_flag, int octet_limit, int *ret_last){
+// ret_last: -1 failed; 0 success; 1 success and this is the last field
+  int ret;
+  char *current_p = input_p;
+
+  char *next_p = get_next_field_name(current_p, name, &ret);
+  if (ret != 0) { // failed or the last
+    (*ret_last) = -1;
+    return(NULL);
+  }
+
+  current_p = next_p;
+  next_p = get_next_field_bit(current_p, out_bit, num_bit, flip_flag, octet_limit, &ret);
+  (*ret_last) = ret;
+  if (ret == -1) { // failed
+    return(NULL);
+  }
+
+  return(next_p);
+}
+
+void crc24_and_scramble_to_gen_phy_bit(char *crc_init_hex, PKT_INFO *pkt) {
+  crc24(pkt->info_bit+5*8, pkt->num_info_bit-5*8, crc_init_hex, pkt->info_bit+pkt->num_info_bit);
+  scramble(pkt->info_bit+5*8, pkt->num_info_bit-5*8+24, pkt->channel_number, pkt->phy_bit+5*8);
+  memcpy(pkt->phy_bit, pkt->info_bit, 5*8);
+  pkt->num_phy_bit = pkt->num_info_bit + 24;
+}
+
 int calculate_sample_for_ADV_IND(char *pkt_str, PKT_INFO *pkt) {
 // example
 // ./btle_tx 39-ADV_IND-TXADD-1-RXADD-0-ADVA-010203040506-ADVDATA-00112233445566778899AABBCCDDEEFF
-  char *current_p, *next_p;
+  char *current_p;
   int ret, num_bit_tmp;
 
   pkt->num_info_bit = 0;
+
 // gen preamble and access address
   pkt->num_info_bit = pkt->num_info_bit + convert_hex_to_bit("AA", pkt->info_bit);
   pkt->num_info_bit = pkt->num_info_bit + convert_hex_to_bit("D6BE898E", pkt->info_bit + pkt->num_info_bit);
 
 // get txadd and rxadd
   current_p = pkt_str;
-  next_p = get_next_field_name(current_p, "TXADD", &ret);
-  if (ret != 0) { // failed or the last
-    return(-1);
-  }
-  current_p = next_p;
-  int txadd;
-  next_p = get_next_field_value(current_p, &txadd, &ret);
+  int txadd, rxadd;
+  current_p = get_next_field_name_value(current_p, "TXADD", &txadd, &ret);
   if (ret != 0) { // failed or the last
     return(-1);
   }
 
-  current_p = next_p;
-  next_p = get_next_field_name(current_p, "RXADD", &ret);
-  if (ret != 0) { // failed or the last
-    return(-1);
-  }
-  current_p = next_p;
-  int rxadd;
-  next_p = get_next_field_value(current_p, &rxadd, &ret);
+  current_p = get_next_field_name_value(current_p, "RXADD", &rxadd, &ret);
   if (ret != 0) { // failed or the last
     return(-1);
   }
   pkt->num_info_bit = pkt->num_info_bit + 16; // 16 is header length
 
 // get AdvA and AdvData
-  current_p = next_p;
-  next_p = get_next_field_name(current_p, "ADVA", &ret);
-  if (ret != 0) { // failed or the last
-    return(-1);
-  }
-  current_p = next_p;
-  next_p = get_next_field_bit(current_p, pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 6, &ret);
+  current_p = get_next_field_name_bit(current_p, "ADVA", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 6, &ret);
   if (ret != 0) { // failed or the last
     return(-1);
   }
   pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
 
-  current_p = next_p;
-  next_p = get_next_field_name(current_p, "ADVDATA", &ret);
-  if (ret != 0) { // failed or the last
-    return(-1);
-  }
-  current_p = next_p;
-  next_p = get_next_field_bit(current_p, pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 0, 31, &ret);
+  current_p = get_next_field_name_bit(current_p, "ADVDATA", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 0, 31, &ret);
   if (ret == -1) { // failed
     return(-1);
   }
   pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
 
   int payload_len = (pkt->num_info_bit/8) - 7;
-  if (payload_len < 6 || payload_len > 37) {
-    printf("payload length should be 6~37. Actual %d\n", payload_len);
-  }
-
   printf("payload_len %d\n", payload_len);
   printf("num_info_bit %d\n", pkt->num_info_bit);
+
   fill_adv_pdu_header(pkt->pkt_type, txadd, rxadd, payload_len, pkt->info_bit+5*8);
 
-  crc24(pkt->info_bit+5*8, pkt->num_info_bit-5*8, "555555", pkt->info_bit+pkt->num_info_bit);
-  scramble(pkt->info_bit+5*8, pkt->num_info_bit-5*8+24, pkt->channel_number, pkt->phy_bit+5*8);
-  memcpy(pkt->phy_bit, pkt->info_bit, 5*8);
-  pkt->num_phy_bit = pkt->num_info_bit + 24;
+  crc24_and_scramble_to_gen_phy_bit("555555", pkt);
   printf("num_phy_bit %d\n", pkt->num_phy_bit);
 
   pkt->num_phy_sample = gen_sample_from_phy_bit(pkt->phy_bit, pkt->phy_sample, pkt->num_phy_bit);
   printf("num_phy_sample %d\n", pkt->num_phy_sample);
 
 // get space value
-  if (ret==1) {
+  if (ret==1) { // if space value not present
     pkt->space = DEFAULT_SPACE_MS;
     printf("space %d\n", pkt->space);
     return(0);
   }
 
-  current_p = next_p;
-  next_p = get_next_field_name(current_p, "SPACE", &ret);
-  if (ret == -1) { // failed
-    return(-1);
-  }
-  if (ret == 1) { // last field
-    pkt->space = DEFAULT_SPACE_MS;
-    printf("space %d\n", pkt->space);
-    return(0);
-  }
-
-  current_p = next_p;
   int space;
-  get_next_field_value(current_p, &space, &ret);
-  if (ret == -1) {
+  current_p = get_next_field_name_value(current_p, "SPACE", &space, &ret);
+  if (ret == -1) { // failed
     return(-1);
   }
 
