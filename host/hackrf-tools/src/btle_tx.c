@@ -905,6 +905,97 @@ int calculate_sample_for_ADV_IND(char *pkt_str, PKT_INFO *pkt) {
 
   return(0);
 }
+int calculate_sample_for_IBEACON(char *pkt_str, PKT_INFO *pkt) {
+// example
+// ./btle_tx 39-IBEACON-ADVA-010203040506-UUID-B9407F30F5F8466EAFF925556B57FE6D-MAJOR-0008-MINOR-0009-TXPOWER-C5-SPACE-100 R10
+// UUID indicates Estimote
+  char *current_p;
+  int ret, num_bit_tmp;
+
+  pkt->num_info_bit = 0;
+
+// gen preamble and access address
+  pkt->num_info_bit = pkt->num_info_bit + convert_hex_to_bit("AA", pkt->info_bit);
+  pkt->num_info_bit = pkt->num_info_bit + convert_hex_to_bit("D6BE898E", pkt->info_bit + pkt->num_info_bit);
+
+  int txadd = 1;
+  int rxadd = 0;
+  int payload_len = 36;
+  fill_adv_pdu_header(ADV_IND, txadd, rxadd, payload_len, pkt->info_bit+5*8);
+  pkt->num_info_bit = pkt->num_info_bit + 16; // 16 is header length
+  printf("payload_len %d\n", payload_len);
+
+// get AdvA
+  current_p = pkt_str;
+  current_p = get_next_field_name_bit(current_p, "ADVA", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 6, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+// set fixed ibeacon prefix
+  num_bit_tmp = convert_hex_to_bit("02011A1AFF4C000215", pkt->info_bit+pkt->num_info_bit);
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+// get UUID
+  current_p = get_next_field_name_bit(current_p, "UUID", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 0, 16, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+// get major
+  current_p = get_next_field_name_bit(current_p, "MAJOR", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 0, 2, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+// get minor
+  current_p = get_next_field_name_bit(current_p, "MINOR", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 0, 2, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+// get tx power
+  current_p = get_next_field_name_bit(current_p, "TXPOWER", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 1, &ret);
+  if (ret == -1) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+  printf("num_info_bit %d\n", pkt->num_info_bit);
+
+  crc24_and_scramble_to_gen_phy_bit("555555", pkt);
+  printf("num_phy_bit %d\n", pkt->num_phy_bit);
+
+  pkt->num_phy_sample = gen_sample_from_phy_bit(pkt->phy_bit, pkt->phy_sample, pkt->num_phy_bit);
+  printf("num_phy_sample %d\n", pkt->num_phy_sample);
+
+// get space value
+  if (ret==1) { // if space value not present
+    pkt->space = DEFAULT_SPACE_MS;
+    printf("space %d\n", pkt->space);
+    return(0);
+  }
+
+  int space;
+  current_p = get_next_field_name_value(current_p, "SPACE", &space, &ret);
+  if (ret == -1) { // failed
+    return(-1);
+  }
+
+  if (space <= 0) {
+    printf("Invalid space!\n");
+    return(-1);
+  }
+
+  pkt->space = space;
+  printf("space %d\n", pkt->space);
+
+  return(0);
+}
 int calculate_sample_for_ADV_DIRECT_IND(char *pkt_str, PKT_INFO *pkt) {
   return(0);
 }
@@ -974,6 +1065,12 @@ int calculate_sample_from_pkt_type(char *type_str, char *pkt_str, PKT_INFO *pkt)
     pkt->pkt_type = RAW;
     printf("pkt_type RAW\n");
     if ( calculate_sample_for_RAW(pkt_str, pkt) == -1 ) {
+      return(-1);
+    }
+  } else if ( strcmp( toupper_str(type_str, tmp_str), "IBEACON" ) == 0 ) {
+    pkt->pkt_type = IBEACON;
+    printf("pkt_type IBEACON\n");
+    if ( calculate_sample_for_IBEACON(pkt_str, pkt) == -1 ) {
       return(-1);
     }
   } else if ( strcmp( toupper_str(type_str, tmp_str), "ADV_IND" ) == 0 ) {
