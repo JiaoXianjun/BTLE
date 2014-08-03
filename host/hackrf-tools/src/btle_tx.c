@@ -90,14 +90,14 @@ int gettimeofday(struct timeval *tv, void* ignored)
 	#define sleep(a) Sleep( (a*1000) )
 #endif
 
-static float
+static inline float
 TimevalDiff(const struct timeval *a, const struct timeval *b)
 {
    return (a->tv_sec - b->tv_sec) + 1e-6f * (a->tv_usec - b->tv_usec);
 }
 
 #define AMPLITUDE (110.0)
-#define MOD_IDX (0.5)
+#define MOD_IDX (0.6)
 #define SAMPLE_PER_SYMBOL (8)
 #define LEN_GAUSS_FILTER (3)
 #define MAX_NUM_INFO_BYTE (43)
@@ -106,7 +106,9 @@ TimevalDiff(const struct timeval *a, const struct timeval *b)
 
 float gauss_coef[LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL] = {8.05068379156060e-05,	0.000480405201766898,	0.00232683283115742,	0.00917699278400763,	0.0295990801678164,	0.0785284246648025,	0.172747370208161,	0.318566802305277,	0.499919493162062,	0.680941868522779,	0.824924599006030,	0.912294476105987,	0.940801824540822,	0.912294476105987,	0.824924599006030,	0.680941868522779,	0.499919493162062,	0.318566802305277,	0.172747370208161,	0.0785284246648025,	0.0295990801678164,	0.00917699278400763,	0.00232683283115742,	0.000480405201766898};
 
-uint64_t freq_hz = 2480000000ull;
+uint64_t freq_hz = 2480000000ull;  //channel 39
+//uint64_t freq_hz = 2402000000ull;  //channel 37
+//uint64_t freq_hz = 2426000000ull;  //channel 38
 const uint32_t sample_rate_hz = 8000000;
 uint32_t baseband_filter_bw_hz;
 
@@ -115,7 +117,7 @@ volatile bool do_exit = false;
 volatile int stop_tx = 1;
 volatile char tx_buf[MAX_NUM_PHY_SAMPLE*2];
 volatile int tx_len;
-#define NUM_PRE_SEND_DATA (1024)
+#define NUM_PRE_SEND_DATA (4096)
 int tx_callback(hackrf_transfer* transfer) {
   if (~stop_tx) {
     if ( (tx_len+NUM_PRE_SEND_DATA) <= transfer->valid_length ) {
@@ -283,6 +285,27 @@ inline void close_board() {
 	}
 }
 
+inline int set_freq_by_channel_number(int channel_number) {
+  int result;
+  if ( channel_number == 37 ) {
+    freq_hz = 2402000000ull;
+  } else if (channel_number == 38) {
+    freq_hz = 2426000000ull;
+  } else if (channel_number == 39) {
+    freq_hz = 2480000000ull;
+  } else if (channel_number >=0 && channel_number <= 10 ) {
+    freq_hz = 2404000000ull + channel_number*2000000ull;
+  } else if (channel_number >=11 && channel_number <= 36 ) {
+    freq_hz = 2428000000ull + (channel_number-11)*2000000ull;
+  }
+  result = hackrf_set_freq(device, freq_hz);
+  if( result != HACKRF_SUCCESS ) {
+    printf("tx_one_buf: hackrf_set_freq() failed: %s (%d)\n", hackrf_error_name(result), result);
+    return(-1);
+  }
+  return(0);
+}
+
 inline int tx_one_buf(char *buf, int length) {
   int result;
 
@@ -292,6 +315,7 @@ inline int tx_one_buf(char *buf, int length) {
 //  printf("stop_tx %d\n", stop_tx);
   stop_tx = false;
 
+//  printf("%d\n", length);
   result = hackrf_start_tx(device, tx_callback, NULL);
   if( result != HACKRF_SUCCESS ) {
     printf("tx_one_buf: hackrf_start_tx() failed: %s (%d)\n", hackrf_error_name(result), result);
@@ -329,6 +353,7 @@ typedef enum
 {
     INVALID_TYPE,
     RAW,
+    IBEACON,
     ADV_IND,
     ADV_DIRECT_IND,
     ADV_NONCONN_IND,
@@ -356,6 +381,7 @@ typedef enum
 
 #define MAX_NUM_CHAR_CMD (256)
 char tmp_str[MAX_NUM_CHAR_CMD];
+char tmp_str1[MAX_NUM_CHAR_CMD];
 float tmp_phy_bit_over_sampling[MAX_NUM_PHY_SAMPLE + 2*LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL];
 float tmp_phy_bit_over_sampling1[MAX_NUM_PHY_SAMPLE];
 typedef struct
@@ -364,7 +390,8 @@ typedef struct
     PKT_TYPE pkt_type;
     char cmd_str[MAX_NUM_CHAR_CMD]; // hex string format command input
     int num_info_bit;
-    char info_bit[MAX_NUM_INFO_BYTE*8]; // without preamble and CRC
+//    char info_bit[MAX_NUM_INFO_BYTE*8]; // without preamble and CRC
+    char info_bit[MAX_NUM_PHY_BYTE*8]; // without CRC and whitening
     int num_phy_bit;
     char phy_bit[MAX_NUM_PHY_BYTE*8]; // all bits which will be fed to GFSK modulator
     int num_phy_sample;
@@ -410,15 +437,25 @@ int get_num_repeat(char *input_str, int *repeat_specific){
 #define MAX_NUM_PACKET (128)
 PKT_INFO packets[MAX_NUM_PACKET];
 
-char* get_next_field(char *str_input, char *p_out, char *seperator) {
+char* get_next_field(char *str_input, char *p_out, char *seperator, int size_of_p_out) {
   char *tmp_p = strstr(str_input, seperator);
 
   if (tmp_p == str_input){
     printf("Duplicated seperator %s!\n", seperator);
     return(NULL);
   } else if (tmp_p == NULL) {
-    strcpy(p_out, str_input);
-    return(str_input);
+    if (strlen(str_input) > (size_of_p_out-1) ) {
+      printf("Number of input exceed output buffer!\n");
+      return(NULL);
+    } else {
+      strcpy(p_out, str_input);
+      return(str_input);
+    }
+  }
+
+  if ( (tmp_p-str_input)>(size_of_p_out-1) ) {
+    printf("Number of input exceed output buffer!\n");
+    return(NULL);
   }
 
   char *p;
@@ -512,31 +549,111 @@ int gen_sample_from_phy_bit(char *bit, char *sample, int num_bit) {
   sample[1] = 0;
   for (i=1; i<num_sample; i++) {
     tmp = tmp + (M_PI*MOD_IDX)*tmp_phy_bit_over_sampling1[i-1]/((float)SAMPLE_PER_SYMBOL);
-    sample[i*2 + 0] = (char)( cos(tmp)*(float)AMPLITUDE );
-    sample[i*2 + 1] = (char)( sin(tmp)*(float)AMPLITUDE );
+    sample[i*2 + 0] = (char)round( cos(tmp)*(float)AMPLITUDE );
+    sample[i*2 + 1] = (char)round( sin(tmp)*(float)AMPLITUDE );
   }
 
   return(num_sample);
 }
 
+char* get_next_field_value(char *current_p, int *value_return, int *return_flag) {
+// return_flag: -1 failed; 0 success; 1 success and this is the last field
+  char *next_p = get_next_field(current_p, tmp_str, "-", MAX_NUM_CHAR_CMD);
+  if (next_p == NULL) {
+    (*return_flag) = -1;
+    return(next_p);
+  }
+
+  (*value_return) = atol(tmp_str);
+
+  if (next_p == current_p) {
+    (*return_flag) = 1;
+    return(next_p);
+  }
+
+  (*return_flag) = 0;
+  return(next_p);
+}
+
+char* get_next_field_name(char *current_p, char *name, int *return_flag) {
+// return_flag: -1 failed; 0 success; 1 success and this is the last field
+  char *next_p = get_next_field(current_p, tmp_str, "-", MAX_NUM_CHAR_CMD);
+  if (next_p == NULL) {
+    (*return_flag) = -1;
+    return(next_p);
+  }
+  if (strcmp(toupper_str(tmp_str, tmp_str), name) != 0) {
+    printf("%s field is expected!\n", name);
+    (*return_flag) = -1;
+    return(next_p);
+  }
+
+  if (next_p == current_p) {
+    (*return_flag) = 1;
+    return(next_p);
+  }
+
+  (*return_flag) = 0;
+  return(next_p);
+}
+
+char* get_next_field_bit(char *current_p, char *bit_return, int *num_bit_return, int stream_flip, int octet_limit, int *return_flag) {
+// return_flag: -1 failed; 0 success; 1 success and this is the last field
+// stream_flip: 0: normal sequence; 1: flip octets order in sequence
+  int i;
+  char *next_p = get_next_field(current_p, tmp_str, "-", MAX_NUM_CHAR_CMD);
+  if (next_p == NULL) {
+    (*return_flag) = -1;
+    return(next_p);
+  }
+  if ( strlen(tmp_str)>(octet_limit*2) ) {
+    printf("Too many octets! Maximum allowed is %d\n", octet_limit);
+    (*return_flag) = -1;
+    return(next_p);
+  }
+
+  int num_bit_tmp;
+  if (stream_flip == 1) {
+    int num_hex = strlen(tmp_str);
+    if (num_hex%2 != 0) {
+      (*return_flag) = -1;
+      return(next_p);
+    }
+    strcpy(tmp_str1, tmp_str);
+    for (i=0; i<num_hex; i=i+2) {
+      tmp_str[num_hex-i-2] = tmp_str1[i];
+      tmp_str[num_hex-i-1] = tmp_str1[i+1];
+    }
+  }
+  num_bit_tmp = convert_hex_to_bit(tmp_str, bit_return);
+  if ( num_bit_tmp == -1 ) {
+    (*return_flag) = -1;
+    return(next_p);
+  }
+  (*num_bit_return) = num_bit_tmp;
+
+  if (next_p == current_p) {
+    (*return_flag) = 1;
+    return(next_p);
+  }
+
+  (*return_flag) = 0;
+  return(next_p);
+}
+
 #define DEFAULT_SPACE_MS (200)
 int calculate_sample_for_RAW(char *pkt_str, PKT_INFO *pkt) {
+// example
+// ./btle_tx 39-RAW-AAD6BE898E5F134B5D86F2999CC3D7DF5EDF15DEE39AA2E5D0728EB68B0E449B07C547B80EAA8DD257A0E5EACB0B-SPACE-1000
   char *current_p, *next_p;
+  int ret;
 
   pkt->num_info_bit = 0;
   printf("num_info_bit %d\n", pkt->num_info_bit);
 
   current_p = pkt_str;
-  next_p = get_next_field(current_p, tmp_str, "-");
-  if (next_p == NULL) {
-    return(-1);
-  }
-  if ( strlen(tmp_str)>(MAX_NUM_PHY_BYTE*2) ) {
-    printf("Too many octets! Maximum allowed number of phy_byte is %d\n", MAX_NUM_PHY_BYTE);
-    return(-1);
-  }
-  pkt->num_phy_bit = convert_hex_to_bit(tmp_str, pkt->phy_bit);
-  if ( pkt->num_phy_bit == -1 ) {
+  next_p = get_next_field_bit(current_p, pkt->phy_bit, &(pkt->num_phy_bit), 0, MAX_NUM_PHY_BYTE, &ret);
+  if (ret == -1) {
     return(-1);
   }
   printf("num_phy_bit %d\n", pkt->num_phy_bit);
@@ -544,36 +661,29 @@ int calculate_sample_for_RAW(char *pkt_str, PKT_INFO *pkt) {
   pkt->num_phy_sample = gen_sample_from_phy_bit(pkt->phy_bit, pkt->phy_sample, pkt->num_phy_bit);
   printf("num_phy_sample %d\n", pkt->num_phy_sample);
 
-  if (next_p == current_p) {
+  if (ret==1) {
     pkt->space = DEFAULT_SPACE_MS;
     printf("space %d\n", pkt->space);
     return(0);
   }
 
   current_p = next_p;
-  next_p = get_next_field(current_p, tmp_str, "-");
-  if (next_p == NULL) {
+  next_p = get_next_field_name(current_p, "SPACE", &ret);
+  if (ret == -1) { // failed
     return(-1);
   }
-
-  if (strcmp(toupper_str(tmp_str, tmp_str), "SPACE") != 0) {
-    printf("SPACE field is expected!\n");
-    return(-1);
-  }
-
-  if (next_p == current_p) {
+  if (ret == 1) { // last field
     pkt->space = DEFAULT_SPACE_MS;
     printf("space %d\n", pkt->space);
     return(0);
   }
 
   current_p = next_p;
-  next_p = get_next_field(current_p, tmp_str, "-");
-  if (next_p == NULL) {
+  int space;
+  get_next_field_value(current_p, &space, &ret);
+  if (ret == -1) {
     return(-1);
   }
-
-  int space = atol(tmp_str);
 
   if (space <= 0) {
     printf("Invalid space!\n");
@@ -585,7 +695,218 @@ int calculate_sample_for_RAW(char *pkt_str, PKT_INFO *pkt) {
 
   return(0);
 }
+
+void crc24(char *bit_in, int num_bit, char *init_hex, char *crc_result) {
+  char bit_store[24], bit_store_update[24];
+  int i;
+  convert_hex_to_bit(init_hex, bit_store);
+
+  for (i=0; i<num_bit; i++) {
+    char new_bit = (bit_store[23]+bit_in[i])%2;
+    bit_store_update[0] = new_bit;
+    bit_store_update[1] = (bit_store[0]+new_bit)%2;
+    bit_store_update[2] = bit_store[1];
+    bit_store_update[3] = (bit_store[2]+new_bit)%2;
+    bit_store_update[4] = (bit_store[3]+new_bit)%2;
+    bit_store_update[5] = bit_store[4];
+    bit_store_update[6] = (bit_store[5]+new_bit)%2;
+
+    bit_store_update[7] = bit_store[6];
+    bit_store_update[8] = bit_store[7];
+
+    bit_store_update[9] = (bit_store[8]+new_bit)%2;
+    bit_store_update[10] = (bit_store[9]+new_bit)%2;
+
+    memcpy(bit_store_update+11, bit_store+10, 13);
+
+    memcpy(bit_store, bit_store_update, 24);
+  }
+
+  for (i=0; i<24; i++) {
+    crc_result[i] = bit_store[23-i];
+  }
+}
+
+void scramble(char *bit_in, int num_bit, int channel_number, char *bit_out) {
+  char bit_store[7], bit_store_update[7];
+  int i;
+
+  bit_store[0] = 1;
+  bit_store[1] = 0x01&(channel_number>>5);
+  bit_store[2] = 0x01&(channel_number>>4);
+  bit_store[3] = 0x01&(channel_number>>3);
+  bit_store[4] = 0x01&(channel_number>>2);
+  bit_store[5] = 0x01&(channel_number>>1);
+  bit_store[6] = 0x01&(channel_number>>0);
+
+  for (i=0; i<num_bit; i++) {
+    bit_out[i] = ( bit_store[6] + bit_in[i] )%2;
+
+    bit_store_update[0] = bit_store[6];
+
+    bit_store_update[1] = bit_store[0];
+    bit_store_update[2] = bit_store[1];
+    bit_store_update[3] = bit_store[2];
+
+    bit_store_update[4] = (bit_store[3]+bit_store[6])%2;
+
+    bit_store_update[5] = bit_store[4];
+    bit_store_update[6] = bit_store[5];
+
+    memcpy(bit_store, bit_store_update, 7);
+  }
+}
+
+
+void fill_adv_pdu_header(PKT_TYPE pkt_type, int txadd, int rxadd, int payload_len, char *bit_out) {
+  if (pkt_type == ADV_IND || pkt_type == IBEACON) {
+    bit_out[3] = 0; bit_out[2] = 0; bit_out[1] = 0; bit_out[0] = 0;
+  } else if (pkt_type == ADV_DIRECT_IND) {
+    bit_out[3] = 0; bit_out[2] = 0; bit_out[1] = 0; bit_out[0] = 1;
+  } else if (pkt_type == ADV_NONCONN_IND) {
+    bit_out[3] = 0; bit_out[2] = 0; bit_out[1] = 1; bit_out[0] = 0;
+  } else if (pkt_type == SCAN_REQ) {
+    bit_out[3] = 0; bit_out[2] = 0; bit_out[1] = 1; bit_out[0] = 1;
+  } else if (pkt_type == SCAN_RSP) {
+    bit_out[3] = 0; bit_out[2] = 1; bit_out[1] = 0; bit_out[0] = 0;
+  } else if (pkt_type == CONNECT_REQ) {
+    bit_out[3] = 0; bit_out[2] = 1; bit_out[1] = 0; bit_out[0] = 1;
+  } else if (pkt_type == ADV_SCAN_IND) {
+    bit_out[3] = 0; bit_out[2] = 1; bit_out[1] = 1; bit_out[0] = 0;
+  } else {
+    bit_out[3] = 1; bit_out[2] = 1; bit_out[1] = 1; bit_out[0] = 1;
+  }
+
+  bit_out[4] = 0;
+  bit_out[5] = 0;
+
+  bit_out[6] = txadd;
+  bit_out[7] = rxadd;
+
+  bit_out[8] = 0x01&(payload_len>>0);
+  bit_out[9] = 0x01&(payload_len>>1);
+  bit_out[10] = 0x01&(payload_len>>2);
+  bit_out[11] = 0x01&(payload_len>>3);
+  bit_out[12] = 0x01&(payload_len>>4);
+  bit_out[13] = 0x01&(payload_len>>5);
+
+  bit_out[14] = 0;
+  bit_out[15] = 0;
+}
+
 int calculate_sample_for_ADV_IND(char *pkt_str, PKT_INFO *pkt) {
+// example
+// ./btle_tx 39-ADV_IND-TXADD-1-RXADD-0-ADVA-010203040506-ADVDATA-00112233445566778899AABBCCDDEEFF
+  char *current_p, *next_p;
+  int ret, num_bit_tmp;
+
+  pkt->num_info_bit = 0;
+// gen preamble and access address
+  pkt->num_info_bit = pkt->num_info_bit + convert_hex_to_bit("AA", pkt->info_bit);
+  pkt->num_info_bit = pkt->num_info_bit + convert_hex_to_bit("D6BE898E", pkt->info_bit + pkt->num_info_bit);
+
+// get txadd and rxadd
+  current_p = pkt_str;
+  next_p = get_next_field_name(current_p, "TXADD", &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  current_p = next_p;
+  int txadd;
+  next_p = get_next_field_value(current_p, &txadd, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+
+  current_p = next_p;
+  next_p = get_next_field_name(current_p, "RXADD", &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  current_p = next_p;
+  int rxadd;
+  next_p = get_next_field_value(current_p, &rxadd, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + 16; // 16 is header length
+
+// get AdvA and AdvData
+  current_p = next_p;
+  next_p = get_next_field_name(current_p, "ADVA", &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  current_p = next_p;
+  next_p = get_next_field_bit(current_p, pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 6, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+  current_p = next_p;
+  next_p = get_next_field_name(current_p, "ADVDATA", &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  current_p = next_p;
+  next_p = get_next_field_bit(current_p, pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 0, 31, &ret);
+  if (ret == -1) { // failed
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+  int payload_len = (pkt->num_info_bit/8) - 7;
+  if (payload_len < 6 || payload_len > 37) {
+    printf("payload length should be 6~37. Actual %d\n", payload_len);
+  }
+
+  printf("payload_len %d\n", payload_len);
+  printf("num_info_bit %d\n", pkt->num_info_bit);
+  fill_adv_pdu_header(pkt->pkt_type, txadd, rxadd, payload_len, pkt->info_bit+5*8);
+
+  crc24(pkt->info_bit+5*8, pkt->num_info_bit-5*8, "555555", pkt->info_bit+pkt->num_info_bit);
+  scramble(pkt->info_bit+5*8, pkt->num_info_bit-5*8+24, pkt->channel_number, pkt->phy_bit+5*8);
+  memcpy(pkt->phy_bit, pkt->info_bit, 5*8);
+  pkt->num_phy_bit = pkt->num_info_bit + 24;
+  printf("num_phy_bit %d\n", pkt->num_phy_bit);
+
+  pkt->num_phy_sample = gen_sample_from_phy_bit(pkt->phy_bit, pkt->phy_sample, pkt->num_phy_bit);
+  printf("num_phy_sample %d\n", pkt->num_phy_sample);
+
+// get space value
+  if (ret==1) {
+    pkt->space = DEFAULT_SPACE_MS;
+    printf("space %d\n", pkt->space);
+    return(0);
+  }
+
+  current_p = next_p;
+  next_p = get_next_field_name(current_p, "SPACE", &ret);
+  if (ret == -1) { // failed
+    return(-1);
+  }
+  if (ret == 1) { // last field
+    pkt->space = DEFAULT_SPACE_MS;
+    printf("space %d\n", pkt->space);
+    return(0);
+  }
+
+  current_p = next_p;
+  int space;
+  get_next_field_value(current_p, &space, &ret);
+  if (ret == -1) {
+    return(-1);
+  }
+
+  if (space <= 0) {
+    printf("Invalid space!\n");
+    return(-1);
+  }
+
+  pkt->space = space;
+  printf("space %d\n", pkt->space);
+
   return(0);
 }
 int calculate_sample_for_ADV_DIRECT_IND(char *pkt_str, PKT_INFO *pkt) {
@@ -803,15 +1124,15 @@ int calculate_sample_from_pkt_type(char *type_str, char *pkt_str, PKT_INFO *pkt)
 int calculate_pkt_info( PKT_INFO *pkt ){
   char *cmd_str = pkt->cmd_str;
   char *next_p;
+  int ret;
 
   // get channel number
-  next_p = get_next_field(cmd_str, tmp_str, "-");
-  if ( next_p == NULL || next_p==cmd_str ) {
+  int channel_number;
+  next_p = get_next_field_value(cmd_str, &channel_number, &ret);
+  if (ret != 0) {
     printf("Getting channel number failed! It should be 0~39.\n");
     return(-1);
   }
-
-  int channel_number = atol(tmp_str);
 
   if (channel_number < 0 || channel_number > 39){
     printf("Invalid channel number is found. It should be 0~39.\n");
@@ -830,7 +1151,7 @@ int calculate_pkt_info( PKT_INFO *pkt ){
 
   // get pkt_type
   char *current_p = next_p;
-  next_p = get_next_field(current_p, tmp_str, "-");
+  next_p = get_next_field(current_p, tmp_str, "-", MAX_NUM_CHAR_CMD);
   if ( next_p == NULL  || next_p==current_p ) {
     printf("Getting packet type failed!\n");
     return(-1);
@@ -848,7 +1169,7 @@ int calculate_pkt_info( PKT_INFO *pkt ){
   return(0);
 }
 
-int parse_input(int num_input, char** argv){
+int parse_input(int num_input, char** argv, int *num_repeat_return){
   int repeat_specific = 0;
 
   int num_repeat = get_num_repeat(argv[num_input-1], &repeat_specific);
@@ -866,6 +1187,8 @@ int parse_input(int num_input, char** argv){
   printf("num_repeat %d\n", num_repeat);
   printf("num_packet %d\n", num_packet);
 
+  (*num_repeat_return) = num_repeat;
+
   int i;
   for (i=0; i<num_packet; i++) {
 
@@ -879,36 +1202,80 @@ int parse_input(int num_input, char** argv){
       return(-2);
     }
 
-    // display for debug
-    int j;
-    for (j=0; j<packets[i].num_phy_sample; j++) {
-      printf("%d ", packets[i].phy_sample[j]);
-    }
+//    // display for debug
+//    int j;
+//    for (j=0; j<packets[i].num_phy_sample; j++) {
+//      printf("%d ", packets[i].phy_sample[j]);
+//    }
   }
 
-  return(num_repeat);
+  return(num_packet);
 }
 
 int main(int argc, char** argv) {
-  int num_pkt = 0;
+  int num_packet, i, j;
   int num_repeat = 0; // -1: inf; 0: 1; other: specific
+
+  if ( open_board() == -1 )
+      return(-1);
 
   if (argc < 2) {
     usage();
+    return(0);
   } else if ( (argc-1-1) > MAX_NUM_PACKET ){
     printf("Too many packets input! Maximum allowed is %d\n", MAX_NUM_PACKET);
   } else {
-    num_repeat = parse_input(argc, argv);
+    num_packet = parse_input(argc, argv, &num_repeat);
     if ( num_repeat == -2 ){
       return(-1);
     }
   }
+  printf("\n");
 
+  struct timeval time_now, time_old;
 
-// // ---------already test-------------------------
-//#define FILE_LEN (5968)
-//  int i;
-//
+  // don't know why the first tx won't work. do the 1st as pre warming.
+  if (set_freq_by_channel_number(packets[0].channel_number) == -1) {
+    close_board();
+    return(-1);
+  }
+  if ( tx_one_buf(packets[0].phy_sample, 2*packets[0].num_phy_sample) == -1 ){
+    close_board();
+    return(-1);
+  }
+  gettimeofday(&time_old, NULL);
+  gettimeofday(&time_now, NULL);
+  for (j=0; j<num_repeat; j++ ) {
+    for (i=0; i<num_packet; i++) {
+      if ( tx_one_buf(packets[i].phy_sample, 2*packets[i].num_phy_sample) == -1 ){
+        close_board();
+        return(-1);
+      }
+      if (i<(num_packet-1) ) {
+        if (set_freq_by_channel_number(packets[i+1].channel_number) == -1) {
+          close_board();
+          return(-1);
+        }
+      }
+
+      printf("%d %d\n", j, i);
+
+      if (do_exit)
+        break;
+
+      while(TimevalDiff(&time_now, &time_old)<( (float)packets[i].space/(float)1000 ) ) {
+        gettimeofday(&time_now, NULL);
+      }
+      gettimeofday(&time_old, NULL);
+    }
+  }
+  printf("\n");
+
+  close_board();
+	printf("exit\n");
+
+//////// // ---------already test-------------------------
+//#define FILE_LEN (5936)
 //  if ( open_board() == -1 )
 //    return(-1);
 //
@@ -945,7 +1312,7 @@ int main(int argc, char** argv) {
 //
 //  close_board();
 //	printf("exit\n");
-// // ---------already test-------------------------
+//////// // ---------already test-------------------------
 
 	return(0);
 }
