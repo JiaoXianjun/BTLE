@@ -84,7 +84,7 @@ int gettimeofday(struct timeval *tv, void* ignored)
 #include <signal.h>
 
 #define FREQ_ONE_MHZ (1000000ull)
-#define DEFAULT_BASEBAND_FILTER_BANDWIDTH (8000000) /* 8MHz default */
+#define DEFAULT_BASEBAND_FILTER_BANDWIDTH (10000000) /* 8MHz default */
 
 #if defined _WIN32
 	#define sleep(a) Sleep( (a*1000) )
@@ -98,7 +98,7 @@ TimevalDiff(const struct timeval *a, const struct timeval *b)
 
 #define AMPLITUDE (110.0)
 #define MOD_IDX (0.55)
-#define SAMPLE_PER_SYMBOL (8)
+#define SAMPLE_PER_SYMBOL (10)
 #define LEN_GAUSS_FILTER (3)
 #define MAX_NUM_INFO_BYTE (43)
 #define MAX_NUM_PHY_BYTE (47)
@@ -109,7 +109,7 @@ float gauss_coef[LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL] = {8.05068379156060e-05,	0.
 uint64_t freq_hz = 2480000000ull;  //channel 39
 //uint64_t freq_hz = 2402000000ull;  //channel 37
 //uint64_t freq_hz = 2426000000ull;  //channel 38
-const uint32_t sample_rate_hz = 8000000; // 8MHz
+const uint32_t sample_rate_hz = 10000000; // 8MHz
 uint32_t baseband_filter_bw_hz;
 
 volatile bool do_exit = false;
@@ -219,30 +219,30 @@ inline int open_board() {
 //		usage();
 		return(-1);
 	}
-//	printf("open_board: call hackrf_sample_rate_set(%u Hz/%.03f MHz)\n", sample_rate_hz,((float)sample_rate_hz/(float)FREQ_ONE_MHZ));
-	result = hackrf_set_sample_rate_manual(device, sample_rate_hz, 1);
-	if( result != HACKRF_SUCCESS ) {
-		printf("open_board: hackrf_sample_rate_set() failed: %s (%d)\n", hackrf_error_name(result), result);
-//		usage();
-		return(-1);
-	}
+////	printf("open_board: call hackrf_sample_rate_set(%u Hz/%.03f MHz)\n", sample_rate_hz,((float)sample_rate_hz/(float)FREQ_ONE_MHZ));
+//	result = hackrf_set_sample_rate_manual(device, sample_rate_hz, 1);
+//	if( result != HACKRF_SUCCESS ) {
+//		printf("open_board: hackrf_sample_rate_set() failed: %s (%d)\n", hackrf_error_name(result), result);
+////		usage();
+//		return(-1);
+//	}
 
 //	printf("open_board: call hackrf_baseband_filter_bandwidth_set(%d Hz/%.03f MHz)\n",
 //			baseband_filter_bw_hz, ((float)baseband_filter_bw_hz/(float)FREQ_ONE_MHZ));
 
-	result = hackrf_set_baseband_filter_bandwidth(device, baseband_filter_bw_hz);
-	if( result != HACKRF_SUCCESS ) {
-		printf("open_board: hackrf_baseband_filter_bandwidth_set() failed: %s (%d)\n", hackrf_error_name(result), result);
-//		usage();
-		return(-1);
-	}
+//	result = hackrf_set_baseband_filter_bandwidth(device, baseband_filter_bw_hz);
+//	if( result != HACKRF_SUCCESS ) {
+//		printf("open_board: hackrf_baseband_filter_bandwidth_set() failed: %s (%d)\n", hackrf_error_name(result), result);
+////		usage();
+//		return(-1);
+//	}
 
-  result = hackrf_set_txvga_gain(device, txvga_gain);
-  if( result != HACKRF_SUCCESS ) {
-    printf("open_board: hackrf_set_txvga_gain() failed: %s (%d)\n", hackrf_error_name(result), result);
-//    usage();
-    return(-1);
-  }
+//  result = hackrf_set_txvga_gain(device, txvga_gain);
+//  if( result != HACKRF_SUCCESS ) {
+//    printf("open_board: hackrf_set_txvga_gain() failed: %s (%d)\n", hackrf_error_name(result), result);
+////    usage();
+//    return(-1);
+//  }
 
 //  printf("open_board: call hackrf_set_freq(%.03f MHz)\n", ((double)freq_hz/(double)FREQ_ONE_MHZ) );
   result = hackrf_set_freq(device, freq_hz);
@@ -252,13 +252,13 @@ inline int open_board() {
     return(-1);
   }
 
-//  printf("open_board: call hackrf_set_amp_enable(%u)\n", 0);
-  result = hackrf_set_amp_enable(device, (uint8_t)0);
-  if( result != HACKRF_SUCCESS ) {
-    printf("open_board: hackrf_set_amp_enable() failed: %s (%d)\n", hackrf_error_name(result), result);
-//    usage();
-    return(-1);
-  }
+////  printf("open_board: call hackrf_set_amp_enable(%u)\n", 0);
+//  result = hackrf_set_amp_enable(device, (uint8_t)0);
+//  if( result != HACKRF_SUCCESS ) {
+//    printf("open_board: hackrf_set_amp_enable() failed: %s (%d)\n", hackrf_error_name(result), result);
+////    usage();
+//    return(-1);
+//  }
 
   return(0);
 }
