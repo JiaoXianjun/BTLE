@@ -185,7 +185,7 @@ static void usage() {
 }
 
 int init_board() {
-	result = hackrf_init();
+	int result = hackrf_init();
 	if( result != HACKRF_SUCCESS ) {
 		printf("open_board: hackrf_init() failed: %s (%d)\n", hackrf_error_name(result), result);
 		usage();
@@ -203,6 +203,7 @@ int init_board() {
     signal(SIGABRT, &sigint_callback_handler);
   #endif
 
+  return(0);
 }
 
 inline int open_board() {
@@ -215,14 +216,14 @@ inline int open_board() {
 	result = hackrf_open(&device);
 	if( result != HACKRF_SUCCESS ) {
 		printf("open_board: hackrf_open() failed: %s (%d)\n", hackrf_error_name(result), result);
-		usage();
+//		usage();
 		return(-1);
 	}
 //	printf("open_board: call hackrf_sample_rate_set(%u Hz/%.03f MHz)\n", sample_rate_hz,((float)sample_rate_hz/(float)FREQ_ONE_MHZ));
 	result = hackrf_set_sample_rate_manual(device, sample_rate_hz, 1);
 	if( result != HACKRF_SUCCESS ) {
 		printf("open_board: hackrf_sample_rate_set() failed: %s (%d)\n", hackrf_error_name(result), result);
-		usage();
+//		usage();
 		return(-1);
 	}
 
@@ -232,14 +233,14 @@ inline int open_board() {
 	result = hackrf_set_baseband_filter_bandwidth(device, baseband_filter_bw_hz);
 	if( result != HACKRF_SUCCESS ) {
 		printf("open_board: hackrf_baseband_filter_bandwidth_set() failed: %s (%d)\n", hackrf_error_name(result), result);
-		usage();
+//		usage();
 		return(-1);
 	}
 
   result = hackrf_set_txvga_gain(device, txvga_gain);
   if( result != HACKRF_SUCCESS ) {
     printf("open_board: hackrf_set_txvga_gain() failed: %s (%d)\n", hackrf_error_name(result), result);
-    usage();
+//    usage();
     return(-1);
   }
 
@@ -247,7 +248,7 @@ inline int open_board() {
   result = hackrf_set_freq(device, freq_hz);
   if( result != HACKRF_SUCCESS ) {
     printf("open_board: hackrf_set_freq() failed: %s (%d)\n", hackrf_error_name(result), result);
-    usage();
+//    usage();
     return(-1);
   }
 
@@ -255,7 +256,7 @@ inline int open_board() {
   result = hackrf_set_amp_enable(device, (uint8_t)0);
   if( result != HACKRF_SUCCESS ) {
     printf("open_board: hackrf_set_amp_enable() failed: %s (%d)\n", hackrf_error_name(result), result);
-    usage();
+//    usage();
     return(-1);
   }
 
@@ -300,8 +301,22 @@ inline int close_board() {
 	}
 }
 
-inline int set_freq_by_channel_number(int channel_number) {
-  int result;
+//inline uint64_t convert_channel_number_to_freq(int channel_number) {
+//  if ( channel_number == 37 ) {
+//    freq_hz = 2402000000ull;
+//  } else if (channel_number == 38) {
+//    freq_hz = 2426000000ull;
+//  } else if (channel_number == 39) {
+//    freq_hz = 2480000000ull;
+//  } else if (channel_number >=0 && channel_number <= 10 ) {
+//    freq_hz = 2404000000ull + channel_number*2000000ull;
+//  } else if (channel_number >=11 && channel_number <= 36 ) {
+//    freq_hz = 2428000000ull + (channel_number-11)*2000000ull;
+//  }
+//}
+
+inline void set_freq_by_channel_number(int channel_number) {
+//  int result;
   if ( channel_number == 37 ) {
     freq_hz = 2402000000ull;
   } else if (channel_number == 38) {
@@ -313,12 +328,12 @@ inline int set_freq_by_channel_number(int channel_number) {
   } else if (channel_number >=11 && channel_number <= 36 ) {
     freq_hz = 2428000000ull + (channel_number-11)*2000000ull;
   }
-  result = hackrf_set_freq(device, freq_hz);
-  if( result != HACKRF_SUCCESS ) {
-    printf("tx_one_buf: hackrf_set_freq() failed: %s (%d)\n", hackrf_error_name(result), result);
-    return(-1);
-  }
-  return(0);
+//  result = hackrf_set_freq(device, freq_hz);
+//  if( result != HACKRF_SUCCESS ) {
+//    printf("tx_one_buf: hackrf_set_freq() failed: %s (%d)\n", hackrf_error_name(result), result);
+//    return(-1);
+//  }
+//  return(0);
 }
 
 inline int tx_one_buf(char *buf, int length) {
@@ -327,11 +342,16 @@ inline int tx_one_buf(char *buf, int length) {
   memcpy((char *)(tx_buf), buf, length);
   tx_len = length;
 
-  int i;
-  for (i=0; i<tx_len; i++) {
-    printf("%d ", tx_buf[i]);
+//  int i;
+//  for (i=0; i<tx_len; i++) {
+//    printf("%d ", tx_buf[i]);
+//  }
+//  printf("\n");
+
+  if (open_board() == -1) {
+    printf("tx_one_buf: open_board() failed\n");
+    return(-1);
   }
-  printf("\n");
 
   stop_tx = 0;
 
@@ -348,7 +368,6 @@ inline int tx_one_buf(char *buf, int length) {
       break;
     }
   }
-  memset((char *)tx_buf, 0, MAX_NUM_PHY_SAMPLE*2);
 
   if (do_exit)
   {
@@ -359,6 +378,42 @@ inline int tx_one_buf(char *buf, int length) {
   result = hackrf_stop_tx(device);
   if( result != HACKRF_SUCCESS ) {
     printf("tx_one_buf: hackrf_stop_tx() failed: %s (%d)\n", hackrf_error_name(result), result);
+    return(-1);
+  }
+
+  do_exit = false;
+
+  stop_tx = 0;
+
+  result = hackrf_start_tx(device, tx_callback, NULL);
+  if( result != HACKRF_SUCCESS ) {
+    printf("tx_one_buf: hackrf_start_tx() failed: %s (%d)\n", hackrf_error_name(result), result);
+    return(-1);
+  }
+
+  while( (hackrf_is_streaming(device) == HACKRF_TRUE) &&
+      (do_exit == false) )
+  {
+    if (stop_tx==1) {
+      break;
+    }
+  }
+
+  if (do_exit)
+  {
+    printf("\ntx_one_buf-1: Abnormal, exiting...\n");
+    return(-1);
+  }
+
+  result = hackrf_stop_tx(device);
+  if( result != HACKRF_SUCCESS ) {
+    printf("tx_one_buf: hackrf_stop_tx() failed: %s (%d)\n", hackrf_error_name(result), result);
+    return(-1);
+  }
+
+
+  if (close_board() == -1) {
+    printf("tx_one_buf: close_board() failed\n");
     return(-1);
   }
 
@@ -1933,18 +1988,19 @@ int main(int argc, char** argv) {
 
   struct timeval time_now, time_old;
 
-  if ( open_board() == -1 )
+  if ( init_board() == -1 )
       return(-1);
 
-  // don't know why the first tx won't work. do the 1st as pre warming.
-  if (set_freq_by_channel_number(packets[0].channel_number) == -1) {
-    close_board();
-    return(-1);
-  }
-  if ( tx_one_buf(packets[0].phy_sample, 2*packets[0].num_phy_sample) == -1 ){
-    close_board();
-    return(-1);
-  }
+//  // don't know why the first tx won't work. do the 1st as pre warming.
+//  if (set_freq_by_channel_number(packets[0].channel_number) == -1) {
+//    close_board();
+//    return(-1);
+//  }
+//  if ( tx_one_buf(packets[0].phy_sample, 2*packets[0].num_phy_sample) == -1 ){
+//    close_board();
+//    return(-1);
+//  }
+  set_freq_by_channel_number(packets[0].channel_number);
   gettimeofday(&time_old, NULL);
   gettimeofday(&time_now, NULL);
   for (j=0; j<num_repeat; j++ ) {
@@ -1955,10 +2011,7 @@ int main(int argc, char** argv) {
         return(-1);
       }
       if (i<(num_packet-1) ) {
-        if (set_freq_by_channel_number(packets[i+1].channel_number) == -1) {
-          close_board();
-          return(-1);
-        }
+        set_freq_by_channel_number(packets[i+1].channel_number);
       }
 
       printf("%d %d\n", j, i);
@@ -1974,7 +2027,7 @@ int main(int argc, char** argv) {
   }
   printf("\n");
 
-  close_board();
+  exit_board();
 	printf("exit\n");
 
 //////// // ---------already test-------------------------
