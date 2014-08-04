@@ -83,9 +83,6 @@ int gettimeofday(struct timeval *tv, void* ignored)
 
 #include <signal.h>
 
-#define FREQ_ONE_MHZ (1000000ull)
-#define DEFAULT_BASEBAND_FILTER_BANDWIDTH (10000000) /* 8MHz default */
-
 #if defined _WIN32
 	#define sleep(a) Sleep( (a*1000) )
 #endif
@@ -102,22 +99,18 @@ TimevalDiff(const struct timeval *a, const struct timeval *b)
 #define LEN_GAUSS_FILTER (3)
 #define MAX_NUM_INFO_BYTE (43)
 #define MAX_NUM_PHY_BYTE (47)
-#define MAX_NUM_PHY_SAMPLE ((MAX_NUM_PHY_BYTE*8*SAMPLE_PER_SYMBOL)+(21*SAMPLE_PER_SYMBOL))
+#define MAX_NUM_PHY_SAMPLE ((MAX_NUM_PHY_BYTE*8*SAMPLE_PER_SYMBOL)+(LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL))
 
 float gauss_coef[LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL] = {8.05068379156060e-05,	0.000480405201766898,	0.00232683283115742,	0.00917699278400763,	0.0295990801678164,	0.0785284246648025,	0.172747370208161,	0.318566802305277,	0.499919493162062,	0.680941868522779,	0.824924599006030,	0.912294476105987,	0.940801824540822,	0.912294476105987,	0.824924599006030,	0.680941868522779,	0.499919493162062,	0.318566802305277,	0.172747370208161,	0.0785284246648025,	0.0295990801678164,	0.00917699278400763,	0.00232683283115742,	0.000480405201766898};
 
-uint64_t freq_hz = 2480000000ull;  //channel 39
-//uint64_t freq_hz = 2402000000ull;  //channel 37
-//uint64_t freq_hz = 2426000000ull;  //channel 38
-const uint32_t sample_rate_hz = 10000000; // 8MHz
-uint32_t baseband_filter_bw_hz;
+uint64_t freq_hz;
 
 volatile bool do_exit = false;
 
 volatile int stop_tx = 1;
 volatile char tx_buf[MAX_NUM_PHY_SAMPLE*2];
 volatile int tx_len;
-#define NUM_PRE_SEND_DATA (4096)
+#define NUM_PRE_SEND_DATA (1024)
 int tx_callback(hackrf_transfer* transfer) {
   if (~stop_tx) {
     if ( (tx_len+NUM_PRE_SEND_DATA) <= transfer->valid_length ) {
@@ -208,57 +201,18 @@ int init_board() {
 
 inline int open_board() {
   int result;
-  unsigned int txvga_gain=47;
-
-	/* Compute nearest freq for bw filter */
-  baseband_filter_bw_hz = hackrf_compute_baseband_filter_bw(DEFAULT_BASEBAND_FILTER_BANDWIDTH);
 
 	result = hackrf_open(&device);
 	if( result != HACKRF_SUCCESS ) {
 		printf("open_board: hackrf_open() failed: %s (%d)\n", hackrf_error_name(result), result);
-//		usage();
 		return(-1);
 	}
-////	printf("open_board: call hackrf_sample_rate_set(%u Hz/%.03f MHz)\n", sample_rate_hz,((float)sample_rate_hz/(float)FREQ_ONE_MHZ));
-//	result = hackrf_set_sample_rate_manual(device, sample_rate_hz, 1);
-//	if( result != HACKRF_SUCCESS ) {
-//		printf("open_board: hackrf_sample_rate_set() failed: %s (%d)\n", hackrf_error_name(result), result);
-////		usage();
-//		return(-1);
-//	}
 
-//	printf("open_board: call hackrf_baseband_filter_bandwidth_set(%d Hz/%.03f MHz)\n",
-//			baseband_filter_bw_hz, ((float)baseband_filter_bw_hz/(float)FREQ_ONE_MHZ));
-
-//	result = hackrf_set_baseband_filter_bandwidth(device, baseband_filter_bw_hz);
-//	if( result != HACKRF_SUCCESS ) {
-//		printf("open_board: hackrf_baseband_filter_bandwidth_set() failed: %s (%d)\n", hackrf_error_name(result), result);
-////		usage();
-//		return(-1);
-//	}
-
-//  result = hackrf_set_txvga_gain(device, txvga_gain);
-//  if( result != HACKRF_SUCCESS ) {
-//    printf("open_board: hackrf_set_txvga_gain() failed: %s (%d)\n", hackrf_error_name(result), result);
-////    usage();
-//    return(-1);
-//  }
-
-//  printf("open_board: call hackrf_set_freq(%.03f MHz)\n", ((double)freq_hz/(double)FREQ_ONE_MHZ) );
   result = hackrf_set_freq(device, freq_hz);
   if( result != HACKRF_SUCCESS ) {
     printf("open_board: hackrf_set_freq() failed: %s (%d)\n", hackrf_error_name(result), result);
-//    usage();
     return(-1);
   }
-
-////  printf("open_board: call hackrf_set_amp_enable(%u)\n", 0);
-//  result = hackrf_set_amp_enable(device, (uint8_t)0);
-//  if( result != HACKRF_SUCCESS ) {
-//    printf("open_board: hackrf_set_amp_enable() failed: %s (%d)\n", hackrf_error_name(result), result);
-////    usage();
-//    return(-1);
-//  }
 
   return(0);
 }
@@ -281,9 +235,6 @@ inline int close_board() {
       printf("close_board: hackrf_stop_tx() failed: %s (%d)\n", hackrf_error_name(result), result);
       return(-1);
     }
-//    else {
-//      printf("close_board: hackrf_stop_tx() done\n");
-//    }
 
 		result = hackrf_close(device);
 		if( result != HACKRF_SUCCESS )
@@ -291,9 +242,6 @@ inline int close_board() {
 			printf("close_board: hackrf_close() failed: %s (%d)\n", hackrf_error_name(result), result);
 			return(-1);
 		}
-//		else {
-//			printf("close_board: hackrf_close() done\n");
-//		}
 
     return(0);
 	} else {
@@ -301,22 +249,8 @@ inline int close_board() {
 	}
 }
 
-//inline uint64_t convert_channel_number_to_freq(int channel_number) {
-//  if ( channel_number == 37 ) {
-//    freq_hz = 2402000000ull;
-//  } else if (channel_number == 38) {
-//    freq_hz = 2426000000ull;
-//  } else if (channel_number == 39) {
-//    freq_hz = 2480000000ull;
-//  } else if (channel_number >=0 && channel_number <= 10 ) {
-//    freq_hz = 2404000000ull + channel_number*2000000ull;
-//  } else if (channel_number >=11 && channel_number <= 36 ) {
-//    freq_hz = 2428000000ull + (channel_number-11)*2000000ull;
-//  }
-//}
-
 inline void set_freq_by_channel_number(int channel_number) {
-//  int result;
+
   if ( channel_number == 37 ) {
     freq_hz = 2402000000ull;
   } else if (channel_number == 38) {
@@ -328,31 +262,23 @@ inline void set_freq_by_channel_number(int channel_number) {
   } else if (channel_number >=11 && channel_number <= 36 ) {
     freq_hz = 2428000000ull + (channel_number-11)*2000000ull;
   }
-//  result = hackrf_set_freq(device, freq_hz);
-//  if( result != HACKRF_SUCCESS ) {
-//    printf("tx_one_buf: hackrf_set_freq() failed: %s (%d)\n", hackrf_error_name(result), result);
-//    return(-1);
-//  }
-//  return(0);
 }
 
-inline int tx_one_buf(char *buf, int length) {
+inline int tx_one_buf(char *buf, int length, int channel_number) {
   int result;
+
+  set_freq_by_channel_number(channel_number);
 
   memcpy((char *)(tx_buf), buf, length);
   tx_len = length;
 
-//  int i;
-//  for (i=0; i<tx_len; i++) {
-//    printf("%d ", tx_buf[i]);
-//  }
-//  printf("\n");
-
+  // open the board-----------------------------------------
   if (open_board() == -1) {
     printf("tx_one_buf: open_board() failed\n");
     return(-1);
   }
 
+  // first round useless TX---------------------------------
   stop_tx = 0;
 
   result = hackrf_start_tx(device, tx_callback, NULL);
@@ -383,6 +309,7 @@ inline int tx_one_buf(char *buf, int length) {
 
   do_exit = false;
 
+  // second round actual TX-----------------------------------
   stop_tx = 0;
 
   result = hackrf_start_tx(device, tx_callback, NULL);
@@ -405,13 +332,7 @@ inline int tx_one_buf(char *buf, int length) {
     return(-1);
   }
 
-  result = hackrf_stop_tx(device);
-  if( result != HACKRF_SUCCESS ) {
-    printf("tx_one_buf: hackrf_stop_tx() failed: %s (%d)\n", hackrf_error_name(result), result);
-    return(-1);
-  }
-
-
+  // close the board---------------------------------------
   if (close_board() == -1) {
     printf("tx_one_buf: close_board() failed\n");
     return(-1);
@@ -506,7 +427,7 @@ int get_num_repeat(char *input_str, int *repeat_specific){
   return(num_repeat);
 }
 
-#define MAX_NUM_PACKET (128)
+#define MAX_NUM_PACKET (1024)
 PKT_INFO packets[MAX_NUM_PACKET];
 
 char* get_next_field(char *str_input, char *p_out, char *seperator, int size_of_p_out) {
@@ -617,21 +538,13 @@ int gen_sample_from_phy_bit(char *bit, char *sample, int num_bit) {
   }
 
   float tmp = 0;
-
-#define EX_SAMPLE (15*SAMPLE_PER_SYMBOL)
-  sample[ 2*EX_SAMPLE + 0] = (char)AMPLITUDE;
-  sample[ 2*EX_SAMPLE + 1] = 0;
   for (i=1; i<num_sample; i++) {
     tmp = tmp + (M_PI*MOD_IDX)*tmp_phy_bit_over_sampling1[i-1]/((float)SAMPLE_PER_SYMBOL);
-    sample[ 2*EX_SAMPLE + i*2 + 0] = (char)round( cos(tmp)*(float)AMPLITUDE );
-    sample[ 2*EX_SAMPLE + i*2 + 1] = (char)round( sin(tmp)*(float)AMPLITUDE );
-  }
-  for (i=0; i<EX_SAMPLE; i++) {
-    sample[i*2+0] = (char)AMPLITUDE;
-    sample[i*2+1] = 0;
+    sample[i*2 + 0] = (char)round( cos(tmp)*(float)AMPLITUDE );
+    sample[i*2 + 1] = (char)round( sin(tmp)*(float)AMPLITUDE );
   }
 
-  return(num_sample+EX_SAMPLE);
+  return(num_sample);
 }
 
 char* get_next_field_value(char *current_p, int *value_return, int *return_flag) {
@@ -1584,12 +1497,8 @@ int calculate_sample_for_CONNECT_REQ(char *pkt_str, PKT_INFO *pkt) {
 }
 int calculate_sample_for_LL_DATA(char *pkt_str, PKT_INFO *pkt) {
 // example
-// ./btle_tx 37-LL_DATA-AA-9E89BED6-LLID-2-NESN-1-SN-0-MD-1-DATA-010203040506-CRCInit-A77B22
 // Connection establishment (http://processors.wiki.ti.com/index.php/BLE_sniffer_guide)
-// ./btle_tx 37-ADV_IND-TxAdd-0-RxAdd-0-AdvA-90D7EBB19299-AdvData-0201050702031802180418
-// ./btle_tx 37-CONNECT_REQ-TxAdd-0-RxAdd-0-InitA-001830EA965F-AdvA-90D7EBB19299-AA-60850A1B-CRCInit-A77B22-WinSize-02-WinOffset-000F-Interval-0050-Latency-0000-Timeout-07D0-ChM-1FFFFFFFFF-Hop-9-SCA-5
-// ./btle_tx 9-LL_DATA-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-DATA-0-CRCInit-A77B22
-// ./btle_tx 37-ADV_IND-TxAdd-0-RxAdd-0-AdvA-90D7EBB19299-AdvData-0201050702031802180418-Space1000  37-CONNECT_REQ-TxAdd-0-RxAdd-0-InitA-001830EA965F-AdvA-90D7EBB19299-AA-60850A1B-CRCInit-A77B22-WinSize-02-WinOffset-000F-Interval-0050-Latency-0000-Timeout-07D0-ChM-1FFFFFFFFF-Hop-9-SCA-5-Space1000 9-LL_DATA-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-DATA-0-CRCInit-A77B22-Space1000
+// ./btle_tx 37-ADV_IND-TxAdd-0-RxAdd-0-AdvA-90D7EBB19299-AdvData-0201050702031802180418-Space-100  37-CONNECT_REQ-TxAdd-0-RxAdd-0-InitA-001830EA965F-AdvA-90D7EBB19299-AA-60850A1B-CRCInit-A77B22-WinSize-02-WinOffset-000F-Interval-0050-Latency-0000-Timeout-07D0-ChM-1FFFFFFFFF-Hop-9-SCA-5-Space-100 9-LL_DATA-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-DATA-X-CRCInit-A77B22-Space-100
   char *current_p;
   int ret, num_bit_tmp;
 
@@ -1681,46 +1590,988 @@ int calculate_sample_for_LL_DATA(char *pkt_str, PKT_INFO *pkt) {
   return(0);
 }
 int calculate_sample_for_LL_CONNECTION_UPDATE_REQ(char *pkt_str, PKT_INFO *pkt) {
+// example
+// Connection establishment (http://processors.wiki.ti.com/index.php/BLE_sniffer_guide)
+// ./btle_tx 37-ADV_IND-TxAdd-0-RxAdd-0-AdvA-90D7EBB19299-AdvData-0201050702031802180418-Space-100  37-CONNECT_REQ-TxAdd-0-RxAdd-0-InitA-001830EA965F-AdvA-90D7EBB19299-AA-60850A1B-CRCInit-A77B22-WinSize-02-WinOffset-000F-Interval-0050-Latency-0000-Timeout-07D0-ChM-1FFFFFFFFF-Hop-9-SCA-5-Space-100 9-LL_CONNECTION_UPDATE_REQ-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-WinSize-02-WinOffset-000F-Interval-0050-Latency-0000-Timeout-07D0-Instant-0000-CRCInit-A77B22-Space-100
+  char *current_p;
+  int ret, num_bit_tmp;
+
+  pkt->num_info_bit = 0;
+
+// gen preamble (may be changed later according to access address
+  pkt->num_info_bit = pkt->num_info_bit + convert_hex_to_bit("AA", pkt->info_bit);
+
+// get access address
+  current_p = pkt_str;
+  current_p = get_next_field_name_bit(current_p, "AA", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 4, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  if ( (*(pkt->info_bit+pkt->num_info_bit) ) == 1 ) {
+    convert_hex_to_bit("55", pkt->info_bit);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+// get LLID NESN SN MD
+  int llid, nesn, sn, md;
+  current_p = get_next_field_name_value(current_p, "LLID", &llid, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+
+  current_p = get_next_field_name_value(current_p, "NESN", &nesn, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+
+  current_p = get_next_field_name_value(current_p, "SN", &sn, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+
+  current_p = get_next_field_name_value(current_p, "MD", &md, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + 16; // 16 is header length
+
+  // fill opcode
+  get_opcode(pkt->pkt_type, pkt->info_bit + pkt->num_info_bit);
+  pkt->num_info_bit = pkt->num_info_bit + 8; // 8 is opcode
+
+// get WinSize WinOffset Interval Latency Timeout Instant
+  current_p = get_next_field_name_bit(current_p, "WINSIZE", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 0, 1, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+  current_p = get_next_field_name_bit(current_p, "WINOFFSET", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 0, 2, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+  current_p = get_next_field_name_bit(current_p, "INTERVAL", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 0, 2, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+  current_p = get_next_field_name_bit(current_p, "LATENCY", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 0, 2, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+  current_p = get_next_field_name_bit(current_p, "TIMEOUT", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 0, 2, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+  current_p = get_next_field_name_bit(current_p, "INSTANT", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 0, 2, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+  int payload_len = (pkt->num_info_bit/8) - 7;
+  printf("payload_len %d\n", payload_len);
+  printf("num_info_bit %d\n", pkt->num_info_bit);
+
+  fill_data_pdu_header(llid, nesn, sn, md, payload_len, pkt->info_bit+5*8);
+
+// get CRC init
+  char crc_init[7];
+  current_p = get_next_field_name_hex(current_p, "CRCINIT", crc_init, 0, 3, &ret);
+  if (ret == -1) { // failed
+    return(-1);
+  }
+  crc24_and_scramble_to_gen_phy_bit(crc_init, pkt);
+  printf("num_phy_bit %d\n", pkt->num_phy_bit);
+
+  pkt->num_phy_sample = gen_sample_from_phy_bit(pkt->phy_bit, pkt->phy_sample, pkt->num_phy_bit);
+  printf("num_phy_sample %d\n", pkt->num_phy_sample);
+
+// get space value
+  if (ret==1) { // if space value not present
+    pkt->space = DEFAULT_SPACE_MS;
+    printf("space %d\n", pkt->space);
+    return(0);
+  }
+
+  int space;
+  current_p = get_next_field_name_value(current_p, "SPACE", &space, &ret);
+  if (ret == -1) { // failed
+    return(-1);
+  }
+
+  if (space <= 0) {
+    printf("Invalid space!\n");
+    return(-1);
+  }
+
+  pkt->space = space;
+  printf("space %d\n", pkt->space);
+
   return(0);
 }
 int calculate_sample_for_LL_CHANNEL_MAP_REQ(char *pkt_str, PKT_INFO *pkt) {
+// example
+// Connection establishment (http://processors.wiki.ti.com/index.php/BLE_sniffer_guide)
+// ./btle_tx 37-ADV_IND-TxAdd-0-RxAdd-0-AdvA-90D7EBB19299-AdvData-0201050702031802180418-Space-100  37-CONNECT_REQ-TxAdd-0-RxAdd-0-InitA-001830EA965F-AdvA-90D7EBB19299-AA-60850A1B-CRCInit-A77B22-WinSize-02-WinOffset-000F-Interval-0050-Latency-0000-Timeout-07D0-ChM-1FFFFFFFFF-Hop-9-SCA-5-Space-100 9-LL_CHANNEL_MAP_REQ-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-ChM-1FFFFFFFFF-Instant-0001-CRCInit-A77B22-Space-100
+  char *current_p;
+  int ret, num_bit_tmp;
+
+  pkt->num_info_bit = 0;
+
+// gen preamble (may be changed later according to access address
+  pkt->num_info_bit = pkt->num_info_bit + convert_hex_to_bit("AA", pkt->info_bit);
+
+// get access address
+  current_p = pkt_str;
+  current_p = get_next_field_name_bit(current_p, "AA", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 4, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  if ( (*(pkt->info_bit+pkt->num_info_bit) ) == 1 ) {
+    convert_hex_to_bit("55", pkt->info_bit);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+// get LLID NESN SN MD
+  int llid, nesn, sn, md;
+  current_p = get_next_field_name_value(current_p, "LLID", &llid, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+
+  current_p = get_next_field_name_value(current_p, "NESN", &nesn, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+
+  current_p = get_next_field_name_value(current_p, "SN", &sn, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+
+  current_p = get_next_field_name_value(current_p, "MD", &md, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + 16; // 16 is header length
+
+  // fill opcode
+  get_opcode(pkt->pkt_type, pkt->info_bit + pkt->num_info_bit);
+  pkt->num_info_bit = pkt->num_info_bit + 8; // 8 is opcode
+
+// get ChM Instant
+  current_p = get_next_field_name_bit(current_p, "CHM", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 0, 5, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+  current_p = get_next_field_name_bit(current_p, "INSTANT", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 0, 2, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+  int payload_len = (pkt->num_info_bit/8) - 7;
+  printf("payload_len %d\n", payload_len);
+  printf("num_info_bit %d\n", pkt->num_info_bit);
+
+  fill_data_pdu_header(llid, nesn, sn, md, payload_len, pkt->info_bit+5*8);
+
+// get CRC init
+  char crc_init[7];
+  current_p = get_next_field_name_hex(current_p, "CRCINIT", crc_init, 0, 3, &ret);
+  if (ret == -1) { // failed
+    return(-1);
+  }
+  crc24_and_scramble_to_gen_phy_bit(crc_init, pkt);
+  printf("num_phy_bit %d\n", pkt->num_phy_bit);
+
+  pkt->num_phy_sample = gen_sample_from_phy_bit(pkt->phy_bit, pkt->phy_sample, pkt->num_phy_bit);
+  printf("num_phy_sample %d\n", pkt->num_phy_sample);
+
+// get space value
+  if (ret==1) { // if space value not present
+    pkt->space = DEFAULT_SPACE_MS;
+    printf("space %d\n", pkt->space);
+    return(0);
+  }
+
+  int space;
+  current_p = get_next_field_name_value(current_p, "SPACE", &space, &ret);
+  if (ret == -1) { // failed
+    return(-1);
+  }
+
+  if (space <= 0) {
+    printf("Invalid space!\n");
+    return(-1);
+  }
+
+  pkt->space = space;
+  printf("space %d\n", pkt->space);
+
   return(0);
 }
 int calculate_sample_for_LL_TERMINATE_IND(char *pkt_str, PKT_INFO *pkt) {
+// example
+// Connection establishment (http://processors.wiki.ti.com/index.php/BLE_sniffer_guide)
+// ./btle_tx 37-ADV_IND-TxAdd-0-RxAdd-0-AdvA-90D7EBB19299-AdvData-0201050702031802180418-Space-100  37-CONNECT_REQ-TxAdd-0-RxAdd-0-InitA-001830EA965F-AdvA-90D7EBB19299-AA-60850A1B-CRCInit-A77B22-WinSize-02-WinOffset-000F-Interval-0050-Latency-0000-Timeout-07D0-ChM-1FFFFFFFFF-Hop-9-SCA-5-Space-100 9-LL_TERMINATE_IND-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-ErrorCode-00-CRCInit-A77B22-Space-100
+  char *current_p;
+  int ret, num_bit_tmp;
+
+  pkt->num_info_bit = 0;
+
+// gen preamble (may be changed later according to access address
+  pkt->num_info_bit = pkt->num_info_bit + convert_hex_to_bit("AA", pkt->info_bit);
+
+// get access address
+  current_p = pkt_str;
+  current_p = get_next_field_name_bit(current_p, "AA", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 4, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  if ( (*(pkt->info_bit+pkt->num_info_bit) ) == 1 ) {
+    convert_hex_to_bit("55", pkt->info_bit);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+// get LLID NESN SN MD
+  int llid, nesn, sn, md;
+  current_p = get_next_field_name_value(current_p, "LLID", &llid, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+
+  current_p = get_next_field_name_value(current_p, "NESN", &nesn, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+
+  current_p = get_next_field_name_value(current_p, "SN", &sn, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+
+  current_p = get_next_field_name_value(current_p, "MD", &md, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + 16; // 16 is header length
+
+  // fill opcode
+  get_opcode(pkt->pkt_type, pkt->info_bit + pkt->num_info_bit);
+  pkt->num_info_bit = pkt->num_info_bit + 8; // 8 is opcode
+
+// get ErrorCode
+  current_p = get_next_field_name_bit(current_p, "ERRORCODE", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 0, 1, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+  int payload_len = (pkt->num_info_bit/8) - 7;
+  printf("payload_len %d\n", payload_len);
+  printf("num_info_bit %d\n", pkt->num_info_bit);
+
+  fill_data_pdu_header(llid, nesn, sn, md, payload_len, pkt->info_bit+5*8);
+
+// get CRC init
+  char crc_init[7];
+  current_p = get_next_field_name_hex(current_p, "CRCINIT", crc_init, 0, 3, &ret);
+  if (ret == -1) { // failed
+    return(-1);
+  }
+  crc24_and_scramble_to_gen_phy_bit(crc_init, pkt);
+  printf("num_phy_bit %d\n", pkt->num_phy_bit);
+
+  pkt->num_phy_sample = gen_sample_from_phy_bit(pkt->phy_bit, pkt->phy_sample, pkt->num_phy_bit);
+  printf("num_phy_sample %d\n", pkt->num_phy_sample);
+
+// get space value
+  if (ret==1) { // if space value not present
+    pkt->space = DEFAULT_SPACE_MS;
+    printf("space %d\n", pkt->space);
+    return(0);
+  }
+
+  int space;
+  current_p = get_next_field_name_value(current_p, "SPACE", &space, &ret);
+  if (ret == -1) { // failed
+    return(-1);
+  }
+
+  if (space <= 0) {
+    printf("Invalid space!\n");
+    return(-1);
+  }
+
+  pkt->space = space;
+  printf("space %d\n", pkt->space);
+
   return(0);
 }
 int calculate_sample_for_LL_ENC_REQ(char *pkt_str, PKT_INFO *pkt) {
+// example
+// Connection establishment (http://processors.wiki.ti.com/index.php/BLE_sniffer_guide)
+// ./btle_tx 37-ADV_IND-TxAdd-0-RxAdd-0-AdvA-90D7EBB19299-AdvData-0201050702031802180418-Space-100  37-CONNECT_REQ-TxAdd-0-RxAdd-0-InitA-001830EA965F-AdvA-90D7EBB19299-AA-60850A1B-CRCInit-A77B22-WinSize-02-WinOffset-000F-Interval-0050-Latency-0000-Timeout-07D0-ChM-1FFFFFFFFF-Hop-9-SCA-5-Space-100 9-LL_ENC_REQ-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-Rand-0102030405060708-EDIV-090A-SKDm-0102030405060708-IVm-090A0B0C-CRCInit-A77B22-Space-100
+  char *current_p;
+  int ret, num_bit_tmp;
+
+  pkt->num_info_bit = 0;
+
+// gen preamble (may be changed later according to access address
+  pkt->num_info_bit = pkt->num_info_bit + convert_hex_to_bit("AA", pkt->info_bit);
+
+// get access address
+  current_p = pkt_str;
+  current_p = get_next_field_name_bit(current_p, "AA", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 4, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  if ( (*(pkt->info_bit+pkt->num_info_bit) ) == 1 ) {
+    convert_hex_to_bit("55", pkt->info_bit);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+// get LLID NESN SN MD
+  int llid, nesn, sn, md;
+  current_p = get_next_field_name_value(current_p, "LLID", &llid, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+
+  current_p = get_next_field_name_value(current_p, "NESN", &nesn, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+
+  current_p = get_next_field_name_value(current_p, "SN", &sn, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+
+  current_p = get_next_field_name_value(current_p, "MD", &md, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + 16; // 16 is header length
+
+  // fill opcode
+  get_opcode(pkt->pkt_type, pkt->info_bit + pkt->num_info_bit);
+  pkt->num_info_bit = pkt->num_info_bit + 8; // 8 is opcode
+
+// get Rand EDIV SKDm IVm
+  current_p = get_next_field_name_bit(current_p, "RAND", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 0, 8, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+  current_p = get_next_field_name_bit(current_p, "EDIV", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 0, 2, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+  current_p = get_next_field_name_bit(current_p, "SKDM", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 0, 8, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+  current_p = get_next_field_name_bit(current_p, "IVM", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 0, 4, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+  int payload_len = (pkt->num_info_bit/8) - 7;
+  printf("payload_len %d\n", payload_len);
+  printf("num_info_bit %d\n", pkt->num_info_bit);
+
+  fill_data_pdu_header(llid, nesn, sn, md, payload_len, pkt->info_bit+5*8);
+
+// get CRC init
+  char crc_init[7];
+  current_p = get_next_field_name_hex(current_p, "CRCINIT", crc_init, 0, 3, &ret);
+  if (ret == -1) { // failed
+    return(-1);
+  }
+  crc24_and_scramble_to_gen_phy_bit(crc_init, pkt);
+  printf("num_phy_bit %d\n", pkt->num_phy_bit);
+
+  pkt->num_phy_sample = gen_sample_from_phy_bit(pkt->phy_bit, pkt->phy_sample, pkt->num_phy_bit);
+  printf("num_phy_sample %d\n", pkt->num_phy_sample);
+
+// get space value
+  if (ret==1) { // if space value not present
+    pkt->space = DEFAULT_SPACE_MS;
+    printf("space %d\n", pkt->space);
+    return(0);
+  }
+
+  int space;
+  current_p = get_next_field_name_value(current_p, "SPACE", &space, &ret);
+  if (ret == -1) { // failed
+    return(-1);
+  }
+
+  if (space <= 0) {
+    printf("Invalid space!\n");
+    return(-1);
+  }
+
+  pkt->space = space;
+  printf("space %d\n", pkt->space);
+
   return(0);
 }
 int calculate_sample_for_LL_ENC_RSP(char *pkt_str, PKT_INFO *pkt) {
+// example
+// Connection establishment (http://processors.wiki.ti.com/index.php/BLE_sniffer_guide)
+// ./btle_tx 37-ADV_IND-TxAdd-0-RxAdd-0-AdvA-90D7EBB19299-AdvData-0201050702031802180418-Space-100  37-CONNECT_REQ-TxAdd-0-RxAdd-0-InitA-001830EA965F-AdvA-90D7EBB19299-AA-60850A1B-CRCInit-A77B22-WinSize-02-WinOffset-000F-Interval-0050-Latency-0000-Timeout-07D0-ChM-1FFFFFFFFF-Hop-9-SCA-5-Space-100 9-LL_ENC_RSP-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-SKDs-0102030405060708-IVs-01020304-CRCInit-A77B22-Space-100
+  char *current_p;
+  int ret, num_bit_tmp;
+
+  pkt->num_info_bit = 0;
+
+// gen preamble (may be changed later according to access address
+  pkt->num_info_bit = pkt->num_info_bit + convert_hex_to_bit("AA", pkt->info_bit);
+
+// get access address
+  current_p = pkt_str;
+  current_p = get_next_field_name_bit(current_p, "AA", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 4, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  if ( (*(pkt->info_bit+pkt->num_info_bit) ) == 1 ) {
+    convert_hex_to_bit("55", pkt->info_bit);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+// get LLID NESN SN MD
+  int llid, nesn, sn, md;
+  current_p = get_next_field_name_value(current_p, "LLID", &llid, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+
+  current_p = get_next_field_name_value(current_p, "NESN", &nesn, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+
+  current_p = get_next_field_name_value(current_p, "SN", &sn, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+
+  current_p = get_next_field_name_value(current_p, "MD", &md, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + 16; // 16 is header length
+
+  // fill opcode
+  get_opcode(pkt->pkt_type, pkt->info_bit + pkt->num_info_bit);
+  pkt->num_info_bit = pkt->num_info_bit + 8; // 8 is opcode
+
+// get SKDs IVs
+  current_p = get_next_field_name_bit(current_p, "SKDS", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 0, 8, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+  current_p = get_next_field_name_bit(current_p, "IVS", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 0, 4, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+  int payload_len = (pkt->num_info_bit/8) - 7;
+  printf("payload_len %d\n", payload_len);
+  printf("num_info_bit %d\n", pkt->num_info_bit);
+
+  fill_data_pdu_header(llid, nesn, sn, md, payload_len, pkt->info_bit+5*8);
+
+// get CRC init
+  char crc_init[7];
+  current_p = get_next_field_name_hex(current_p, "CRCINIT", crc_init, 0, 3, &ret);
+  if (ret == -1) { // failed
+    return(-1);
+  }
+  crc24_and_scramble_to_gen_phy_bit(crc_init, pkt);
+  printf("num_phy_bit %d\n", pkt->num_phy_bit);
+
+  pkt->num_phy_sample = gen_sample_from_phy_bit(pkt->phy_bit, pkt->phy_sample, pkt->num_phy_bit);
+  printf("num_phy_sample %d\n", pkt->num_phy_sample);
+
+// get space value
+  if (ret==1) { // if space value not present
+    pkt->space = DEFAULT_SPACE_MS;
+    printf("space %d\n", pkt->space);
+    return(0);
+  }
+
+  int space;
+  current_p = get_next_field_name_value(current_p, "SPACE", &space, &ret);
+  if (ret == -1) { // failed
+    return(-1);
+  }
+
+  if (space <= 0) {
+    printf("Invalid space!\n");
+    return(-1);
+  }
+
+  pkt->space = space;
+  printf("space %d\n", pkt->space);
+
   return(0);
 }
+
 int calculate_sample_for_LL_START_ENC_REQ(char *pkt_str, PKT_INFO *pkt) {
+// example
+// Connection establishment (http://processors.wiki.ti.com/index.php/BLE_sniffer_guide)
+// ./btle_tx 37-ADV_IND-TxAdd-0-RxAdd-0-AdvA-90D7EBB19299-AdvData-0201050702031802180418-Space-100  37-CONNECT_REQ-TxAdd-0-RxAdd-0-InitA-001830EA965F-AdvA-90D7EBB19299-AA-60850A1B-CRCInit-A77B22-WinSize-02-WinOffset-000F-Interval-0050-Latency-0000-Timeout-07D0-ChM-1FFFFFFFFF-Hop-9-SCA-5-Space-100 9-LL_START_ENC_REQ-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-CRCInit-A77B22-Space-100
+  char *current_p;
+  int ret, num_bit_tmp;
+
+  pkt->num_info_bit = 0;
+
+// gen preamble (may be changed later according to access address
+  pkt->num_info_bit = pkt->num_info_bit + convert_hex_to_bit("AA", pkt->info_bit);
+
+// get access address
+  current_p = pkt_str;
+  current_p = get_next_field_name_bit(current_p, "AA", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 4, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  if ( (*(pkt->info_bit+pkt->num_info_bit) ) == 1 ) {
+    convert_hex_to_bit("55", pkt->info_bit);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+// get LLID NESN SN MD
+  int llid, nesn, sn, md;
+  current_p = get_next_field_name_value(current_p, "LLID", &llid, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+
+  current_p = get_next_field_name_value(current_p, "NESN", &nesn, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+
+  current_p = get_next_field_name_value(current_p, "SN", &sn, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+
+  current_p = get_next_field_name_value(current_p, "MD", &md, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + 16; // 16 is header length
+
+  // fill opcode
+  get_opcode(pkt->pkt_type, pkt->info_bit + pkt->num_info_bit);
+  pkt->num_info_bit = pkt->num_info_bit + 8; // 8 is opcode
+
+// get NO PAYLOAD
+// ....
+
+  int payload_len = (pkt->num_info_bit/8) - 7;
+  printf("payload_len %d\n", payload_len);
+  printf("num_info_bit %d\n", pkt->num_info_bit);
+
+  fill_data_pdu_header(llid, nesn, sn, md, payload_len, pkt->info_bit+5*8);
+
+// get CRC init
+  char crc_init[7];
+  current_p = get_next_field_name_hex(current_p, "CRCINIT", crc_init, 0, 3, &ret);
+  if (ret == -1) { // failed
+    return(-1);
+  }
+  crc24_and_scramble_to_gen_phy_bit(crc_init, pkt);
+  printf("num_phy_bit %d\n", pkt->num_phy_bit);
+
+  pkt->num_phy_sample = gen_sample_from_phy_bit(pkt->phy_bit, pkt->phy_sample, pkt->num_phy_bit);
+  printf("num_phy_sample %d\n", pkt->num_phy_sample);
+
+// get space value
+  if (ret==1) { // if space value not present
+    pkt->space = DEFAULT_SPACE_MS;
+    printf("space %d\n", pkt->space);
+    return(0);
+  }
+
+  int space;
+  current_p = get_next_field_name_value(current_p, "SPACE", &space, &ret);
+  if (ret == -1) { // failed
+    return(-1);
+  }
+
+  if (space <= 0) {
+    printf("Invalid space!\n");
+    return(-1);
+  }
+
+  pkt->space = space;
+  printf("space %d\n", pkt->space);
+
   return(0);
 }
 int calculate_sample_for_LL_START_ENC_RSP(char *pkt_str, PKT_INFO *pkt) {
-  return(0);
+// example
+// Connection establishment (http://processors.wiki.ti.com/index.php/BLE_sniffer_guide)
+// ./btle_tx 37-ADV_IND-TxAdd-0-RxAdd-0-AdvA-90D7EBB19299-AdvData-0201050702031802180418-Space-100  37-CONNECT_REQ-TxAdd-0-RxAdd-0-InitA-001830EA965F-AdvA-90D7EBB19299-AA-60850A1B-CRCInit-A77B22-WinSize-02-WinOffset-000F-Interval-0050-Latency-0000-Timeout-07D0-ChM-1FFFFFFFFF-Hop-9-SCA-5-Space-100 9-LL_START_ENC_RSP-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-CRCInit-A77B22-Space-100
+
+  return( calculate_sample_for_LL_START_ENC_REQ(pkt_str, pkt) );
 }
 int calculate_sample_for_LL_UNKNOWN_RSP(char *pkt_str, PKT_INFO *pkt) {
+// example
+// Connection establishment (http://processors.wiki.ti.com/index.php/BLE_sniffer_guide)
+// ./btle_tx 37-ADV_IND-TxAdd-0-RxAdd-0-AdvA-90D7EBB19299-AdvData-0201050702031802180418-Space-100  37-CONNECT_REQ-TxAdd-0-RxAdd-0-InitA-001830EA965F-AdvA-90D7EBB19299-AA-60850A1B-CRCInit-A77B22-WinSize-02-WinOffset-000F-Interval-0050-Latency-0000-Timeout-07D0-ChM-1FFFFFFFFF-Hop-9-SCA-5-Space-100 9-LL_UNKNOWN_RSP-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-UnknownType-01-CRCInit-A77B22-Space-100
+  char *current_p;
+  int ret, num_bit_tmp;
+
+  pkt->num_info_bit = 0;
+
+// gen preamble (may be changed later according to access address
+  pkt->num_info_bit = pkt->num_info_bit + convert_hex_to_bit("AA", pkt->info_bit);
+
+// get access address
+  current_p = pkt_str;
+  current_p = get_next_field_name_bit(current_p, "AA", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 4, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  if ( (*(pkt->info_bit+pkt->num_info_bit) ) == 1 ) {
+    convert_hex_to_bit("55", pkt->info_bit);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+// get LLID NESN SN MD
+  int llid, nesn, sn, md;
+  current_p = get_next_field_name_value(current_p, "LLID", &llid, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+
+  current_p = get_next_field_name_value(current_p, "NESN", &nesn, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+
+  current_p = get_next_field_name_value(current_p, "SN", &sn, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+
+  current_p = get_next_field_name_value(current_p, "MD", &md, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + 16; // 16 is header length
+
+  // fill opcode
+  get_opcode(pkt->pkt_type, pkt->info_bit + pkt->num_info_bit);
+  pkt->num_info_bit = pkt->num_info_bit + 8; // 8 is opcode
+
+// get UnknownType
+  current_p = get_next_field_name_bit(current_p, "UNKNOWNTYPE", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 0, 1, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+  int payload_len = (pkt->num_info_bit/8) - 7;
+  printf("payload_len %d\n", payload_len);
+  printf("num_info_bit %d\n", pkt->num_info_bit);
+
+  fill_data_pdu_header(llid, nesn, sn, md, payload_len, pkt->info_bit+5*8);
+
+// get CRC init
+  char crc_init[7];
+  current_p = get_next_field_name_hex(current_p, "CRCINIT", crc_init, 0, 3, &ret);
+  if (ret == -1) { // failed
+    return(-1);
+  }
+  crc24_and_scramble_to_gen_phy_bit(crc_init, pkt);
+  printf("num_phy_bit %d\n", pkt->num_phy_bit);
+
+  pkt->num_phy_sample = gen_sample_from_phy_bit(pkt->phy_bit, pkt->phy_sample, pkt->num_phy_bit);
+  printf("num_phy_sample %d\n", pkt->num_phy_sample);
+
+// get space value
+  if (ret==1) { // if space value not present
+    pkt->space = DEFAULT_SPACE_MS;
+    printf("space %d\n", pkt->space);
+    return(0);
+  }
+
+  int space;
+  current_p = get_next_field_name_value(current_p, "SPACE", &space, &ret);
+  if (ret == -1) { // failed
+    return(-1);
+  }
+
+  if (space <= 0) {
+    printf("Invalid space!\n");
+    return(-1);
+  }
+
+  pkt->space = space;
+  printf("space %d\n", pkt->space);
+
   return(0);
 }
 int calculate_sample_for_LL_FEATURE_REQ(char *pkt_str, PKT_INFO *pkt) {
+// example
+// Connection establishment (http://processors.wiki.ti.com/index.php/BLE_sniffer_guide)
+// ./btle_tx 37-ADV_IND-TxAdd-0-RxAdd-0-AdvA-90D7EBB19299-AdvData-0201050702031802180418-Space-100  37-CONNECT_REQ-TxAdd-0-RxAdd-0-InitA-001830EA965F-AdvA-90D7EBB19299-AA-60850A1B-CRCInit-A77B22-WinSize-02-WinOffset-000F-Interval-0050-Latency-0000-Timeout-07D0-ChM-1FFFFFFFFF-Hop-9-SCA-5-Space-100 9-LL_FEATURE_REQ-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-FeatureSet-0102030405060708-CRCInit-A77B22-Space-100
+  char *current_p;
+  int ret, num_bit_tmp;
+
+  pkt->num_info_bit = 0;
+
+// gen preamble (may be changed later according to access address
+  pkt->num_info_bit = pkt->num_info_bit + convert_hex_to_bit("AA", pkt->info_bit);
+
+// get access address
+  current_p = pkt_str;
+  current_p = get_next_field_name_bit(current_p, "AA", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 4, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  if ( (*(pkt->info_bit+pkt->num_info_bit) ) == 1 ) {
+    convert_hex_to_bit("55", pkt->info_bit);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+// get LLID NESN SN MD
+  int llid, nesn, sn, md;
+  current_p = get_next_field_name_value(current_p, "LLID", &llid, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+
+  current_p = get_next_field_name_value(current_p, "NESN", &nesn, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+
+  current_p = get_next_field_name_value(current_p, "SN", &sn, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+
+  current_p = get_next_field_name_value(current_p, "MD", &md, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + 16; // 16 is header length
+
+  // fill opcode
+  get_opcode(pkt->pkt_type, pkt->info_bit + pkt->num_info_bit);
+  pkt->num_info_bit = pkt->num_info_bit + 8; // 8 is opcode
+
+// get FeatureSet
+  current_p = get_next_field_name_bit(current_p, "FEATURESET", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 0, 8, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+  int payload_len = (pkt->num_info_bit/8) - 7;
+  printf("payload_len %d\n", payload_len);
+  printf("num_info_bit %d\n", pkt->num_info_bit);
+
+  fill_data_pdu_header(llid, nesn, sn, md, payload_len, pkt->info_bit+5*8);
+
+// get CRC init
+  char crc_init[7];
+  current_p = get_next_field_name_hex(current_p, "CRCINIT", crc_init, 0, 3, &ret);
+  if (ret == -1) { // failed
+    return(-1);
+  }
+  crc24_and_scramble_to_gen_phy_bit(crc_init, pkt);
+  printf("num_phy_bit %d\n", pkt->num_phy_bit);
+
+  pkt->num_phy_sample = gen_sample_from_phy_bit(pkt->phy_bit, pkt->phy_sample, pkt->num_phy_bit);
+  printf("num_phy_sample %d\n", pkt->num_phy_sample);
+
+// get space value
+  if (ret==1) { // if space value not present
+    pkt->space = DEFAULT_SPACE_MS;
+    printf("space %d\n", pkt->space);
+    return(0);
+  }
+
+  int space;
+  current_p = get_next_field_name_value(current_p, "SPACE", &space, &ret);
+  if (ret == -1) { // failed
+    return(-1);
+  }
+
+  if (space <= 0) {
+    printf("Invalid space!\n");
+    return(-1);
+  }
+
+  pkt->space = space;
+  printf("space %d\n", pkt->space);
+
   return(0);
 }
 int calculate_sample_for_LL_FEATURE_RSP(char *pkt_str, PKT_INFO *pkt) {
-  return(0);
+
+// example
+// Connection establishment (http://processors.wiki.ti.com/index.php/BLE_sniffer_guide)
+// ./btle_tx 37-ADV_IND-TxAdd-0-RxAdd-0-AdvA-90D7EBB19299-AdvData-0201050702031802180418-Space-100  37-CONNECT_REQ-TxAdd-0-RxAdd-0-InitA-001830EA965F-AdvA-90D7EBB19299-AA-60850A1B-CRCInit-A77B22-WinSize-02-WinOffset-000F-Interval-0050-Latency-0000-Timeout-07D0-ChM-1FFFFFFFFF-Hop-9-SCA-5-Space-100 9-LL_FEATURE_RSP-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-FeatureSet-0102030405060708-CRCInit-A77B22-Space-100
+
+  return(calculate_sample_for_LL_FEATURE_REQ(pkt_str, pkt));
 }
 int calculate_sample_for_LL_PAUSE_ENC_REQ(char *pkt_str, PKT_INFO *pkt) {
-  return(0);
+// example
+// Connection establishment (http://processors.wiki.ti.com/index.php/BLE_sniffer_guide)
+// ./btle_tx 37-ADV_IND-TxAdd-0-RxAdd-0-AdvA-90D7EBB19299-AdvData-0201050702031802180418-Space-100  37-CONNECT_REQ-TxAdd-0-RxAdd-0-InitA-001830EA965F-AdvA-90D7EBB19299-AA-60850A1B-CRCInit-A77B22-WinSize-02-WinOffset-000F-Interval-0050-Latency-0000-Timeout-07D0-ChM-1FFFFFFFFF-Hop-9-SCA-5-Space-100 9-LL_PAUSE_ENC_REQ-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-CRCInit-A77B22-Space-100
+  return( calculate_sample_for_LL_START_ENC_REQ(pkt_str, pkt) );
 }
 int calculate_sample_for_LL_PAUSE_ENC_RSP(char *pkt_str, PKT_INFO *pkt) {
-  return(0);
+// example
+// Connection establishment (http://processors.wiki.ti.com/index.php/BLE_sniffer_guide)
+// ./btle_tx 37-ADV_IND-TxAdd-0-RxAdd-0-AdvA-90D7EBB19299-AdvData-0201050702031802180418-Space-100  37-CONNECT_REQ-TxAdd-0-RxAdd-0-InitA-001830EA965F-AdvA-90D7EBB19299-AA-60850A1B-CRCInit-A77B22-WinSize-02-WinOffset-000F-Interval-0050-Latency-0000-Timeout-07D0-ChM-1FFFFFFFFF-Hop-9-SCA-5-Space-100 9-LL_PAUSE_ENC_RSP-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-CRCInit-A77B22-Space-100
+  return( calculate_sample_for_LL_START_ENC_REQ(pkt_str, pkt) );
+
 }
 int calculate_sample_for_LL_VERSION_IND(char *pkt_str, PKT_INFO *pkt) {
+// example
+// Connection establishment (http://processors.wiki.ti.com/index.php/BLE_sniffer_guide)
+// ./btle_tx 37-ADV_IND-TxAdd-0-RxAdd-0-AdvA-90D7EBB19299-AdvData-0201050702031802180418-Space-100  37-CONNECT_REQ-TxAdd-0-RxAdd-0-InitA-001830EA965F-AdvA-90D7EBB19299-AA-60850A1B-CRCInit-A77B22-WinSize-02-WinOffset-000F-Interval-0050-Latency-0000-Timeout-07D0-ChM-1FFFFFFFFF-Hop-9-SCA-5-Space-100 9-LL_VERSION_IND-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-VersNr-01-CompId-0203-SubVersNr-0405-CRCInit-A77B22-Space-100
+  char *current_p;
+  int ret, num_bit_tmp;
+
+  pkt->num_info_bit = 0;
+
+// gen preamble (may be changed later according to access address
+  pkt->num_info_bit = pkt->num_info_bit + convert_hex_to_bit("AA", pkt->info_bit);
+
+// get access address
+  current_p = pkt_str;
+  current_p = get_next_field_name_bit(current_p, "AA", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 4, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  if ( (*(pkt->info_bit+pkt->num_info_bit) ) == 1 ) {
+    convert_hex_to_bit("55", pkt->info_bit);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+// get LLID NESN SN MD
+  int llid, nesn, sn, md;
+  current_p = get_next_field_name_value(current_p, "LLID", &llid, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+
+  current_p = get_next_field_name_value(current_p, "NESN", &nesn, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+
+  current_p = get_next_field_name_value(current_p, "SN", &sn, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+
+  current_p = get_next_field_name_value(current_p, "MD", &md, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + 16; // 16 is header length
+
+  // fill opcode
+  get_opcode(pkt->pkt_type, pkt->info_bit + pkt->num_info_bit);
+  pkt->num_info_bit = pkt->num_info_bit + 8; // 8 is opcode
+
+// get VersNr CompId SubVersNr
+  current_p = get_next_field_name_bit(current_p, "VERSNR", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 0, 1, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+  current_p = get_next_field_name_bit(current_p, "COMPID", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 0, 2, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+  current_p = get_next_field_name_bit(current_p, "SUBVERSNR", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 0, 2, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+  int payload_len = (pkt->num_info_bit/8) - 7;
+  printf("payload_len %d\n", payload_len);
+  printf("num_info_bit %d\n", pkt->num_info_bit);
+
+  fill_data_pdu_header(llid, nesn, sn, md, payload_len, pkt->info_bit+5*8);
+
+// get CRC init
+  char crc_init[7];
+  current_p = get_next_field_name_hex(current_p, "CRCINIT", crc_init, 0, 3, &ret);
+  if (ret == -1) { // failed
+    return(-1);
+  }
+  crc24_and_scramble_to_gen_phy_bit(crc_init, pkt);
+  printf("num_phy_bit %d\n", pkt->num_phy_bit);
+
+  pkt->num_phy_sample = gen_sample_from_phy_bit(pkt->phy_bit, pkt->phy_sample, pkt->num_phy_bit);
+  printf("num_phy_sample %d\n", pkt->num_phy_sample);
+
+// get space value
+  if (ret==1) { // if space value not present
+    pkt->space = DEFAULT_SPACE_MS;
+    printf("space %d\n", pkt->space);
+    return(0);
+  }
+
+  int space;
+  current_p = get_next_field_name_value(current_p, "SPACE", &space, &ret);
+  if (ret == -1) { // failed
+    return(-1);
+  }
+
+  if (space <= 0) {
+    printf("Invalid space!\n");
+    return(-1);
+  }
+
+  pkt->space = space;
+  printf("space %d\n", pkt->space);
+
   return(0);
 }
 int calculate_sample_for_LL_REJECT_IND(char *pkt_str, PKT_INFO *pkt) {
-  return(0);
+// example
+// Connection establishment (http://processors.wiki.ti.com/index.php/BLE_sniffer_guide)
+// ./btle_tx 37-ADV_IND-TxAdd-0-RxAdd-0-AdvA-90D7EBB19299-AdvData-0201050702031802180418-Space-100  37-CONNECT_REQ-TxAdd-0-RxAdd-0-InitA-001830EA965F-AdvA-90D7EBB19299-AA-60850A1B-CRCInit-A77B22-WinSize-02-WinOffset-000F-Interval-0050-Latency-0000-Timeout-07D0-ChM-1FFFFFFFFF-Hop-9-SCA-5-Space-100 9-LL_REJECT_IND-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-ErrorCode-00-CRCInit-A77B22-Space-100
+
+  return( calculate_sample_for_LL_TERMINATE_IND(pkt_str, pkt) );
 }
 
 int calculate_sample_from_pkt_type(char *type_str, char *pkt_str, PKT_INFO *pkt) {
@@ -1969,8 +2820,54 @@ int parse_input(int num_input, char** argv, int *num_repeat_return){
   return(num_packet);
 }
 
+int read_items_from_file(int *num_items, char **items_buf, char *filename){
+
+  FILE *fp = fopen(filename, "r");
+
+  char file_line[MAX_NUM_CHAR_CMD*2];
+
+  if (fp == NULL) {
+    printf("fopen failed!\n");
+    return(-1);
+  }
+
+  int num_lines = 0;
+  char *p = (char *)12345;
+
+  while( 1 ) {
+    p = fgets(file_line,  (MAX_NUM_CHAR_CMD*2), fp );
+
+    if ( p==NULL ) {
+      break;
+    }
+
+    if (file_line[0] != '#') {
+      if ( (file_line[0] >= 48 && file_line[0] <= 57) || file_line[0] ==114 || file_line[0] == 82 ) { // valid line
+        if (strlen(file_line) > (MAX_NUM_CHAR_CMD-1) ) {
+          printf("Line is too long!\n");
+          fclose(fp);
+          return(-1);
+        } else {
+          strcpy(items_buf[num_lines + 1], file_line);
+          num_lines++;
+        }
+      }
+    }
+
+    if (feof(fp)) {
+      break;
+    }
+  }
+
+  fclose(fp);
+
+  (*num_items) = num_lines + 1;
+
+  return(0);
+}
+
 int main(int argc, char** argv) {
-  int num_packet, i, j;
+  int num_packet, i, j, num_items;
   int num_repeat = 0; // -1: inf; 0: 1; other: specific
 
   if (argc < 2) {
@@ -1978,7 +2875,26 @@ int main(int argc, char** argv) {
     return(0);
   } else if ( (argc-1-1) > MAX_NUM_PACKET ){
     printf("Too many packets input! Maximum allowed is %d\n", MAX_NUM_PACKET);
-  } else {
+  }
+  else if (argc == 2) {  // from file
+    char **items = (char **)malloc((MAX_NUM_PACKET+2) * sizeof(char *));
+    for (i=0; i<MAX_NUM_PACKET+2; i++)  items[i] = (char *)malloc( MAX_NUM_CHAR_CMD * sizeof(char));
+
+    if ( read_items_from_file(&num_items, items, argv[1]) == -1 ) {
+      for (i=0; i<MAX_NUM_PACKET+2; i++) free((char *) items[i]);
+      free ((char *) items);
+      return(-1);
+    }
+    num_packet = parse_input(num_items, items, &num_repeat);
+
+    for (i=0; i<MAX_NUM_PACKET+2; i++) free((char *) items[i]);
+    free ((char *) items);
+
+    if ( num_repeat == -2 ){
+      return(-1);
+    }
+  }
+  else { // from command line
     num_packet = parse_input(argc, argv, &num_repeat);
     if ( num_repeat == -2 ){
       return(-1);
@@ -1991,84 +2907,27 @@ int main(int argc, char** argv) {
   if ( init_board() == -1 )
       return(-1);
 
-//  // don't know why the first tx won't work. do the 1st as pre warming.
-//  if (set_freq_by_channel_number(packets[0].channel_number) == -1) {
-//    close_board();
-//    return(-1);
-//  }
-//  if ( tx_one_buf(packets[0].phy_sample, 2*packets[0].num_phy_sample) == -1 ){
-//    close_board();
-//    return(-1);
-//  }
-  set_freq_by_channel_number(packets[0].channel_number);
-  gettimeofday(&time_old, NULL);
-  gettimeofday(&time_now, NULL);
   for (j=0; j<num_repeat; j++ ) {
     for (i=0; i<num_packet; i++) {
+      gettimeofday(&time_old, NULL);
 
-      if ( tx_one_buf(packets[i].phy_sample, 2*packets[i].num_phy_sample) == -1 ){
+      if ( tx_one_buf(packets[i].phy_sample, 2*packets[i].num_phy_sample, packets[i].channel_number) == -1 ){
         close_board();
         return(-1);
       }
-      if (i<(num_packet-1) ) {
-        set_freq_by_channel_number(packets[i+1].channel_number);
-      }
 
-      printf("%d %d\n", j, i);
+      printf("r%d p%d\n", j, i);
 
-      if (do_exit)
-        break;
-
+      gettimeofday(&time_now, NULL);
       while(TimevalDiff(&time_now, &time_old)<( (float)packets[i].space/(float)1000 ) ) {
         gettimeofday(&time_now, NULL);
       }
-      gettimeofday(&time_old, NULL);
     }
   }
   printf("\n");
 
   exit_board();
 	printf("exit\n");
-
-//////// // ---------already test-------------------------
-//#define FILE_LEN (5936)
-//  if ( open_board() == -1 )
-//    return(-1);
-//
-//  char buf[FILE_LEN];
-//
-//  FILE *fp = fopen("ibeacon_single_packet.bin", "rb");
-//  fread(buf, sizeof(char), FILE_LEN, fp);
-//  fclose(fp);
-//
-//  struct timeval time_now, time_start;
-//
-//  // don't know why the first tx won't work. do the 1st as pre warming.
-//  if ( tx_one_buf(buf, FILE_LEN) == -1 ){
-//    close_board();
-//    return(-1);
-//  }
-//
-//  gettimeofday(&time_start, NULL);
-//  for (i=0; i<3; i++) {
-//    if ( tx_one_buf(buf, FILE_LEN) == -1 ){
-//      close_board();
-//      return(-1);
-//    }
-//    printf("%d\n", i);
-//
-//    while(TimevalDiff(&time_now, &time_start)<0.1) {
-//      gettimeofday(&time_now, NULL);
-//    }
-//    gettimeofday(&time_start, NULL);
-//
-//    if (do_exit)
-//      break;
-//  }
-//
-//  close_board();
-//	printf("exit\n");
-//////// // ---------already test-------------------------
 
 	return(0);
 }
