@@ -1,4 +1,4 @@
-// BTLE packet transmit tool by Jiao Xianjun (putaoshu@gmail.com)
+// BTLE packet sender tool by Jiao Xianjun (putaoshu@gmail.com)
 
 /*
  * Copyright 2012 Jared Boone <jared@sharebrained.com>
@@ -109,7 +109,7 @@ float gauss_coef[LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL] = {8.05068379156060e-05,	0.
 uint64_t freq_hz = 2480000000ull;  //channel 39
 //uint64_t freq_hz = 2402000000ull;  //channel 37
 //uint64_t freq_hz = 2426000000ull;  //channel 38
-const uint32_t sample_rate_hz = 8000000;
+const uint32_t sample_rate_hz = 8000000; // 8MHz
 uint32_t baseband_filter_bw_hz;
 
 volatile bool do_exit = false;
@@ -312,10 +312,8 @@ inline int tx_one_buf(char *buf, int length) {
   memcpy((char *)(tx_buf), buf, length);
   tx_len = length;
 
-//  printf("stop_tx %d\n", stop_tx);
   stop_tx = false;
 
-//  printf("%d\n", length);
   result = hackrf_start_tx(device, tx_callback, NULL);
   if( result != HACKRF_SUCCESS ) {
     printf("tx_one_buf: hackrf_start_tx() failed: %s (%d)\n", hackrf_error_name(result), result);
@@ -326,8 +324,6 @@ inline int tx_one_buf(char *buf, int length) {
       (do_exit == false) )
   {
     if (stop_tx) {
-//      printf("stop_tx %d\n", stop_tx);
-//      printf("do_exit %d\n", do_exit);
       break;
     }
   }
@@ -390,7 +386,6 @@ typedef struct
     PKT_TYPE pkt_type;
     char cmd_str[MAX_NUM_CHAR_CMD]; // hex string format command input
     int num_info_bit;
-//    char info_bit[MAX_NUM_INFO_BYTE*8]; // without preamble and CRC
     char info_bit[MAX_NUM_PHY_BYTE*8]; // without CRC and whitening
     int num_phy_bit;
     char phy_bit[MAX_NUM_PHY_BYTE*8]; // all bits which will be fed to GFSK modulator
@@ -501,6 +496,7 @@ int convert_hex_to_bit(char *hex, char *bit){
   int num_hex = strlen(hex);
 
   if (num_hex%2 != 0) {
+    printf("Half octet is encountered!\n");
     return(-1);
   }
 
@@ -599,7 +595,7 @@ char* get_next_field_name(char *current_p, char *name, int *return_flag) {
 
 char* get_next_field_bit(char *current_p, char *bit_return, int *num_bit_return, int stream_flip, int octet_limit, int *return_flag) {
 // return_flag: -1 failed; 0 success; 1 success and this is the last field
-// stream_flip: 0: normal sequence; 1: flip octets order in sequence
+// stream_flip: 0: normal order; 1: flip octets order in sequence
   int i;
   char *next_p = get_next_field(current_p, tmp_str, "-", MAX_NUM_CHAR_CMD);
   if (next_p == NULL) {
@@ -616,6 +612,7 @@ char* get_next_field_bit(char *current_p, char *bit_return, int *num_bit_return,
   if (stream_flip == 1) {
     int num_hex = strlen(tmp_str);
     if (num_hex%2 != 0) {
+      printf("Half octet is encountered!\n");
       (*return_flag) = -1;
       return(next_p);
     }
@@ -690,7 +687,7 @@ int calculate_sample_for_RAW(char *pkt_str, PKT_INFO *pkt) {
 
   int space;
   current_p = get_next_field_name_value(current_p, "SPACE", &space, &ret);
-  if (ret == -1) { // failed
+  if (ret == -1) {
     return(-1);
   }
 
@@ -766,6 +763,17 @@ void scramble(char *bit_in, int num_bit, int channel_number, char *bit_out) {
   }
 }
 
+void fill_hop_sca(int hop, int sca, char *bit_out) {
+  bit_out[0] = 0x01&(hop>>0);
+  bit_out[1] = 0x01&(hop>>1);
+  bit_out[2] = 0x01&(hop>>2);
+  bit_out[3] = 0x01&(hop>>3);
+  bit_out[4] = 0x01&(hop>>4);
+
+  bit_out[5] = 0x01&(sca>>0);
+  bit_out[6] = 0x01&(sca>>1);
+  bit_out[7] = 0x01&(sca>>2);
+}
 
 void fill_adv_pdu_header(PKT_TYPE pkt_type, int txadd, int rxadd, int payload_len, char *bit_out) {
   if (pkt_type == ADV_IND || pkt_type == IBEACON) {
@@ -833,7 +841,7 @@ void crc24_and_scramble_to_gen_phy_bit(char *crc_init_hex, PKT_INFO *pkt) {
 
 int calculate_sample_for_ADV_IND(char *pkt_str, PKT_INFO *pkt) {
 // example
-// ./btle_tx 39-ADV_IND-TXADD-1-RXADD-0-ADVA-010203040506-ADVDATA-00112233445566778899AABBCCDDEEFF
+// ./btle_tx 37-ADV_IND-TxAdd-1-RxAdd-0-AdvA-010203040506-AdvData-00112233445566778899AABBCCDDEEFF
   char *current_p;
   int ret, num_bit_tmp;
 
@@ -907,7 +915,7 @@ int calculate_sample_for_ADV_IND(char *pkt_str, PKT_INFO *pkt) {
 }
 int calculate_sample_for_IBEACON(char *pkt_str, PKT_INFO *pkt) {
 // example
-// ./btle_tx 39-IBEACON-ADVA-010203040506-UUID-B9407F30F5F8466EAFF925556B57FE6D-MAJOR-0008-MINOR-0009-TXPOWER-C5-SPACE-100 R10
+// ./btle_tx 37-IBEACON-AdvA-010203040506-UUID-B9407F30F5F8466EAFF925556B57FE6D-Major-0008-Minor-0009-TxPower-C5-Space-100 r10
 // UUID indicates Estimote
   char *current_p;
   int ret, num_bit_tmp;
@@ -960,7 +968,7 @@ int calculate_sample_for_IBEACON(char *pkt_str, PKT_INFO *pkt) {
 
 // get tx power
   current_p = get_next_field_name_bit(current_p, "TXPOWER", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 1, &ret);
-  if (ret == -1) { // failed or the last
+  if (ret == -1) { // failed
     return(-1);
   }
   pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
@@ -997,21 +1005,371 @@ int calculate_sample_for_IBEACON(char *pkt_str, PKT_INFO *pkt) {
   return(0);
 }
 int calculate_sample_for_ADV_DIRECT_IND(char *pkt_str, PKT_INFO *pkt) {
+// example
+// ./btle_tx 37-ADV_DIRECT_IND-TxAdd-1-RxAdd-0-AdvA-010203040506-InitA-0708090A0B0C
+  char *current_p;
+  int ret, num_bit_tmp;
+
+  pkt->num_info_bit = 0;
+
+// gen preamble and access address
+  pkt->num_info_bit = pkt->num_info_bit + convert_hex_to_bit("AA", pkt->info_bit);
+  pkt->num_info_bit = pkt->num_info_bit + convert_hex_to_bit("D6BE898E", pkt->info_bit + pkt->num_info_bit);
+
+// get txadd and rxadd
+  current_p = pkt_str;
+  int txadd, rxadd;
+  current_p = get_next_field_name_value(current_p, "TXADD", &txadd, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+
+  current_p = get_next_field_name_value(current_p, "RXADD", &rxadd, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + 16; // 16 is header length
+
+// get AdvA and InitA
+  current_p = get_next_field_name_bit(current_p, "ADVA", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 6, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+  current_p = get_next_field_name_bit(current_p, "INITA", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 6, &ret);
+  if (ret == -1) { // failed
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+  int payload_len = (pkt->num_info_bit/8) - 7;
+  printf("payload_len %d\n", payload_len);
+  printf("num_info_bit %d\n", pkt->num_info_bit);
+
+  fill_adv_pdu_header(pkt->pkt_type, txadd, rxadd, payload_len, pkt->info_bit+5*8);
+
+  crc24_and_scramble_to_gen_phy_bit("555555", pkt);
+  printf("num_phy_bit %d\n", pkt->num_phy_bit);
+
+  pkt->num_phy_sample = gen_sample_from_phy_bit(pkt->phy_bit, pkt->phy_sample, pkt->num_phy_bit);
+  printf("num_phy_sample %d\n", pkt->num_phy_sample);
+
+// get space value
+  if (ret==1) { // if space value not present
+    pkt->space = DEFAULT_SPACE_MS;
+    printf("space %d\n", pkt->space);
+    return(0);
+  }
+
+  int space;
+  current_p = get_next_field_name_value(current_p, "SPACE", &space, &ret);
+  if (ret == -1) { // failed
+    return(-1);
+  }
+
+  if (space <= 0) {
+    printf("Invalid space!\n");
+    return(-1);
+  }
+
+  pkt->space = space;
+  printf("space %d\n", pkt->space);
+
   return(0);
 }
 int calculate_sample_for_ADV_NONCONN_IND(char *pkt_str, PKT_INFO *pkt) {
-  return(0);
+// example
+// ./btle_tx 37-ADV_NONCONN_IND-TxAdd-1-RxAdd-0-AdvA-010203040506-AdvData-00112233445566778899AABBCCDDEEFF
+  return( calculate_sample_for_ADV_IND(pkt_str, pkt) );
 }
 int calculate_sample_for_ADV_SCAN_IND(char *pkt_str, PKT_INFO *pkt) {
-  return(0);
+// example
+// ./btle_tx 37-ADV_SCAN_IND-TxAdd-1-RxAdd-0-AdvA-010203040506-AdvData-00112233445566778899AABBCCDDEEFF
+  return( calculate_sample_for_ADV_IND(pkt_str, pkt) );
 }
 int calculate_sample_for_SCAN_REQ(char *pkt_str, PKT_INFO *pkt) {
+// example
+// ./btle_tx 37-SCAN_REQ-TxAdd-1-RxAdd-0-ScanA-010203040506-AdvA-0708090A0B0C
+  char *current_p;
+  int ret, num_bit_tmp;
+
+  pkt->num_info_bit = 0;
+
+// gen preamble and access address
+  pkt->num_info_bit = pkt->num_info_bit + convert_hex_to_bit("AA", pkt->info_bit);
+  pkt->num_info_bit = pkt->num_info_bit + convert_hex_to_bit("D6BE898E", pkt->info_bit + pkt->num_info_bit);
+
+// get txadd and rxadd
+  current_p = pkt_str;
+  int txadd, rxadd;
+  current_p = get_next_field_name_value(current_p, "TXADD", &txadd, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+
+  current_p = get_next_field_name_value(current_p, "RXADD", &rxadd, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + 16; // 16 is header length
+
+// get AdvA and InitA
+  current_p = get_next_field_name_bit(current_p, "SCANA", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 6, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+  current_p = get_next_field_name_bit(current_p, "ADVA", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 6, &ret);
+  if (ret == -1) { // failed
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+  int payload_len = (pkt->num_info_bit/8) - 7;
+  printf("payload_len %d\n", payload_len);
+  printf("num_info_bit %d\n", pkt->num_info_bit);
+
+  fill_adv_pdu_header(pkt->pkt_type, txadd, rxadd, payload_len, pkt->info_bit+5*8);
+
+  crc24_and_scramble_to_gen_phy_bit("555555", pkt);
+  printf("num_phy_bit %d\n", pkt->num_phy_bit);
+
+  pkt->num_phy_sample = gen_sample_from_phy_bit(pkt->phy_bit, pkt->phy_sample, pkt->num_phy_bit);
+  printf("num_phy_sample %d\n", pkt->num_phy_sample);
+
+// get space value
+  if (ret==1) { // if space value not present
+    pkt->space = DEFAULT_SPACE_MS;
+    printf("space %d\n", pkt->space);
+    return(0);
+  }
+
+  int space;
+  current_p = get_next_field_name_value(current_p, "SPACE", &space, &ret);
+  if (ret == -1) { // failed
+    return(-1);
+  }
+
+  if (space <= 0) {
+    printf("Invalid space!\n");
+    return(-1);
+  }
+
+  pkt->space = space;
+  printf("space %d\n", pkt->space);
+
   return(0);
 }
 int calculate_sample_for_SCAN_RSP(char *pkt_str, PKT_INFO *pkt) {
+// example
+// ./btle_tx 37-SCAN_RSP-TxAdd-1-RxAdd-0-AdvA-010203040506-ScanRspData-00112233445566778899AABBCCDDEEFF
+  char *current_p;
+  int ret, num_bit_tmp;
+
+  pkt->num_info_bit = 0;
+
+// gen preamble and access address
+  pkt->num_info_bit = pkt->num_info_bit + convert_hex_to_bit("AA", pkt->info_bit);
+  pkt->num_info_bit = pkt->num_info_bit + convert_hex_to_bit("D6BE898E", pkt->info_bit + pkt->num_info_bit);
+
+// get txadd and rxadd
+  current_p = pkt_str;
+  int txadd, rxadd;
+  current_p = get_next_field_name_value(current_p, "TXADD", &txadd, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+
+  current_p = get_next_field_name_value(current_p, "RXADD", &rxadd, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + 16; // 16 is header length
+
+// get AdvA and AdvData
+  current_p = get_next_field_name_bit(current_p, "ADVA", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 6, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+  current_p = get_next_field_name_bit(current_p, "SCANRSPDATA", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 0, 31, &ret);
+  if (ret == -1) { // failed
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+  int payload_len = (pkt->num_info_bit/8) - 7;
+  printf("payload_len %d\n", payload_len);
+  printf("num_info_bit %d\n", pkt->num_info_bit);
+
+  fill_adv_pdu_header(pkt->pkt_type, txadd, rxadd, payload_len, pkt->info_bit+5*8);
+
+  crc24_and_scramble_to_gen_phy_bit("555555", pkt);
+  printf("num_phy_bit %d\n", pkt->num_phy_bit);
+
+  pkt->num_phy_sample = gen_sample_from_phy_bit(pkt->phy_bit, pkt->phy_sample, pkt->num_phy_bit);
+  printf("num_phy_sample %d\n", pkt->num_phy_sample);
+
+// get space value
+  if (ret==1) { // if space value not present
+    pkt->space = DEFAULT_SPACE_MS;
+    printf("space %d\n", pkt->space);
+    return(0);
+  }
+
+  int space;
+  current_p = get_next_field_name_value(current_p, "SPACE", &space, &ret);
+  if (ret == -1) { // failed
+    return(-1);
+  }
+
+  if (space <= 0) {
+    printf("Invalid space!\n");
+    return(-1);
+  }
+
+  pkt->space = space;
+  printf("space %d\n", pkt->space);
+
   return(0);
 }
 int calculate_sample_for_CONNECT_REQ(char *pkt_str, PKT_INFO *pkt) {
+// example
+// ./btle_tx 37-CONNECT_REQ-TxAdd-1-RxAdd-0-InitA-010203040506-AdvA-0708090A0B0C-AA-01020304-CRCInit-050607-WinSize-08-WinOffset-090A-Interval-0B0C-Latency-0D0E-Timeout-0F00-ChM-0102030405-Hop-3-SCA-4
+  char *current_p;
+  int ret, num_bit_tmp;
+
+  pkt->num_info_bit = 0;
+
+// gen preamble and access address
+  pkt->num_info_bit = pkt->num_info_bit + convert_hex_to_bit("AA", pkt->info_bit);
+  pkt->num_info_bit = pkt->num_info_bit + convert_hex_to_bit("D6BE898E", pkt->info_bit + pkt->num_info_bit);
+
+// get txadd and rxadd
+  current_p = pkt_str;
+  int txadd, rxadd;
+  current_p = get_next_field_name_value(current_p, "TXADD", &txadd, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+
+  current_p = get_next_field_name_value(current_p, "RXADD", &rxadd, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + 16; // 16 is header length
+
+  current_p = get_next_field_name_bit(current_p, "INITA", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 6, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+  current_p = get_next_field_name_bit(current_p, "ADVA", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 6, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+  current_p = get_next_field_name_bit(current_p, "AA", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 4, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+  current_p = get_next_field_name_bit(current_p, "CRCINIT", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 0, 3, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+  current_p = get_next_field_name_bit(current_p, "WINSIZE", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 1, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+  current_p = get_next_field_name_bit(current_p, "WINOFFSET", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 2, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+  current_p = get_next_field_name_bit(current_p, "INTERVAL", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 2, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+  current_p = get_next_field_name_bit(current_p, "LATENCY", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 2, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+  current_p = get_next_field_name_bit(current_p, "TIMEOUT", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 2, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+  current_p = get_next_field_name_bit(current_p, "CHM", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 5, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+
+  int hop;
+  current_p = get_next_field_name_value(current_p, "HOP", &hop, &ret);
+  if (ret != 0) { // failed
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + 5;
+
+  int sca;
+  current_p = get_next_field_name_value(current_p, "SCA", &sca, &ret);
+  if (ret == -1) { // failed
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + 3;
+
+  int payload_len = (pkt->num_info_bit/8) - 7;
+  printf("payload_len %d\n", payload_len);
+  printf("num_info_bit %d\n", pkt->num_info_bit);
+
+  fill_adv_pdu_header(pkt->pkt_type, txadd, rxadd, payload_len, pkt->info_bit+5*8);
+  fill_hop_sca(hop, sca, pkt->info_bit+pkt->num_info_bit-8);
+
+  crc24_and_scramble_to_gen_phy_bit("555555", pkt);
+  printf("num_phy_bit %d\n", pkt->num_phy_bit);
+
+  pkt->num_phy_sample = gen_sample_from_phy_bit(pkt->phy_bit, pkt->phy_sample, pkt->num_phy_bit);
+  printf("num_phy_sample %d\n", pkt->num_phy_sample);
+
+// get space value
+  if (ret==1) { // if space value not present
+    pkt->space = DEFAULT_SPACE_MS;
+    printf("space %d\n", pkt->space);
+    return(0);
+  }
+
+  int space;
+  current_p = get_next_field_name_value(current_p, "SPACE", &space, &ret);
+  if (ret == -1) { // failed
+    return(-1);
+  }
+
+  if (space <= 0) {
+    printf("Invalid space!\n");
+    return(-1);
+  }
+
+  pkt->space = space;
+  printf("space %d\n", pkt->space);
+
   return(0);
 }
 int calculate_sample_for_LL_DATA(char *pkt_str, PKT_INFO *pkt) {
