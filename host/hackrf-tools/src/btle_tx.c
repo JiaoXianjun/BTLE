@@ -184,13 +184,7 @@ static void usage() {
 //	printf("\t[-b baseband_filter_bw_hz] # Set baseband filter bandwidth in MHz.\n\tPossible values: 1.75/2.5/3.5/5/5.5/6/7/8/9/10/12/14/15/20/24/28MHz, default < sample_rate_hz.\n" );
 }
 
-inline int open_board() {
-  int result;
-  unsigned int txvga_gain=47;
-
-	/* Compute nearest freq for bw filter */
-  baseband_filter_bw_hz = hackrf_compute_baseband_filter_bw(DEFAULT_BASEBAND_FILTER_BANDWIDTH);
-
+int init_board() {
 	result = hackrf_init();
 	if( result != HACKRF_SUCCESS ) {
 		printf("open_board: hackrf_init() failed: %s (%d)\n", hackrf_error_name(result), result);
@@ -198,25 +192,33 @@ inline int open_board() {
 		return(-1);
 	}
 
+  #ifdef _MSC_VER
+    SetConsoleCtrlHandler( (PHANDLER_ROUTINE) sighandler, TRUE );
+  #else
+    signal(SIGINT, &sigint_callback_handler);
+    signal(SIGILL, &sigint_callback_handler);
+    signal(SIGFPE, &sigint_callback_handler);
+    signal(SIGSEGV, &sigint_callback_handler);
+    signal(SIGTERM, &sigint_callback_handler);
+    signal(SIGABRT, &sigint_callback_handler);
+  #endif
+
+}
+
+inline int open_board() {
+  int result;
+  unsigned int txvga_gain=47;
+
+	/* Compute nearest freq for bw filter */
+  baseband_filter_bw_hz = hackrf_compute_baseband_filter_bw(DEFAULT_BASEBAND_FILTER_BANDWIDTH);
+
 	result = hackrf_open(&device);
 	if( result != HACKRF_SUCCESS ) {
 		printf("open_board: hackrf_open() failed: %s (%d)\n", hackrf_error_name(result), result);
 		usage();
 		return(-1);
 	}
-
-#ifdef _MSC_VER
-	SetConsoleCtrlHandler( (PHANDLER_ROUTINE) sighandler, TRUE );
-#else
-	signal(SIGINT, &sigint_callback_handler);
-	signal(SIGILL, &sigint_callback_handler);
-	signal(SIGFPE, &sigint_callback_handler);
-	signal(SIGSEGV, &sigint_callback_handler);
-	signal(SIGTERM, &sigint_callback_handler);
-	signal(SIGABRT, &sigint_callback_handler);
-#endif
-
-	printf("open_board: call hackrf_sample_rate_set(%u Hz/%.03f MHz)\n", sample_rate_hz,((float)sample_rate_hz/(float)FREQ_ONE_MHZ));
+//	printf("open_board: call hackrf_sample_rate_set(%u Hz/%.03f MHz)\n", sample_rate_hz,((float)sample_rate_hz/(float)FREQ_ONE_MHZ));
 	result = hackrf_set_sample_rate_manual(device, sample_rate_hz, 1);
 	if( result != HACKRF_SUCCESS ) {
 		printf("open_board: hackrf_sample_rate_set() failed: %s (%d)\n", hackrf_error_name(result), result);
@@ -224,8 +226,8 @@ inline int open_board() {
 		return(-1);
 	}
 
-	printf("open_board: call hackrf_baseband_filter_bandwidth_set(%d Hz/%.03f MHz)\n",
-			baseband_filter_bw_hz, ((float)baseband_filter_bw_hz/(float)FREQ_ONE_MHZ));
+//	printf("open_board: call hackrf_baseband_filter_bandwidth_set(%d Hz/%.03f MHz)\n",
+//			baseband_filter_bw_hz, ((float)baseband_filter_bw_hz/(float)FREQ_ONE_MHZ));
 
 	result = hackrf_set_baseband_filter_bandwidth(device, baseband_filter_bw_hz);
 	if( result != HACKRF_SUCCESS ) {
@@ -241,7 +243,7 @@ inline int open_board() {
     return(-1);
   }
 
-  printf("open_board: call hackrf_set_freq(%.03f MHz)\n", ((double)freq_hz/(double)FREQ_ONE_MHZ) );
+//  printf("open_board: call hackrf_set_freq(%.03f MHz)\n", ((double)freq_hz/(double)FREQ_ONE_MHZ) );
   result = hackrf_set_freq(device, freq_hz);
   if( result != HACKRF_SUCCESS ) {
     printf("open_board: hackrf_set_freq() failed: %s (%d)\n", hackrf_error_name(result), result);
@@ -249,7 +251,7 @@ inline int open_board() {
     return(-1);
   }
 
-  printf("open_board: call hackrf_set_amp_enable(%u)\n", 0);
+//  printf("open_board: call hackrf_set_amp_enable(%u)\n", 0);
   result = hackrf_set_amp_enable(device, (uint8_t)0);
   if( result != HACKRF_SUCCESS ) {
     printf("open_board: hackrf_set_amp_enable() failed: %s (%d)\n", hackrf_error_name(result), result);
@@ -260,7 +262,15 @@ inline int open_board() {
   return(0);
 }
 
-inline void close_board() {
+void exit_board() {
+	if(device != NULL)
+	{
+		hackrf_exit();
+		printf("hackrf_exit() done\n");
+	}
+}
+
+inline int close_board() {
   int result;
 
 	if(device != NULL)
@@ -268,20 +278,25 @@ inline void close_board() {
     result = hackrf_stop_tx(device);
     if( result != HACKRF_SUCCESS ) {
       printf("close_board: hackrf_stop_tx() failed: %s (%d)\n", hackrf_error_name(result), result);
-    }else {
-      printf("close_board: hackrf_stop_tx() done\n");
+      return(-1);
     }
+//    else {
+//      printf("close_board: hackrf_stop_tx() done\n");
+//    }
 
 		result = hackrf_close(device);
 		if( result != HACKRF_SUCCESS )
 		{
 			printf("close_board: hackrf_close() failed: %s (%d)\n", hackrf_error_name(result), result);
-		}else {
-			printf("close_board: hackrf_close() done\n");
+			return(-1);
 		}
+//		else {
+//			printf("close_board: hackrf_close() done\n");
+//		}
 
-		hackrf_exit();
-		printf("hackrf_exit() done\n");
+    return(0);
+	} else {
+	  return(-1);
 	}
 }
 
