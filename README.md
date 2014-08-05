@@ -3,7 +3,7 @@ A BTLE (Bluetooth Low energy)/BT4.0 packet sender based on <a href="https://gith
 All link layer packet formats are supported. (Chapter 2&3, PartB, Volume 6, 
 <a href="https://www.google.fi/url?sa=t&rct=j&q=&esrc=s&source=web&cd=1&cad=rja&uact=8&ved=0CCAQFjAA&url=https%3A%2F%2Fwww.bluetooth.org%2Fdocman%2Fhandlers%2Fdownloaddoc.ashx%3Fdoc_id%3D229737&ei=ui3gU4GkC-up0AW4q4GwBw&usg=AFQjCNFY1IFeFAAWwimnoaWMsIRZQvPDSw&sig2=wTgMMxNPJ52NHclpsQ4XhQ&bvm=bv.72197243,d.d2k">Core_V4.0.pdf</a>   )
 
-It can be used to transmit arbitrary pre-defined BTLE signal/packet sequence, such as iBeacon, <a href="http://processors.wiki.ti.com/index.php/BLE_sniffer_guide">Connection establishment procedure</a> in TI's website, or any other purpose you want (Together with TI's packet sniffer, you will have full abilities). See <a href="http://youtu.be/Y8ttV5AEb-g">video demo 1</a> (outside China) or <a href="http://v.youku.com/v_show/id_XNzUxMDIzNzAw.html">video demo 2</a> (inside China)
+It can be used to transmit arbitrary pre-defined BTLE signal/packet sequence, such as raw bits, iBeacon, <a href="http://processors.wiki.ti.com/index.php/BLE_sniffer_guide">Connection establishment procedure</a> in TI's website, or any other purpose you want (Together with TI's packet sniffer, you will have full abilities). See <a href="http://youtu.be/Y8ttV5AEb-g">video demo 1</a> (outside China) or <a href="http://v.youku.com/v_show/id_XNzUxMDIzNzAw.html">video demo 2</a> (inside China)
 
 Build:
 
@@ -36,22 +36,37 @@ Above command sends one packet and repeats it 100 times with 100ms time space (I
 
     37-iBeacon-AdvA-010203040506-UUID-B9407F30F5F8466EAFF925556B57FE6D-Major-0008-Minor-0009-TxPower-C5-Space-100
 
-    37 -- channel 37 (one of BTLE Advertising channel 37 38 39)
-    iBeacon -- packet format is for iBeacon. (Actually is ADV_IND format in Core_V4.0.pdf)
-    AdvA -- Advertising address (MAC address) which is specified as 010203040506 (See Core_V4.0.pdf)
-    UUID -- here we specify it as Estimote’s fixed UUID: B9407F30F5F8466EAFF925556B57FE6D
-    Major -- major number of iBeacon format. (Here it is 0008)
-    Minor -- minor number of iBeacon format. (Here it is 0009)
-    Txpower -- transmit power parameter of iBeacon format (Here it is C5)
-    Space -- How many millisecond whould be waited after this packet sent. (Here it is 100ms)
+37 -- channel 37 (one of BTLE Advertising channel 37 38 39)
+
+iBeacon -- packet format is for iBeacon. (Actually is ADV_IND format in Core_V4.0.pdf)
+
+AdvA -- Advertising address (MAC address) which is specified as 010203040506 (See Core_V4.0.pdf)
+
+UUID -- here we specify it as Estimote’s fixed UUID: B9407F30F5F8466EAFF925556B57FE6D
+
+Major -- major number of iBeacon format. (Here it is 0008)
+
+Minor -- minor number of iBeacon format. (Here it is 0009)
+
+Txpower -- transmit power parameter of iBeacon format (Here it is C5)
+
+Space -- How many millisecond whould be waited after this packet sent. (Here it is 100ms)
 
 Connection establishment example: (See "Connection establishment" part of http://processors.wiki.ti.com/index.php/BLE_sniffer_guide )
 
-    ./btle_tx 37-ADV_IND-TxAdd-0-RxAdd-0-AdvA-90D7EBB19299-AdvData-0201050702031802180418-Space-100  37-CONNECT_REQ-TxAdd-0-RxAdd-0-InitA-001830EA965F-AdvA-90D7EBB19299-AA-60850A1B-CRCInit-A77B22-WinSize-02-WinOffset-000F-Interval-0050-Latency-0000-Timeout-07D0-ChM-1FFFFFFFFF-Hop-9-SCA-5-Space-100 9-LL_DATA-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-DATA-X-CRCInit-A77B22-Space-100
+    ./btle_tx 37-ADV_IND-TxAdd-0-RxAdd-0-AdvA-90D7EBB19299-AdvData-0201050702031802180418-Space-1000  37-CONNECT_REQ-TxAdd-0-RxAdd-0-InitA-001830EA965F-AdvA-90D7EBB19299-AA-60850A1B-CRCInit-A77B22-WinSize-02-WinOffset-000F-Interval-0050-Latency-0000-Timeout-07D0-ChM-1FFFFFFFFF-Hop-9-SCA-5-Space-1000 9-LL_DATA-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-DATA-X-CRCInit-A77B22-Space-1000
     
-    Above simualtes a Connection establishment procedure between device 1 and device 2.
-    the 1st packet -- device 1 sends ADV_IND packet in channel 37.
-    the 2nd packet -- After device 2 which is in scanning state receives the ADV packet, device 2 sends CONNECT_REQ packet to request connection setup with device 1. In this request packet, there are device 2 MAC address (InitA), target MAC address (device 1 MAC address AdvA), Access address (AA), CRC initilization
+Above simualtes a Connection establishment procedure between device 1 and device 2.
+
+The 1st packet -- device 1 sends ADV_IND packet in channel 37.
+
+The 2nd packet -- After device 2 which is in scanning state receives the ADV packet, device 2 sends CONNECT_REQ packet to request connection setup with device 1. In this request packet, there are device 2 MAC address (InitA), target MAC address (device 1 MAC address AdvA), Access address (AA) which will be used by device 1 in following packet sending in data channel, CRC initilization value for following device 1 sending packet, Hopping channel information (ChM and Hop) for data channel, other informations.
+
+The 3rd packet -- device 1 send an empty Link layer data PDU in channel 9 according to those connection request information received from device 2. (One "X" after field "DATA" means there is no data for this field )
+
+Time space between packets are 1s (1000ms). Tune TI's packet sniffer to channel 37, above establishment procedure will be captured.
+
+
 -------------------------------------original README of hackrf-------------------------------------
 
 This repository contains hardware designs and software for HackRF, a project to
