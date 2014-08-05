@@ -1,4 +1,4 @@
-This is forked from https://github.com/mossmann/hackrf for BTLE tools purpose.
+A BTLE (Bluetooth Low energy)/BT4.0 packet sender based on hackrf_transfer ( https://github.com/mossmann/hackrf ) 
 
 
 -------------------------------------original README of hackrf-------------------------------------
