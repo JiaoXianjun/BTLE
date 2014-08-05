@@ -151,8 +151,20 @@ void sigint_callback_handler(int signum)
 #endif
 
 static void usage() {
+  printf("BTLE/BT4.0 Radio packet sender. Jiao Xianjun. putaoshu@gmail.com\n\n");
 	printf("Usage:\n");
-	printf("\t-.\n");
+	printf("./btle_tx packet1 packet2 ... packetX ...  rN\n");
+	printf("or\n");
+	printf("./btle_tx packets.txt\n");
+	printf("(packets.txt contains parameters: packet1 ... packetX rN\n");
+  printf("\nA packet sequence is composed by packet1 packet2 ... packetX\n");
+  printf("rN means that the sequence will be repeated for N times\n");
+  printf("packetX is packet descriptor string. Its format:\n\n");
+  printf("channel_number-packet_type-field-value-field-value-...-Space-value\n\n");
+  printf("packet_type is RAW/iBeacon/ADV_IND/CONNECT_REQ/LL_CONNECTION_UPDATE_REQ/etc.\n");
+  printf("field-value pair is packet_type specific parameters.\n");
+  printf("Space-N means N millisecond will be waited after the packet sent.\n");
+  printf("\nSee README for detailed information.\n");
 }
 
 int init_board() {
