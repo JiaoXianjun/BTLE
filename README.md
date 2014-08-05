@@ -5,6 +5,15 @@ All link layer packet formats are supported. (Chapter 2&3, PartB, Volume 6,
 
 It can be used to transmit arbitrary BTLE signal/packet, such as iBeacon, <a href="http://processors.wiki.ti.com/index.php/BLE_sniffer_guide">Connection establishment procedure</a> in TI's website, or any other purpose you want. See <a href="http://youtu.be/Y8ttV5AEb-g">video demo 1</a> (outside China) or <a href="http://v.youku.com/v_show/id_XNzUxMDIzNzAw.html">video demo 2</a> (inside China)
 
+build:
+
+cd host
+mkdir build
+cd build
+cmake ../
+make
+sudo make install  (or not install, just use btle_tx in hackrf-tools/src)
+
 usage:
 
 way 1:  btle_tx packet1 packet2 packet3 ... packetM rN
