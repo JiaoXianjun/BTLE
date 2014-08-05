@@ -5,7 +5,7 @@ All link layer packet formats are supported. (Chapter 2&3, PartB, Volume 6,
 
 It can be used to transmit arbitrary pre-defined BTLE signal/packet sequence, such as raw bits, iBeacon, <a href="http://processors.wiki.ti.com/index.php/BLE_sniffer_guide">Connection establishment procedure</a> in TI's website, or any other purpose you want (Together with TI's packet sniffer, you will have full abilities). See <a href="http://youtu.be/Y8ttV5AEb-g">video demo 1</a> (outside China) or <a href="http://v.youku.com/v_show/id_XNzUxMDIzNzAw.html">video demo 2</a> (inside China)
 
-Build:
+----Build:
 
     cd host
     mkdir build
@@ -14,11 +14,11 @@ Build:
     make
     sudo make install  (or not install, just use btle_tx in hackrf-tools/src)
 
-Usage method 1:
+----Usage method 1:
 
     btle_tx packet1 packet2 ... packetX ...  rN
 
-Usage method 2:
+----Usage method 2:
 
     btle_tx packets.txt
 
@@ -28,7 +28,13 @@ In method 2, just thoe command line parameters (packet1 ... rN) in method 1 are 
 
 "rN" means the sequence will be repeated for N times. If it is not specified, the sequence will only be sent once.
 
-iBeacon example: (iBeacon principle: http://www.warski.org/blog/2014/01/how-ibeacons-work/ )
+----Format of packet descriptor "packetX"
+    
+    channel_number-packet_type-field-value-field-value-...-Space-value
+
+Each string start with BTLE channel number (0~39), the followed by packet_type (RAW/iBeacon/ADV_IND/ADV_DIRECT_IND/etc. See all format examples at the end), then followed by field-value pair which is packet_type specific, at last (optional) there is Space-value pair where the value specify How many millisecond whould be waited after this packet sent.
+
+----iBeacon example: (iBeacon principle: http://www.warski.org/blog/2014/01/how-ibeacons-work/ )
 
     ./btle_tx 37-iBeacon-AdvA-010203040506-UUID-B9407F30F5F8466EAFF925556B57FE6D-Major-0008-Minor-0009-TxPower-C5-Space-100 r100
 
@@ -52,7 +58,7 @@ Txpower -- transmit power parameter of iBeacon format (Here it is C5)
 
 Space -- How many millisecond whould be waited after this packet sent. (Here it is 100ms)
 
-Connection establishment example: (See "Connection establishment" part of http://processors.wiki.ti.com/index.php/BLE_sniffer_guide )
+----Connection establishment example: (See "Connection establishment" part of http://processors.wiki.ti.com/index.php/BLE_sniffer_guide )
 
     ./btle_tx 37-ADV_IND-TxAdd-0-RxAdd-0-AdvA-90D7EBB19299-AdvData-0201050702031802180418-Space-1000  37-CONNECT_REQ-TxAdd-0-RxAdd-0-InitA-001830EA965F-AdvA-90D7EBB19299-AA-60850A1B-CRCInit-A77B22-WinSize-02-WinOffset-000F-Interval-0050-Latency-0000-Timeout-07D0-ChM-1FFFFFFFFF-Hop-9-SCA-5-Space-1000 9-LL_DATA-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-DATA-X-CRCInit-A77B22-Space-1000
     
@@ -65,6 +71,42 @@ The 2nd packet -- After device 2 which is in scanning state receives the ADV pac
 The 3rd packet -- device 1 send an empty Link layer data PDU in channel 9 according to those connection request information received from device 2. (One "X" after field "DATA" means there is no data for this field )
 
 Time space between packets are 1s (1000ms). Tune TI's packet sniffer to channel 37, above establishment procedure will be captured.
+
+----Packet descriptor examples for all formats:
+
+RAW packets: (All bits are sent to GFSK modulator directly)
+
+    13-RAW-AAD6BE898E5F134B5D86F2999CC3D7DF5EDF15DEE39AA2E5D0728EB68B0E449B07C547B80EAA8DD257A0E5EACB0B
+
+ADVERTISING CHANNEL packets:
+
+    37-IBEACON-AdvA-010203040506-UUID-B9407F30F5F8466EAFF925556B57FE6D-Major-0008-Minor-0009-TxPower-C5
+    37-ADV_IND-TxAdd-1-RxAdd-0-AdvA-010203040506-AdvData-00112233445566778899AABBCCDDEEFF
+    37-ADV_DIRECT_IND-TxAdd-1-RxAdd-0-AdvA-010203040506-InitA-0708090A0B0C
+    37-ADV_NONCONN_IND-TxAdd-1-RxAdd-0-AdvA-010203040506-AdvData-00112233445566778899AABBCCDDEEFF
+    37-ADV_SCAN_IND-TxAdd-1-RxAdd-0-AdvA-010203040506-AdvData-00112233445566778899AABBCCDDEEFF
+    37-SCAN_REQ-TxAdd-1-RxAdd-0-ScanA-010203040506-AdvA-0708090A0B0C
+    37-SCAN_RSP-TxAdd-1-RxAdd-0-AdvA-010203040506-ScanRspData-00112233445566778899AABBCCDDEEFF
+    37-CONNECT_REQ-TxAdd-1-RxAdd-0-InitA-010203040506-AdvA-0708090A0B0C-AA-01020304-CRCInit-050607-WinSize-08-WinOffset-090A-Interval-0B0C-Latency-0D0E-Timeout-0F00-ChM-0102030405-Hop-3-SCA-4
+
+DATA CHANNEL packets:
+
+    9-LL_DATA-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-DATA-X-CRCInit-A77B22
+    9-LL_CONNECTION_UPDATE_REQ-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-WinSize-02-WinOffset-000F-Interval-0050-Latency-0000-Timeout-07D0-Instant-0000-CRCInit-A77B22
+    9-LL_CHANNEL_MAP_REQ-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-ChM-1FFFFFFFFF-Instant-0001-CRCInit-A77B22
+    9-LL_TERMINATE_IND-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-ErrorCode-00-CRCInit-A77B22
+    9-LL_ENC_REQ-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-Rand-0102030405060708-EDIV-090A-SKDm-0102030405060708-IVm-090A0B0C-CRCInit-A77B22
+    9-LL_ENC_RSP-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-SKDs-0102030405060708-IVs-01020304-CRCInit-A77B22
+    9-LL_START_ENC_REQ-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-CRCInit-A77B22
+    9-LL_START_ENC_RSP-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-CRCInit-A77B22
+    9-LL_UNKNOWN_RSP-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-UnknownType-01-CRCInit-A77B22
+    9-LL_FEATURE_REQ-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-FeatureSet-0102030405060708-CRCInit-A77B22
+    9-LL_FEATURE_RSP-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-FeatureSet-0102030405060708-CRCInit-A77B22
+    9-LL_PAUSE_ENC_REQ-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-CRCInit-A77B22
+    9-LL_PAUSE_ENC_RSP-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-CRCInit-A77B22
+    9-LL_VERSION_IND-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-VersNr-01-CompId-0203-SubVersNr-0405-CRCInit-A77B22
+    9-LL_REJECT_IND-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-ErrorCode-00-CRCInit-A77B22
+    
 
 
 -------------------------------------original README of hackrf-------------------------------------
