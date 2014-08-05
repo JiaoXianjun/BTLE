@@ -7,18 +7,19 @@ It can be used to transmit arbitrary BTLE signal/packet, such as iBeacon, <a hre
 
 build:
 
-cd host
-mkdir build
-cd build
-cmake ../
-make
-sudo make install  (or not install, just use btle_tx in hackrf-tools/src)
+    cd host
+    mkdir build
+    cd build
+    cmake ../
+    make
+    sudo make install  (or not install, just use btle_tx in hackrf-tools/src)
 
-usage:
+usage method 1:
 
-way 1:  btle_tx packet1 packet2 packet3 ... packetM rN
+    btle_tx packet1 packet2 packet3 ... packetM rN
 
-way 2:  btle_tx packets.txt
+usage method 2:
+    btle_tx packets.txt
 
 
 
