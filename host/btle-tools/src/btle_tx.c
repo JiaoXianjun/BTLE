@@ -4,7 +4,7 @@
  * Copyright 2012 Jared Boone <jared@sharebrained.com>
  * Copyright 2013-2014 Benjamin Vernoux <titanmkd@gmail.com>
  *
- * This file is part of HackRF.
+ * This file is part of HackRF and bladeRF.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,7 +22,13 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include "common.h"
+
+#ifdef USE_BLADERF
+#include <libbladeRF.h>
+#else
 #include <hackrf.h>
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -110,7 +116,12 @@ volatile bool do_exit = false;
 volatile int stop_tx = 1;
 volatile char tx_buf[MAX_NUM_PHY_SAMPLE*2];
 volatile int tx_len;
+
+#ifdef USE_BLADERF
+#else
 #define NUM_PRE_SEND_DATA (1024)
+static hackrf_device* device = NULL;
+
 int tx_callback(hackrf_transfer* transfer) {
   if (~stop_tx) {
     if ( (tx_len+NUM_PRE_SEND_DATA) <= transfer->valid_length ) {
@@ -128,8 +139,7 @@ int tx_callback(hackrf_transfer* transfer) {
   }
   return(0);
 }
-
-static hackrf_device* device = NULL;
+#endif
 
 #ifdef _MSC_VER
 BOOL WINAPI
@@ -167,6 +177,37 @@ static void usage() {
   printf("\nSee README for detailed information.\n");
 }
 
+inline void set_freq_by_channel_number(int channel_number) {
+
+  if ( channel_number == 37 ) {
+    freq_hz = 2402000000ull;
+  } else if (channel_number == 38) {
+    freq_hz = 2426000000ull;
+  } else if (channel_number == 39) {
+    freq_hz = 2480000000ull;
+  } else if (channel_number >=0 && channel_number <= 10 ) {
+    freq_hz = 2404000000ull + channel_number*2000000ull;
+  } else if (channel_number >=11 && channel_number <= 36 ) {
+    freq_hz = 2428000000ull + (channel_number-11)*2000000ull;
+  }
+}
+
+#ifdef USE_BLADERF
+int init_board() {
+}
+
+inline int open_board() {
+}
+
+void exit_board() {
+}
+
+inline int close_board() {
+}
+
+inline int tx_one_buf(char *buf, int length, int channel_number) {
+}
+#else
 int init_board() {
 	int result = hackrf_init();
 	if( result != HACKRF_SUCCESS ) {
@@ -237,21 +278,6 @@ inline int close_board() {
 	} else {
 	  return(-1);
 	}
-}
-
-inline void set_freq_by_channel_number(int channel_number) {
-
-  if ( channel_number == 37 ) {
-    freq_hz = 2402000000ull;
-  } else if (channel_number == 38) {
-    freq_hz = 2426000000ull;
-  } else if (channel_number == 39) {
-    freq_hz = 2480000000ull;
-  } else if (channel_number >=0 && channel_number <= 10 ) {
-    freq_hz = 2404000000ull + channel_number*2000000ull;
-  } else if (channel_number >=11 && channel_number <= 36 ) {
-    freq_hz = 2428000000ull + (channel_number-11)*2000000ull;
-  }
 }
 
 inline int tx_one_buf(char *buf, int length, int channel_number) {
@@ -332,6 +358,7 @@ inline int tx_one_buf(char *buf, int length, int channel_number) {
 
   return(0);
 }
+#endif // USE_BLADERF
 
 typedef enum
 {

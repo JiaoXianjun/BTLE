@@ -38,12 +38,23 @@ add_definitions(-Wall)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu90")
 endif()
 
-if(NOT libhackrf_SOURCE_DIR)
-find_package(LIBHACKRF REQUIRED)
-include_directories(${LIBHACKRF_INCLUDE_DIR})
-else()
-include_directories(${libhackrf_SOURCE_DIR}/src)
-endif()
+# Find needed packages.
+IF (USE_BLADERF MATCHES 1)
+  MESSAGE(STATUS "Use BLADERF")
+  find_package(LIBBLADERF REQUIRED)
+  include_directories(${LIBBLADERF_INCLUDE_DIR})
+  set(USE_BLADERF "USE_BLADERF")
+ELSE (USE_BLADERF MATCHES 1)
+  MESSAGE(STATUS "Use HACKRF")
+  find_package(LIBHACKRF REQUIRED)
+  include_directories(${LIBHACKRF_INCLUDE_DIR})
+  set(USE_BLADERF "USE_HACKRF")
+ENDIF (USE_BLADERF MATCHES 1)
+
+CONFIGURE_FILE (
+  "${PROJECT_SOURCE_DIR}/include/common.h.in"
+  "${PROJECT_SOURCE_DIR}/src/common.h"
+)
 
 add_subdirectory(src)
 
