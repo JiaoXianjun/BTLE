@@ -1,7 +1,7 @@
 # Copyright 2012 Jared Boone
 # Copyright 2013 Benjamin Vernoux
 #
-# This file is part of HackRF.
+# This file is part of HackRF and bladeRF
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -43,12 +43,12 @@ IF (USE_BLADERF MATCHES 1)
   MESSAGE(STATUS "Use BLADERF")
   find_package(LIBBLADERF REQUIRED)
   include_directories(${LIBBLADERF_INCLUDE_DIR})
-  set(USE_BLADERF "USE_BLADERF")
+  set(USE_RFBOARD "USE_BLADERF")
 ELSE (USE_BLADERF MATCHES 1)
   MESSAGE(STATUS "Use HACKRF")
   find_package(LIBHACKRF REQUIRED)
   include_directories(${LIBHACKRF_INCLUDE_DIR})
-  set(USE_BLADERF "USE_HACKRF")
+  set(USE_RFBOARD "USE_HACKRF")
 ENDIF (USE_BLADERF MATCHES 1)
 
 CONFIGURE_FILE (

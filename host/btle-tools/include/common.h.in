@@ -1,7 +1,7 @@
 #ifndef HAVE_COMMON_H
 #define HAVE_COMMON_H
 
-#define @USE_BLADERF@
+#define @USE_RFBOARD@
 
 #endif
 

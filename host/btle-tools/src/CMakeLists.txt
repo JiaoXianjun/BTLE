@@ -1,7 +1,7 @@
 # Copyright 2012 Jared Boone
 # Copyright 2013 Benjamin Vernoux
 #
-# This file is part of HackRF.
+# This file is part of HackRF and BladeRF.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -32,12 +32,13 @@ endif()
 add_executable(btle_tx btle_tx.c)
 install(TARGETS btle_tx RUNTIME DESTINATION ${INSTALL_DEFAULT_BINDIR})
 
-if(NOT libhackrf_SOURCE_DIR)
+IF (USE_BLADERF MATCHES 1)
+include_directories(${LIBBLADERF_INCLUDE_DIR})
+LIST(APPEND TOOLS_LINK_LIBS ${LIBBLADERF_LIBRARIES})
+ELSE (USE_BLADERF MATCHES 1)
 include_directories(${LIBHACKRF_INCLUDE_DIR})
 LIST(APPEND TOOLS_LINK_LIBS ${LIBHACKRF_LIBRARIES})
-else()
-LIST(APPEND TOOLS_LINK_LIBS hackrf)
-endif()
+ENDIF (USE_BLADERF MATCHES 1)
 
 if(MSVC)
 LIST(APPEND TOOLS_LINK_LIBS libgetopt_static)
