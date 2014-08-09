@@ -1,9 +1,9 @@
 #top dir cmake project for libhackrf + tools
 
 cmake_minimum_required(VERSION 2.8)
-project (hackrf_all)
+project (btle_all)
 
-add_subdirectory(hackrf-tools)
+add_subdirectory(btle-tools)
 
 ########################################################################
 # Create uninstall target

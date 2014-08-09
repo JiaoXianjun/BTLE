@@ -22,10 +22,10 @@
 # Based heavily upon the libftdi cmake setup.
 
 cmake_minimum_required(VERSION 2.8)
-project(hackrf-tools C)
+project(btle-tools C)
 set(MAJOR_VERSION 0)
-set(MINOR_VERSION 3)
-set(PACKAGE hackrf-tools)
+set(MINOR_VERSION 5)
+set(PACKAGE btle-tools)
 set(VERSION_STRING ${MAJOR_VERSION}.${MINOR_VERSION})
 set(VERSION ${VERSION_STRING})
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/../cmake/modules)
@@ -51,7 +51,7 @@ add_subdirectory(src)
 # Create uninstall target
 ########################################################################
 
-if(NOT hackrf_all_SOURCE_DIR)
+if(NOT btle_all_SOURCE_DIR)
 configure_file(
     ${PROJECT_SOURCE_DIR}/../cmake/cmake_uninstall.cmake.in
     ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake
