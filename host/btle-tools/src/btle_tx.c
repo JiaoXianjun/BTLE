@@ -2990,7 +2990,7 @@ int main(int argc, char** argv) {
   } else if ( (argc-1-1) > MAX_NUM_PACKET ){
     printf("Too many packets input! Maximum allowed is %d\n", MAX_NUM_PACKET);
   }
-  else if (argc == 2 && ( strstr(argv[1], ".txt")!=NULL && strstr(argv[1], ".TXT")!=NULL) ) {  // from file
+  else if (argc == 2 && ( strstr(argv[1], ".txt")!=NULL || strstr(argv[1], ".TXT")!=NULL) ) {  // from file
     char **items = (char **)malloc((MAX_NUM_PACKET+2) * sizeof(char *));
     for (i=0; i<MAX_NUM_PACKET+2; i++)  items[i] = (char *)malloc( MAX_NUM_CHAR_CMD * sizeof(char));
 
