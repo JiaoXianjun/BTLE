@@ -99,29 +99,48 @@ TimevalDiff(const struct timeval *a, const struct timeval *b)
    return (a->tv_sec - b->tv_sec) + 1e-6f * (a->tv_usec - b->tv_usec);
 }
 
+#ifdef USE_BLADERF
+#define SAMPLE_PER_SYMBOL 6
+#else
+#define SAMPLE_PER_SYMBOL 8
+#endif // USE_BLADERF
+
 #define AMPLITUDE (110.0)
 #define MOD_IDX (0.55)
-#define SAMPLE_PER_SYMBOL (10)
-#define LEN_GAUSS_FILTER (3)
+#define LEN_GAUSS_FILTER (11) // pre 8, post 3
 #define MAX_NUM_INFO_BYTE (43)
 #define MAX_NUM_PHY_BYTE (47)
 #define MAX_NUM_PHY_SAMPLE ((MAX_NUM_PHY_BYTE*8*SAMPLE_PER_SYMBOL)+(LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL))
 
-float gauss_coef[LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL] = {8.05068379156060e-05,	0.000480405201766898,	0.00232683283115742,	0.00917699278400763,	0.0295990801678164,	0.0785284246648025,	0.172747370208161,	0.318566802305277,	0.499919493162062,	0.680941868522779,	0.824924599006030,	0.912294476105987,	0.940801824540822,	0.912294476105987,	0.824924599006030,	0.680941868522779,	0.499919493162062,	0.318566802305277,	0.172747370208161,	0.0785284246648025,	0.0295990801678164,	0.00917699278400763,	0.00232683283115742,	0.000480405201766898};
+#if SAMPLE_PER_SYMBOL==10
+float gauss_coef[LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5.551115e-17, 1.165734e-15, 2.231548e-14, 3.762546e-13, 5.522305e-12, 7.048379e-11, 7.826021e-10, 7.561773e-09, 6.360787e-08, 4.660229e-07, 2.975472e-06, 1.656713e-05, 8.050684e-05, 3.417749e-04, 1.269100e-03, 4.128134e-03, 1.178514e-02, 2.959908e-02, 6.560143e-02, 1.288102e-01, 2.252153e-01, 3.529425e-01, 4.999195e-01, 6.466991e-01, 7.735126e-01, 8.670612e-01, 9.226134e-01, 9.408018e-01, 9.226134e-01, 8.670612e-01, 7.735126e-01, 6.466991e-01, 4.999195e-01, 3.529425e-01, 2.252153e-01, 1.288102e-01, 6.560143e-02, 2.959908e-02, 1.178514e-02, 4.128134e-03, 1.269100e-03, 3.417749e-04, 8.050684e-05, 1.656713e-05, 2.975472e-06, 4.660229e-07, 6.360787e-08, 7.561773e-09, 7.826021e-10, 7.048379e-11, 5.522305e-12, 3.762546e-13, 2.231548e-14, 1.165734e-15, 5.551115e-17, 0, 0};
+#endif
+#if SAMPLE_PER_SYMBOL==8
+float gauss_coef[LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5.551115e-16, 2.231548e-14, 7.461809e-13, 2.007605e-11, 4.343541e-10, 7.561773e-09, 1.060108e-07, 1.197935e-06, 1.092397e-05, 8.050684e-05, 4.804052e-04, 2.326833e-03, 9.176993e-03, 2.959908e-02, 7.852842e-02, 1.727474e-01, 3.185668e-01, 4.999195e-01, 6.809419e-01, 8.249246e-01, 9.122945e-01, 9.408018e-01, 9.122945e-01, 8.249246e-01, 6.809419e-01, 4.999195e-01, 3.185668e-01, 1.727474e-01, 7.852842e-02, 2.959908e-02, 9.176993e-03, 2.326833e-03, 4.804052e-04, 8.050684e-05, 1.092397e-05, 1.197935e-06, 1.060108e-07, 7.561773e-09, 4.343541e-10, 2.007605e-11, 7.461809e-13, 2.231548e-14, 5.551115e-16, 0, 0};
+#endif
+#if SAMPLE_PER_SYMBOL==6
+float gauss_coef[LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.665335e-16, 2.231548e-14, 2.290834e-12, 1.596947e-10, 7.561773e-09, 2.436464e-07, 5.354390e-06, 8.050684e-05, 8.317661e-04, 5.941078e-03, 2.959908e-02, 1.042296e-01, 2.646999e-01, 4.999195e-01, 7.344630e-01, 8.898291e-01, 9.408018e-01, 8.898291e-01, 7.344630e-01, 4.999195e-01, 2.646999e-01, 1.042296e-01, 2.959908e-02, 5.941078e-03, 8.317661e-04, 8.050684e-05, 5.354390e-06, 2.436464e-07, 7.561773e-09, 1.596947e-10, 2.290834e-12, 2.231548e-14, 1.665335e-16, 0};
+#endif
+#if SAMPLE_PER_SYMBOL==4
+float gauss_coef[LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2.231548e-14, 2.007605e-11, 7.561773e-09, 1.197935e-06, 8.050684e-05, 2.326833e-03, 2.959908e-02, 1.727474e-01, 4.999195e-01, 8.249246e-01, 9.408018e-01, 8.249246e-01, 4.999195e-01, 1.727474e-01, 2.959908e-02, 2.326833e-03, 8.050684e-05, 1.197935e-06, 7.561773e-09, 2.007605e-11, 2.231548e-14, 0};
+#endif
 
 uint64_t freq_hz;
 
 volatile bool do_exit = false;
 
 volatile int stop_tx = 1;
-volatile char tx_buf[MAX_NUM_PHY_SAMPLE*2];
 volatile int tx_len;
 
+#define NUM_PRE_SEND_DATA (1024)
+
 #ifdef USE_BLADERF
+#define NUM_BLADERF_BUF_SAMPLE 4096
+volatile int16_t tx_buf[NUM_BLADERF_BUF_SAMPLE*2];
 struct bladerf_devinfo *devices = NULL;
 struct bladerf *dev;
 #else
-#define NUM_PRE_SEND_DATA (1024)
+volatile char tx_buf[MAX_NUM_PHY_SAMPLE*2];
 static hackrf_device* device = NULL;
 
 int tx_callback(hackrf_transfer* transfer) {
@@ -250,25 +269,46 @@ int init_board() {
   unsigned int actual_sample_rate;
   status = bladerf_set_sample_rate(dev, BLADERF_MODULE_TX, SAMPLE_PER_SYMBOL*1000000ul, &actual_sample_rate);
 
-  if (status != 0 || actual_sample_rate != (SAMPLE_PER_SYMBOL*1000000ul)) {
-      printf("Failed to set samplerate: %s\n",
+//  if (status != 0 || actual_sample_rate != (SAMPLE_PER_SYMBOL*1000000ul)) {
+//      printf("init_board: Failed to set samplerate: %s. %u vs %lu\n",
+//              bladerf_strerror(status), actual_sample_rate, SAMPLE_PER_SYMBOL*1000000ul);
+//      status = -1;
+//      goto initialize_device_out_point;
+//  }
+
+  if (status != 0) {
+      printf("init_board: Failed to set samplerate: %s\n",
               bladerf_strerror(status));
       goto initialize_device_out_point;
   }
 
-  status = bladerf_set_frequency(dev, BLADERF_MODULE_TX, 2480000000ul);
+  status = bladerf_set_frequency(dev, BLADERF_MODULE_TX, 2402000000ul);
 
   if (status != 0) {
-      printf("Failed to set frequency: %s\n",
+      printf("init_board: Failed to set frequency: %s\n",
               bladerf_strerror(status));
       goto initialize_device_out_point;
   }
 
   unsigned int actual_frequency;
   status = bladerf_get_frequency(dev, BLADERF_MODULE_TX, &actual_frequency);
+//  if (status != 0 || actual_frequency!=2480000000ul) {
+//      printf("init_board: Failed to read back frequency: %s. %u vs %lu\n",
+//              bladerf_strerror(status), actual_frequency, 2480000000ul);
+//      status = -1;
+//      goto initialize_device_out_point;
+//  }
+
   if (status != 0) {
-      printf("Failed to read back frequency: %s\n",
+      printf("init_board: Failed to read back frequency: %s\n",
               bladerf_strerror(status));
+      goto initialize_device_out_point;
+  }
+
+  status = bladerf_set_loopback(dev, BLADERF_LB_NONE);
+  if (status != 0) {
+      printf("init_board: Failed to set loopback mode BLADERF_LB_NONE: %s\n",
+                bladerf_strerror(status));
       goto initialize_device_out_point;
   }
 
@@ -290,23 +330,96 @@ initialize_device_out_point:
     signal(SIGABRT, &sigint_callback_handler);
   #endif
 
-  printf("set bladeRF to %ul MHz %u sps.\n", actual_frequency/1000000ul, actual_sample_rate);
+  printf("init_board: set bladeRF to %f MHz %u sps BLADERF_LB_NONE.\n", (float)actual_frequency/1000000.0f, actual_sample_rate);
   return(0);
 }
 
 inline int open_board() {
+  int status;
+
+  status = bladerf_set_frequency(dev, BLADERF_MODULE_TX, freq_hz);
+  if (status != 0) {
+    printf("open_board: Failed to set frequency: %s\n",
+            bladerf_strerror(status));
+    return(-1);
+  }
+
+  status = bladerf_sync_config(dev, BLADERF_MODULE_TX, BLADERF_FORMAT_SC16_Q11, 2, NUM_BLADERF_BUF_SAMPLE, 1, 3500);
+  if (status != 0) {
+     printf("open_board: Failed to configure sync interface: %s\n",
+             bladerf_strerror(status));
+     return(-1);
+  }
+
+  status = bladerf_enable_module(dev, BLADERF_MODULE_TX, true);
+  if (status != 0) {
+     printf("open_board: Failed to enable RX module: %s\n",
+             bladerf_strerror(status));
+     return(-1);
+  }
+
   return(0);
 }
 
 inline int close_board() {
+  // Disable RX module, shutting down our underlying TX stream
+  int status = bladerf_enable_module(dev, BLADERF_MODULE_TX, false);
+  if (status != 0) {
+    printf("close_board: Failed to disable RX module: %s\n",
+             bladerf_strerror(status));
+    return(-1);
+  }
+
   return(0);
 }
 
 void exit_board() {
   bladerf_close(dev);
+  dev = NULL;
 }
 
 inline int tx_one_buf(char *buf, int length, int channel_number) {
+  int status, i;
+
+  set_freq_by_channel_number(channel_number);
+
+  memset((void *)tx_buf, 0, NUM_BLADERF_BUF_SAMPLE*2*sizeof(tx_buf[0]));
+//  for (i=NUM_PRE_SEND_DATA; i<(NUM_PRE_SEND_DATA+length); i++) {
+//    tx_buf[i] = ( (int)( buf[i-NUM_PRE_SEND_DATA] ) )*16;
+//  }
+
+  for (i=(NUM_BLADERF_BUF_SAMPLE*2-length); i<(NUM_BLADERF_BUF_SAMPLE*2); i++) {
+    tx_buf[i] = ( (int)( buf[i-NUM_BLADERF_BUF_SAMPLE*2] ) )*16;
+  }
+
+  // open the board-----------------------------------------
+  if (open_board() == -1) {
+    printf("tx_one_buf: open_board() failed\n");
+    return(-1);
+  }
+
+  for (i=0; i<20; i++) {
+    // Transmit samples
+    status = bladerf_sync_tx(dev, (void *)tx_buf, NUM_BLADERF_BUF_SAMPLE, NULL, 3500);
+    if (status != 0) {
+      printf("tx_one_buf: Failed to TX samples 1: %s\n",
+               bladerf_strerror(status));
+      return(-1);
+    }
+  }
+
+  if (do_exit)
+  {
+    printf("\ntx_one_buf: Exiting...\n");
+    return(-1);
+  }
+
+  // close the board---------------------------------------
+  if (close_board() == -1) {
+    printf("tx_one_buf: close_board() failed\n");
+    return(-1);
+  }
+
   return(0);
 }
 
@@ -345,6 +458,12 @@ inline int open_board() {
   result = hackrf_set_freq(device, freq_hz);
   if( result != HACKRF_SUCCESS ) {
     printf("open_board: hackrf_set_freq() failed: %s (%d)\n", hackrf_error_name(result), result);
+    return(-1);
+  }
+
+  result = hackrf_set_sample_rate(device, SAMPLE_PER_SYMBOL*1000000ul);
+  if( result != HACKRF_SUCCESS ) {
+    printf("open_board: hackrf_set_sample_rate() failed: %s (%d)\n", hackrf_error_name(result), result);
     return(-1);
   }
 
@@ -416,7 +535,7 @@ inline int tx_one_buf(char *buf, int length, int channel_number) {
 
   if (do_exit)
   {
-    printf("\ntx_one_buf-1: Abnormal, exiting...\n");
+    printf("\ntx_one_buf: Exiting...\n");
     return(-1);
   }
 
@@ -447,7 +566,7 @@ inline int tx_one_buf(char *buf, int length, int channel_number) {
 
   if (do_exit)
   {
-    printf("\ntx_one_buf-1: Abnormal, exiting...\n");
+    printf("\ntx_one_buf: Exiting...\n");
     return(-1);
   }
 
@@ -3016,6 +3135,32 @@ int main(int argc, char** argv) {
   }
   printf("\n");
 
+//  FILE *fp1 = fopen("samples1.bin", "wb");
+//  if (fp1 != NULL) {
+//    for(i=0; i<1000; i++) {
+//      fwrite((void *)packets[0].phy_sample, sizeof(packets[0].phy_sample[0]), 2*packets[0].num_phy_sample, fp1);
+//    }
+//    fclose(fp1);
+//  } else {
+//    printf("fopen samples1.bin failed!\n");
+//  }
+//
+//  FILE *fp2 = fopen("samples.csv", "w");
+//  if (fp2 != NULL) {
+//    for(i=0; i<NUM_BLADERF_BUF_SAMPLE*2-packets[0].num_phy_sample; i++) {
+//      fprintf(fp2, "0, 0,\n");
+//    }
+//    j = 0;
+//    for(; i<NUM_BLADERF_BUF_SAMPLE*2-1; i++) {
+//      fprintf(fp2, "%d, %d,\n", 16*(int)packets[0].phy_sample[j], 16*(int)packets[0].phy_sample[j+1]);
+//      j = j + 2;
+//    }
+//    fprintf(fp2, "%d, %d\n", 16*(int)packets[0].phy_sample[j], 16*(int)packets[0].phy_sample[j+1]);
+//    fclose(fp2);
+//  } else {
+//    printf("fopen samples.csv failed!\n");
+//  }
+
   struct timeval time_now, time_old;
 
   if ( init_board() == -1 )
@@ -3039,6 +3184,16 @@ int main(int argc, char** argv) {
     }
   }
   printf("\n");
+
+//  FILE *fp = fopen("samples.bin", "wb");
+//  if (fp != NULL) {
+//    for(i=0; i<100; i++) {
+//      fwrite((void *)tx_buf, sizeof(tx_buf[0]), NUM_BLADERF_BUF_SAMPLE*2, fp);
+//    }
+//    fclose(fp);
+//  } else {
+//    printf("fopen samples.bin failed!\n");
+//  }
 
   exit_board();
 	printf("exit\n");
