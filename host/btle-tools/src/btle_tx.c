@@ -118,6 +118,8 @@ volatile char tx_buf[MAX_NUM_PHY_SAMPLE*2];
 volatile int tx_len;
 
 #ifdef USE_BLADERF
+struct bladerf_devinfo *devices = NULL;
+struct bladerf *dev;
 #else
 #define NUM_PRE_SEND_DATA (1024)
 static hackrf_device* device = NULL;
@@ -193,20 +195,121 @@ inline void set_freq_by_channel_number(int channel_number) {
 }
 
 #ifdef USE_BLADERF
+static inline const char *backend2str(bladerf_backend b)
+{
+    switch (b) {
+        case BLADERF_BACKEND_LIBUSB:
+            return "libusb";
+        case BLADERF_BACKEND_LINUX:
+            return "Linux kernel driver";
+        default:
+            return "Unknown";
+    }
+}
+
 int init_board() {
+  int n_devices = bladerf_get_device_list(&devices);
+
+  if (n_devices < 0) {
+    if (n_devices == BLADERF_ERR_NODEV) {
+        printf("init_board: No bladeRF devices found.\n");
+    } else {
+        printf("init_board: Failed to probe for bladeRF devices: %s\n", bladerf_strerror(n_devices));
+    }
+		usage();
+		return(-1);
+  }
+
+  printf("init_board: %d bladeRF devices found! The 1st one will be used:\n", n_devices);
+  printf("    Backend:        %s\n", backend2str(devices[0].backend));
+  printf("    Serial:         %s\n", devices[0].serial);
+  printf("    USB Bus:        %d\n", devices[0].usb_bus);
+  printf("    USB Address:    %d\n", devices[0].usb_addr);
+
+  int status = bladerf_open(&dev, NULL);
+  int fpga_loaded;
+
+  if (status != 0) {
+    printf("init_board: Failed to open bladeRF device: %s\n",
+            bladerf_strerror(status));
+    return(-1);
+  }
+
+  fpga_loaded = bladerf_is_fpga_configured(dev);
+  if (fpga_loaded < 0) {
+      printf("init_board: Failed to check FPGA state: %s\n",
+                bladerf_strerror(fpga_loaded));
+      status = -1;
+      goto initialize_device_out_point;
+  } else if (fpga_loaded == 0) {
+      printf("init_board: The device's FPGA is not loaded.\n");
+      status = -1;
+      goto initialize_device_out_point;
+  }
+
+  unsigned int actual_sample_rate;
+  status = bladerf_set_sample_rate(dev, BLADERF_MODULE_TX, SAMPLE_PER_SYMBOL*1000000ul, &actual_sample_rate);
+
+  if (status != 0 || actual_sample_rate != (SAMPLE_PER_SYMBOL*1000000ul)) {
+      printf("Failed to set samplerate: %s\n",
+              bladerf_strerror(status));
+      goto initialize_device_out_point;
+  }
+
+  status = bladerf_set_frequency(dev, BLADERF_MODULE_TX, 2480000000ul);
+
+  if (status != 0) {
+      printf("Failed to set frequency: %s\n",
+              bladerf_strerror(status));
+      goto initialize_device_out_point;
+  }
+
+  unsigned int actual_frequency;
+  status = bladerf_get_frequency(dev, BLADERF_MODULE_TX, &actual_frequency);
+  if (status != 0) {
+      printf("Failed to read back frequency: %s\n",
+              bladerf_strerror(status));
+      goto initialize_device_out_point;
+  }
+
+initialize_device_out_point:
+  if (status != 0) {
+      bladerf_close(dev);
+      dev = NULL;
+      return(-1);
+  }
+
+  #ifdef _MSC_VER
+    SetConsoleCtrlHandler( (PHANDLER_ROUTINE) sighandler, TRUE );
+  #else
+    signal(SIGINT, &sigint_callback_handler);
+    signal(SIGILL, &sigint_callback_handler);
+    signal(SIGFPE, &sigint_callback_handler);
+    signal(SIGSEGV, &sigint_callback_handler);
+    signal(SIGTERM, &sigint_callback_handler);
+    signal(SIGABRT, &sigint_callback_handler);
+  #endif
+
+  printf("set bladeRF to %ul MHz %u sps.\n", actual_frequency/1000000ul, actual_sample_rate);
+  return(0);
 }
 
 inline int open_board() {
-}
-
-void exit_board() {
+  return(0);
 }
 
 inline int close_board() {
+  return(0);
+}
+
+void exit_board() {
+  bladerf_close(dev);
 }
 
 inline int tx_one_buf(char *buf, int length, int channel_number) {
+  return(0);
 }
+
 #else
 int init_board() {
 	int result = hackrf_init();
@@ -2887,7 +2990,7 @@ int main(int argc, char** argv) {
   } else if ( (argc-1-1) > MAX_NUM_PACKET ){
     printf("Too many packets input! Maximum allowed is %d\n", MAX_NUM_PACKET);
   }
-  else if (argc == 2) {  // from file
+  else if (argc == 2 && ( strstr(argv[1], ".txt")!=NULL && strstr(argv[1], ".TXT")!=NULL) ) {  // from file
     char **items = (char **)malloc((MAX_NUM_PACKET+2) * sizeof(char *));
     for (i=0; i<MAX_NUM_PACKET+2; i++)  items[i] = (char *)malloc( MAX_NUM_CHAR_CMD * sizeof(char));
 

@@ -44,6 +44,7 @@ if(MSVC)
 LIST(APPEND TOOLS_LINK_LIBS libgetopt_static)
 endif()
 
-
 target_link_libraries(btle_tx ${TOOLS_LINK_LIBS} m)
-
+# MESSAGE(STATUS "1")
+# MESSAGE(STATUS ${LIBBLADERF_LIBRARIES})
+# MESSAGE(STATUS "2")
