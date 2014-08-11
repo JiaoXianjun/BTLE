@@ -1,12 +1,16 @@
+A BTLE (Bluetooth Low energy)/BT4.0 radio packet sender ( build based on <a href="https://github.com/mossmann/hackrf">hackrf_transfer</a> and <a href="https://github.com/Nuand/bladeRF">bladeRF</a> )  See project here: https://github.com/JiaoXianjun/   repo BTLE
+
+==========================================================================
+
+News:
+
 11 Aug. 2014: Fix packet loss bug. And, add <a href="https://github.com/Nuand/bladeRF">bladeRF</a> support:
 
     cmake ../ -DUSE_BLADERF=1  (without -DUSE_BLADERF=1 means HACKRF will be used by default)
     
 (Don't forget removing all files in build directory before above command!)
 
-A BTLE (Bluetooth Low energy)/BT4.0 radio packet sender ( build based on <a href="https://github.com/mossmann/hackrf">hackrf_transfer</a> and <a href="https://github.com/Nuand/bladeRF">bladeRF</a> )
-
-See project here: https://github.com/JiaoXianjun/   repo BTLE
+==========================================================================
 
 All link layer packet formats are supported. (Chapter 2&3, PartB, Volume 6, 
 <a href="https://www.google.fi/url?sa=t&rct=j&q=&esrc=s&source=web&cd=1&cad=rja&uact=8&ved=0CCAQFjAA&url=https%3A%2F%2Fwww.bluetooth.org%2Fdocman%2Fhandlers%2Fdownloaddoc.ashx%3Fdoc_id%3D229737&ei=ui3gU4GkC-up0AW4q4GwBw&usg=AFQjCNFY1IFeFAAWwimnoaWMsIRZQvPDSw&sig2=wTgMMxNPJ52NHclpsQ4XhQ&bvm=bv.72197243,d.d2k">Core_V4.0.pdf</a>   )
