@@ -100,13 +100,13 @@ TimevalDiff(const struct timeval *a, const struct timeval *b)
 }
 
 #ifdef USE_BLADERF
-#define SAMPLE_PER_SYMBOL 6
+#define SAMPLE_PER_SYMBOL 4
 #else
-#define SAMPLE_PER_SYMBOL 8
+#define SAMPLE_PER_SYMBOL 4
 #endif // USE_BLADERF
 
 #define AMPLITUDE (110.0)
-#define MOD_IDX (0.55)
+#define MOD_IDX (0.5)
 #define LEN_GAUSS_FILTER (11) // pre 8, post 3
 #define MAX_NUM_INFO_BYTE (43)
 #define MAX_NUM_PHY_BYTE (47)
@@ -245,9 +245,8 @@ int init_board() {
   printf("    USB Bus:        %d\n", devices[0].usb_bus);
   printf("    USB Address:    %d\n", devices[0].usb_addr);
 
-  int status = bladerf_open(&dev, NULL);
   int fpga_loaded;
-
+  int status = bladerf_open(&dev, NULL);
   if (status != 0) {
     printf("init_board: Failed to open bladeRF device: %s\n",
             bladerf_strerror(status));
@@ -268,14 +267,6 @@ int init_board() {
 
   unsigned int actual_sample_rate;
   status = bladerf_set_sample_rate(dev, BLADERF_MODULE_TX, SAMPLE_PER_SYMBOL*1000000ul, &actual_sample_rate);
-
-//  if (status != 0 || actual_sample_rate != (SAMPLE_PER_SYMBOL*1000000ul)) {
-//      printf("init_board: Failed to set samplerate: %s. %u vs %lu\n",
-//              bladerf_strerror(status), actual_sample_rate, SAMPLE_PER_SYMBOL*1000000ul);
-//      status = -1;
-//      goto initialize_device_out_point;
-//  }
-
   if (status != 0) {
       printf("init_board: Failed to set samplerate: %s\n",
               bladerf_strerror(status));
@@ -283,7 +274,6 @@ int init_board() {
   }
 
   status = bladerf_set_frequency(dev, BLADERF_MODULE_TX, 2402000000ul);
-
   if (status != 0) {
       printf("init_board: Failed to set frequency: %s\n",
               bladerf_strerror(status));
@@ -292,23 +282,9 @@ int init_board() {
 
   unsigned int actual_frequency;
   status = bladerf_get_frequency(dev, BLADERF_MODULE_TX, &actual_frequency);
-//  if (status != 0 || actual_frequency!=2480000000ul) {
-//      printf("init_board: Failed to read back frequency: %s. %u vs %lu\n",
-//              bladerf_strerror(status), actual_frequency, 2480000000ul);
-//      status = -1;
-//      goto initialize_device_out_point;
-//  }
-
   if (status != 0) {
       printf("init_board: Failed to read back frequency: %s\n",
               bladerf_strerror(status));
-      goto initialize_device_out_point;
-  }
-
-  status = bladerf_set_loopback(dev, BLADERF_LB_NONE);
-  if (status != 0) {
-      printf("init_board: Failed to set loopback mode BLADERF_LB_NONE: %s\n",
-                bladerf_strerror(status));
       goto initialize_device_out_point;
   }
 
@@ -340,6 +316,13 @@ inline int open_board() {
   status = bladerf_set_frequency(dev, BLADERF_MODULE_TX, freq_hz);
   if (status != 0) {
     printf("open_board: Failed to set frequency: %s\n",
+            bladerf_strerror(status));
+    return(-1);
+  }
+
+  status = bladerf_set_tx_gain(dev, 60);
+  if (status != 0) {
+    printf("open_board: Failed to set gain: %s\n",
             bladerf_strerror(status));
     return(-1);
   }
@@ -383,13 +366,10 @@ inline int tx_one_buf(char *buf, int length, int channel_number) {
 
   set_freq_by_channel_number(channel_number);
 
-  memset((void *)tx_buf, 0, NUM_BLADERF_BUF_SAMPLE*2*sizeof(tx_buf[0]));
-//  for (i=NUM_PRE_SEND_DATA; i<(NUM_PRE_SEND_DATA+length); i++) {
-//    tx_buf[i] = ( (int)( buf[i-NUM_PRE_SEND_DATA] ) )*16;
-//  }
+  memset( (void *)tx_buf, 0, NUM_BLADERF_BUF_SAMPLE*2*sizeof(tx_buf[0]) );
 
   for (i=(NUM_BLADERF_BUF_SAMPLE*2-length); i<(NUM_BLADERF_BUF_SAMPLE*2); i++) {
-    tx_buf[i] = ( (int)( buf[i-NUM_BLADERF_BUF_SAMPLE*2] ) )*16;
+    tx_buf[i] = ( (int)( buf[i-(NUM_BLADERF_BUF_SAMPLE*2-length)] ) )*16;
   }
 
   // open the board-----------------------------------------
@@ -398,14 +378,12 @@ inline int tx_one_buf(char *buf, int length, int channel_number) {
     return(-1);
   }
 
-  for (i=0; i<20; i++) {
-    // Transmit samples
-    status = bladerf_sync_tx(dev, (void *)tx_buf, NUM_BLADERF_BUF_SAMPLE, NULL, 3500);
-    if (status != 0) {
-      printf("tx_one_buf: Failed to TX samples 1: %s\n",
-               bladerf_strerror(status));
-      return(-1);
-    }
+  // Transmit samples
+  status = bladerf_sync_tx(dev, (void *)tx_buf, NUM_BLADERF_BUF_SAMPLE, NULL, 3500);
+  if (status != 0) {
+    printf("tx_one_buf: Failed to TX samples 1: %s\n",
+             bladerf_strerror(status));
+    return(-1);
   }
 
   if (do_exit)
@@ -3053,7 +3031,7 @@ int parse_input(int num_input, char** argv, int *num_repeat_return){
   return(num_packet);
 }
 
-int read_items_from_file(int *num_items, char **items_buf, char *filename){
+int read_items_from_file(int *num_items, char **items_buf, int num_row, char *filename){
 
   FILE *fp = fopen(filename, "r");
 
@@ -3068,7 +3046,14 @@ int read_items_from_file(int *num_items, char **items_buf, char *filename){
   char *p = (char *)12345;
 
   while( 1 ) {
+    memset(file_line, 0, MAX_NUM_CHAR_CMD*2);
     p = fgets(file_line,  (MAX_NUM_CHAR_CMD*2), fp );
+
+    if ( file_line[(MAX_NUM_CHAR_CMD*2)-1] != 0 ) {
+      printf("A line is too long!\n");
+      fclose(fp);
+      return(-1);
+    }
 
     if ( p==NULL ) {
       break;
@@ -3077,10 +3062,17 @@ int read_items_from_file(int *num_items, char **items_buf, char *filename){
     if (file_line[0] != '#') {
       if ( (file_line[0] >= 48 && file_line[0] <= 57) || file_line[0] ==114 || file_line[0] == 82 ) { // valid line
         if (strlen(file_line) > (MAX_NUM_CHAR_CMD-1) ) {
-          printf("Line is too long!\n");
+          printf("A line is too long!\n");
           fclose(fp);
           return(-1);
         } else {
+
+          if (num_lines == (num_row-1) ) {
+            printf("Too many lines!\n");
+            fclose(fp);
+            return(-1);
+          }
+
           strcpy(items_buf[num_lines + 1], file_line);
           num_lines++;
         }
@@ -3099,6 +3091,37 @@ int read_items_from_file(int *num_items, char **items_buf, char *filename){
   return(0);
 }
 
+char ** malloc_2d(int num_row, int num_col) {
+  int i, j;
+
+  char **items = (char **)malloc(num_row * sizeof(char *));
+
+  if (items == NULL) {
+    return(NULL);
+  }
+
+  for (i=0; i<num_row; i++) {
+    items[i] = (char *)malloc( num_col * sizeof(char));
+
+    if (items[i] == NULL) {
+      for (j=i-1; j>=0; j--) {
+        free(items[i]);
+      }
+      return(NULL);
+    }
+  }
+
+  return(items);
+}
+
+void release_2d(char **items, int num_row) {
+  int i;
+  for (i=0; i<num_row; i++){
+    free((char *) items[i]);
+  }
+  free ((char *) items);
+}
+
 int main(int argc, char** argv) {
   int num_packet, i, j, num_items;
   int num_repeat = 0; // -1: inf; 0: 1; other: specific
@@ -3108,26 +3131,25 @@ int main(int argc, char** argv) {
     return(0);
   } else if ( (argc-1-1) > MAX_NUM_PACKET ){
     printf("Too many packets input! Maximum allowed is %d\n", MAX_NUM_PACKET);
-  }
-  else if (argc == 2 && ( strstr(argv[1], ".txt")!=NULL || strstr(argv[1], ".TXT")!=NULL) ) {  // from file
-    char **items = (char **)malloc((MAX_NUM_PACKET+2) * sizeof(char *));
-    for (i=0; i<MAX_NUM_PACKET+2; i++)  items[i] = (char *)malloc( MAX_NUM_CHAR_CMD * sizeof(char));
+  } else if (argc == 2 && ( strstr(argv[1], ".txt")!=NULL || strstr(argv[1], ".TXT")!=NULL) ) {  // from file
+    char **items = malloc_2d(MAX_NUM_PACKET+2, MAX_NUM_CHAR_CMD);
+    if (items == NULL) {
+      printf("malloc failed!\n");
+      return(-1);
+    }
 
-    if ( read_items_from_file(&num_items, items, argv[1]) == -1 ) {
-      for (i=0; i<MAX_NUM_PACKET+2; i++) free((char *) items[i]);
-      free ((char *) items);
+    if ( read_items_from_file(&num_items, items, MAX_NUM_PACKET+2, argv[1]) == -1 ) {
+      release_2d(items, MAX_NUM_PACKET+2);
       return(-1);
     }
     num_packet = parse_input(num_items, items, &num_repeat);
 
-    for (i=0; i<MAX_NUM_PACKET+2; i++) free((char *) items[i]);
-    free ((char *) items);
+    release_2d(items, MAX_NUM_PACKET+2);
 
     if ( num_repeat == -2 ){
       return(-1);
     }
-  }
-  else { // from command line
+  } else { // from command line
     num_packet = parse_input(argc, argv, &num_repeat);
     if ( num_repeat == -2 ){
       return(-1);
@@ -3135,37 +3157,10 @@ int main(int argc, char** argv) {
   }
   printf("\n");
 
-//  FILE *fp1 = fopen("samples1.bin", "wb");
-//  if (fp1 != NULL) {
-//    for(i=0; i<1000; i++) {
-//      fwrite((void *)packets[0].phy_sample, sizeof(packets[0].phy_sample[0]), 2*packets[0].num_phy_sample, fp1);
-//    }
-//    fclose(fp1);
-//  } else {
-//    printf("fopen samples1.bin failed!\n");
-//  }
-//
-//  FILE *fp2 = fopen("samples.csv", "w");
-//  if (fp2 != NULL) {
-//    for(i=0; i<NUM_BLADERF_BUF_SAMPLE*2-packets[0].num_phy_sample; i++) {
-//      fprintf(fp2, "0, 0,\n");
-//    }
-//    j = 0;
-//    for(; i<NUM_BLADERF_BUF_SAMPLE*2-1; i++) {
-//      fprintf(fp2, "%d, %d,\n", 16*(int)packets[0].phy_sample[j], 16*(int)packets[0].phy_sample[j+1]);
-//      j = j + 2;
-//    }
-//    fprintf(fp2, "%d, %d\n", 16*(int)packets[0].phy_sample[j], 16*(int)packets[0].phy_sample[j+1]);
-//    fclose(fp2);
-//  } else {
-//    printf("fopen samples.csv failed!\n");
-//  }
-
-  struct timeval time_now, time_old;
-
   if ( init_board() == -1 )
       return(-1);
 
+  struct timeval time_now, time_old;
   for (j=0; j<num_repeat; j++ ) {
     for (i=0; i<num_packet; i++) {
       gettimeofday(&time_old, NULL);
@@ -3184,16 +3179,6 @@ int main(int argc, char** argv) {
     }
   }
   printf("\n");
-
-//  FILE *fp = fopen("samples.bin", "wb");
-//  if (fp != NULL) {
-//    for(i=0; i<100; i++) {
-//      fwrite((void *)tx_buf, sizeof(tx_buf[0]), NUM_BLADERF_BUF_SAMPLE*2, fp);
-//    }
-//    fclose(fp);
-//  } else {
-//    printf("fopen samples.bin failed!\n");
-//  }
 
   exit_board();
 	printf("exit\n");
