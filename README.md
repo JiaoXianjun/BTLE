@@ -1,3 +1,9 @@
+11 Aug. 2014: Fix packet loss bug. And, add <a href="https://github.com/Nuand/bladeRF">bladeRF</a> support:
+
+    cmake ../ -DUSE_BLADERF=1  (without -DUSE_BLADERF=1 means HACKRF will be used by default)
+    
+(Don't forget removing all files in build directory before above command!)
+
 A BTLE (Bluetooth Low energy)/BT4.0 radio packet sender ( build based on <a href="https://github.com/mossmann/hackrf">hackrf_transfer</a> and <a href="https://github.com/Nuand/bladeRF">bladeRF</a> )
 
 See project here: https://github.com/JiaoXianjun/   repo BTLE
@@ -12,7 +18,7 @@ It can be used to transmit arbitrary pre-defined BTLE signal/packet sequence, su
     cd host
     mkdir build
     cd build
-    cmake ../
+    cmake ../      (without -DUSE_BLADERF=1 means HACKRF will be used by default)
     make
     sudo make install  (or not install, just use btle_tx in btle-tools/src)
 
