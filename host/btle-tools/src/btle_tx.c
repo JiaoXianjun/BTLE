@@ -320,7 +320,7 @@ inline int open_board() {
     return(-1);
   }
 
-  status = bladerf_set_tx_gain(dev, 60);
+  status = bladerf_set_gain(dev, BLADERF_MODULE_TX, 60);
   if (status != 0) {
     printf("open_board: Failed to set gain: %s\n",
             bladerf_strerror(status));
