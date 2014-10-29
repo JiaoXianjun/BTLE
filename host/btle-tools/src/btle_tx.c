@@ -336,7 +336,7 @@ inline int open_board() {
 
   status = bladerf_enable_module(dev, BLADERF_MODULE_TX, true);
   if (status != 0) {
-     printf("open_board: Failed to enable RX module: %s\n",
+     printf("open_board: Failed to enable TX module: %s\n",
              bladerf_strerror(status));
      return(-1);
   }
@@ -345,10 +345,10 @@ inline int open_board() {
 }
 
 inline int close_board() {
-  // Disable RX module, shutting down our underlying TX stream
+  // Disable TX module, shutting down our underlying TX stream
   int status = bladerf_enable_module(dev, BLADERF_MODULE_TX, false);
   if (status != 0) {
-    printf("close_board: Failed to disable RX module: %s\n",
+    printf("close_board: Failed to disable TX module: %s\n",
              bladerf_strerror(status));
     return(-1);
   }
