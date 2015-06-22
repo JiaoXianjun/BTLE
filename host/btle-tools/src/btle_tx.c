@@ -819,31 +819,32 @@ char* get_next_field_bit(char *current_p, char *bit_return, int *num_bit_return,
     (*return_flag) = -1;
     return(next_p);
   }
-  if ( strlen(tmp_str)>(octet_limit*2) ) {
+  int num_hex = strlen(tmp_str);
+   while(tmp_str[num_hex-1]<=32 || tmp_str[num_hex-1]>=127) {
+     num_hex--;
+   }
+  
+   if (num_hex%2 != 0) {
+     printf("get_next_field_bit: Half octet is encountered! num_hex %d\n", num_hex);
+     printf("%s\n", tmp_str);
+     (*return_flag) = -1;
+     return(next_p);
+   }
+
+  if ( num_hex>(octet_limit*2) ) {
     printf("Too many octets! Maximum allowed is %d\n", octet_limit);
     (*return_flag) = -1;
     return(next_p);
   }
-  if (strlen(tmp_str) == 1) { // NULL data
+  if (num_hex <= 1) { // NULL data
     (*return_flag) = 0;
     (*num_bit_return) = 0;
     return(next_p);
   }
+  
   int num_bit_tmp;
   if (stream_flip == 1) {
-    int num_hex = strlen(tmp_str);
-    
-    while(tmp_str[num_hex-1]<=32 || tmp_str[num_hex-1]>=127) {
-      num_hex--;
-    }
-
-    if (num_hex%2 != 0) {
-      printf("get_next_field_bit: Half octet is encountered! num_hex %d\n", num_hex);
-      printf("%s\n", tmp_str);
-      (*return_flag) = -1;
-      return(next_p);
-    }
-    strcpy(tmp_str1, tmp_str);
+     strcpy(tmp_str1, tmp_str);
     for (i=0; i<num_hex; i=i+2) {
       tmp_str[num_hex-i-2] = tmp_str1[i];
       tmp_str[num_hex-i-1] = tmp_str1[i+1];
@@ -1108,25 +1109,25 @@ char* get_next_field_hex(char *current_p, char *hex_return, int stream_flip, int
     (*return_flag) = -1;
     return(next_p);
   }
-  if ( strlen(tmp_str)>(octet_limit*2) ) {
+  int num_hex = strlen(tmp_str);
+  while(tmp_str[num_hex-1]<=32 || tmp_str[num_hex-1]>=127) {
+    num_hex--;
+  }
+  
+  if (num_hex%2 != 0) {
+    printf("get_next_field_hex: Half octet is encountered! num_hex %d\n", num_hex);
+    printf("%s\n", tmp_str);
+    (*return_flag) = -1;
+    return(next_p);
+  }
+
+  if ( num_hex>(octet_limit*2) ) {
     printf("Too many octets! Maximum allowed is %d\n", octet_limit);
     (*return_flag) = -1;
     return(next_p);
   }
 
   if (stream_flip == 1) {
-    int num_hex = strlen(tmp_str);
-
-    while(tmp_str[num_hex-1]<=32 || tmp_str[num_hex-1]>=127) {
-      num_hex--;
-    }
-    
-    if (num_hex%2 != 0) {
-      printf("get_next_field_hex: Half octet is encountered! num_hex %d\n", num_hex);
-      printf("%s\n", tmp_str);
-      (*return_flag) = -1;
-      return(next_p);
-    }
     strcpy(tmp_str1, tmp_str);
     for (i=0; i<num_hex; i=i+2) {
       tmp_str[num_hex-i-2] = tmp_str1[i];
@@ -1135,6 +1136,7 @@ char* get_next_field_hex(char *current_p, char *hex_return, int stream_flip, int
   }
 
   strcpy(hex_return, tmp_str);
+  hex_return[num_hex] = 0;
 
   if (next_p == current_p) {
     (*return_flag) = 1;
@@ -1144,7 +1146,6 @@ char* get_next_field_hex(char *current_p, char *hex_return, int stream_flip, int
   (*return_flag) = 0;
   return(next_p);
 }
-
 char *get_next_field_name_hex(char *input_p, char *name, char *out_hex, int flip_flag, int octet_limit, int *ret_last){
 // ret_last: -1 failed; 0 success; 1 success and this is the last field
   int ret;
