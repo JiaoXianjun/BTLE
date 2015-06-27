@@ -760,6 +760,8 @@ int gen_sample_from_phy_bit(char *bit, char *sample, int num_bit) {
   }
 
   float tmp = 0;
+  sample[0] = (char)round( cos(tmp)*(float)AMPLITUDE );
+  sample[1] = (char)round( sin(tmp)*(float)AMPLITUDE );
   for (i=1; i<num_sample; i++) {
     tmp = tmp + (M_PI*MOD_IDX)*tmp_phy_bit_over_sampling1[i-1]/((float)SAMPLE_PER_SYMBOL);
     sample[i*2 + 0] = (char)round( cos(tmp)*(float)AMPLITUDE );
