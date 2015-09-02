@@ -5,6 +5,13 @@ A BTLE (Bluetooth Low energy)/BT4.0 radio packet sender ( build based on <a href
 
 News:
 
+02 Sep. 2015: Add new packet type: discovery. Open LightBlue APP in your iPhone/device, then:
+
+    btle_tx packets_discovery.txt
+    (packets_discovery.txt is under host/btle-tools/src)
+
+You will see some info like aircraft broadcasted.
+
 11 Aug. 2014: Fix packet loss bug. And, add <a href="https://github.com/Nuand/bladeRF">bladeRF</a> support:
 
     cmake ../ -DUSE_BLADERF=1  (without -DUSE_BLADERF=1 means HACKRF will be used by default)
