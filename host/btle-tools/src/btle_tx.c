@@ -105,9 +105,11 @@ TimevalDiff(const struct timeval *a, const struct timeval *b)
 #define SAMPLE_PER_SYMBOL 4
 #endif // USE_BLADERF
 
-#define AMPLITUDE (110.0)
+//#define AMPLITUDE (110.0)
+#define AMPLITUDE (127.0)
 #define MOD_IDX (0.5)
-#define LEN_GAUSS_FILTER (11) // pre 8, post 3
+//#define LEN_GAUSS_FILTER (11) // pre 8, post 3
+#define LEN_GAUSS_FILTER (4) // pre 2, post 2
 #define MAX_NUM_INFO_BYTE (43)
 #define MAX_NUM_PHY_BYTE (47)
 #define MAX_NUM_PHY_SAMPLE ((MAX_NUM_PHY_BYTE*8*SAMPLE_PER_SYMBOL)+(LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL))
@@ -122,7 +124,8 @@ float gauss_coef[LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL] = {0, 0, 0, 0, 0, 0, 0, 0, 
 float gauss_coef[LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.665335e-16, 2.231548e-14, 2.290834e-12, 1.596947e-10, 7.561773e-09, 2.436464e-07, 5.354390e-06, 8.050684e-05, 8.317661e-04, 5.941078e-03, 2.959908e-02, 1.042296e-01, 2.646999e-01, 4.999195e-01, 7.344630e-01, 8.898291e-01, 9.408018e-01, 8.898291e-01, 7.344630e-01, 4.999195e-01, 2.646999e-01, 1.042296e-01, 2.959908e-02, 5.941078e-03, 8.317661e-04, 8.050684e-05, 5.354390e-06, 2.436464e-07, 7.561773e-09, 1.596947e-10, 2.290834e-12, 2.231548e-14, 1.665335e-16, 0};
 #endif
 #if SAMPLE_PER_SYMBOL==4
-float gauss_coef[LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2.231548e-14, 2.007605e-11, 7.561773e-09, 1.197935e-06, 8.050684e-05, 2.326833e-03, 2.959908e-02, 1.727474e-01, 4.999195e-01, 8.249246e-01, 9.408018e-01, 8.249246e-01, 4.999195e-01, 1.727474e-01, 2.959908e-02, 2.326833e-03, 8.050684e-05, 1.197935e-06, 7.561773e-09, 2.007605e-11, 2.231548e-14, 0};
+//float gauss_coef[LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2.231548e-14, 2.007605e-11, 7.561773e-09, 1.197935e-06, 8.050684e-05, 2.326833e-03, 2.959908e-02, 1.727474e-01, 4.999195e-01, 8.249246e-01, 9.408018e-01, 8.249246e-01, 4.999195e-01, 1.727474e-01, 2.959908e-02, 2.326833e-03, 8.050684e-05, 1.197935e-06, 7.561773e-09, 2.007605e-11, 2.231548e-14, 0};
+float gauss_coef[LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL] = {7.561773e-09, 1.197935e-06, 8.050684e-05, 2.326833e-03, 2.959908e-02, 1.727474e-01, 4.999195e-01, 8.249246e-01, 9.408018e-01, 8.249246e-01, 4.999195e-01, 1.727474e-01, 2.959908e-02, 2.326833e-03, 8.050684e-05, 1.197935e-06};
 #endif
 
 uint64_t freq_hz;
@@ -445,6 +448,21 @@ inline int open_board() {
     return(-1);
   }
 
+  /* range 0-47 step 1db */
+  result = hackrf_set_txvga_gain(device, 47);
+  if( result != HACKRF_SUCCESS ) {
+    printf("open_board: hackrf_set_txvga_gain() failed: %s (%d)\n", hackrf_error_name(result), result);
+    return(-1);
+  }
+
+  #if 0
+  result = hackrf_set_antenna_enable(device, 1);
+  if( result != HACKRF_SUCCESS ) {
+    printf("open_board: hackrf_set_antenna_enable() failed: %s (%d)\n", hackrf_error_name(result), result);
+    return(-1);
+  }
+  #endif
+
   return(0);
 }
 
@@ -564,6 +582,7 @@ typedef enum
 {
     INVALID_TYPE,
     RAW,
+    DISCOVERY,
     IBEACON,
     ADV_IND,
     ADV_DIRECT_IND,
@@ -590,6 +609,64 @@ typedef enum
     NUM_PKT_TYPE
 } PKT_TYPE;
 
+typedef enum
+{
+    FLAGS,
+    LOCAL_NAME08,
+    LOCAL_NAME09,
+    TXPOWER,
+    SERVICE02,
+    SERVICE03,
+    SERVICE04,
+    SERVICE05,
+    SERVICE06,
+    SERVICE07,
+    SERVICE_SOLI14,
+    SERVICE_SOLI15,
+    SERVICE_DATA,
+    MANUF_DATA,
+    CONN_INTERVAL,
+    SPACE,
+    NUM_AD_TYPE
+} AD_TYPE;
+
+char *AD_TYPE_STR[] = {
+    "FLAGS",
+    "LOCAL_NAME08",
+    "LOCAL_NAME09",
+    "TXPOWER",
+    "SERVICE02",
+    "SERVICE03",
+    "SERVICE04",
+    "SERVICE05",
+    "SERVICE06",
+    "SERVICE07",
+    "SERVICE_SOLI14",
+    "SERVICE_SOLI15",
+    "SERVICE_DATA",
+    "MANUF_DATA",
+    "CONN_INTERVAL",
+    "SPACE"
+};
+
+const int AD_TYPE_VAL[] = {
+    0x01,  //"FLAGS",
+    0x08,  //"LOCAL_NAME08",
+    0x09,  //"LOCAL_NAME09",
+    0x0A,  //"TXPOWER",
+    0x02,  //"SERVICE02",
+    0x03,  //"SERVICE03",
+    0x04,  //"SERVICE04",
+    0x05,  //"SERVICE05",
+    0x06,  //"SERVICE06",
+    0x07,  //"SERVICE07",
+    0x14,  //"SERVICE_SOLI14",
+    0x15,  //"SERVICE_SOLI15",
+    0x16,  //"SERVICE_DATA",
+    0xFF,  //"MANUF_DATA",
+    0x12   //"CONN_INTERVAL",
+};
+
 #define MAX_NUM_CHAR_CMD (256)
 char tmp_str[MAX_NUM_CHAR_CMD];
 char tmp_str1[MAX_NUM_CHAR_CMD];
@@ -599,13 +676,25 @@ typedef struct
 {
     int channel_number;
     PKT_TYPE pkt_type;
+    
     char cmd_str[MAX_NUM_CHAR_CMD]; // hex string format command input
+
     int num_info_bit;
     char info_bit[MAX_NUM_PHY_BYTE*8]; // without CRC and whitening
+
+    int num_info_byte;
+    uint8_t info_byte[MAX_NUM_PHY_BYTE];
+
     int num_phy_bit;
     char phy_bit[MAX_NUM_PHY_BYTE*8]; // all bits which will be fed to GFSK modulator
+
+    int num_phy_byte;
+    uint8_t phy_byte[MAX_NUM_PHY_BYTE];
+
     int num_phy_sample;
     char phy_sample[2*MAX_NUM_PHY_SAMPLE]; // GFSK output to D/A (hackrf board)
+    int8_t phy_sample1[2*MAX_NUM_PHY_SAMPLE]; // GFSK output to D/A (hackrf board)
+    
     int space; // how many millisecond null signal shouwl be padded after this packet
 } PKT_INFO;
 
@@ -707,9 +796,19 @@ void octet_hex_to_bit(char *hex, char *bit) {
   bit[7] = 0x01&(n>>7);
 }
 
+void int_to_bit(int n, char *bit) {
+  bit[0] = 0x01&(n>>0);
+  bit[1] = 0x01&(n>>1);
+  bit[2] = 0x01&(n>>2);
+  bit[3] = 0x01&(n>>3);
+  bit[4] = 0x01&(n>>4);
+  bit[5] = 0x01&(n>>5);
+  bit[6] = 0x01&(n>>6);
+  bit[7] = 0x01&(n>>7);
+}
+
 int convert_hex_to_bit(char *hex, char *bit){
   int num_hex = strlen(hex);
-
   while(hex[num_hex-1]<=32 || hex[num_hex-1]>=127) {
     num_hex--;
   }
@@ -730,6 +829,118 @@ int convert_hex_to_bit(char *hex, char *bit){
 
   return(num_bit);
 }
+
+#if 1 // fixed point version
+#include "gauss_cos_sin_table.h"
+
+int gen_sample_from_phy_byte(uint8_t *byte,  int8_t *sample, int num_byte) {
+  int num_bit = num_byte*8;
+  int num_sample = (num_bit*SAMPLE_PER_SYMBOL)+(LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL);
+
+  int8_t *tmp_phy_bit_over_sampling_int8 = (int8_t *)tmp_phy_bit_over_sampling;
+  
+  int i, j, overall_bit_idx, sub_bit_idx;
+
+  for (i=0; i<(LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL-1); i++) {
+    tmp_phy_bit_over_sampling_int8[i] = 0;
+  }
+  for (i=(LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL-1+num_bit*SAMPLE_PER_SYMBOL); i<(2*LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL-2+num_bit*SAMPLE_PER_SYMBOL); i++) {
+    tmp_phy_bit_over_sampling_int8[i] = 0;
+  }
+  for(j=0; j<num_byte; j++) {
+    sub_bit_idx = 0;
+    for (i=0; i<(8*SAMPLE_PER_SYMBOL); i = i + SAMPLE_PER_SYMBOL) {
+      overall_bit_idx = j*8*SAMPLE_PER_SYMBOL + i;
+     (*(int*)(&(tmp_phy_bit_over_sampling_int8[overall_bit_idx+(LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL-1)]))) = 0xff & (( (byte[j]>>sub_bit_idx & 0x01) ) * 2 - 1);
+     sub_bit_idx++;
+    }
+  }
+
+  int16_t tmp = 0;
+  sample[0] = cos_table_int8[tmp];
+  sample[1] = sin_table_int8[tmp];
+  
+  int len_conv_result = num_sample - 1;
+  for (i=0; i<len_conv_result; i++) {
+    int16_t acc = 0;
+    for (j=3; j<(LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL-4); j++) {
+      acc = acc + gauss_coef_int8[(LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL)-j-1]*tmp_phy_bit_over_sampling_int8[i+j];
+    }
+
+    tmp = (tmp + acc)&1023;
+    sample[(i+1)*2 + 0] = cos_table_int8[tmp];
+    sample[(i+1)*2 + 1] = sin_table_int8[tmp];
+  }
+  
+  return(num_sample);
+}
+
+int gen_sample_from_phy_bit(char *bit, char *sample, int num_bit) {
+  int num_sample = (num_bit*SAMPLE_PER_SYMBOL)+(LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL);
+
+  int8_t *tmp_phy_bit_over_sampling_int8 = (int8_t *)tmp_phy_bit_over_sampling;
+  //int16_t *tmp_phy_bit_over_sampling1_int16 = (int16_t *)tmp_phy_bit_over_sampling1;
+  
+  int i, j;
+
+  for (i=0; i<(LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL-1); i++) {
+    tmp_phy_bit_over_sampling_int8[i] = 0;
+  }
+  for (i=(LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL-1+num_bit*SAMPLE_PER_SYMBOL); i<(2*LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL-2+num_bit*SAMPLE_PER_SYMBOL); i++) {
+    tmp_phy_bit_over_sampling_int8[i] = 0;
+  }
+  for (i=0; i<(num_bit*SAMPLE_PER_SYMBOL); i++) {
+    if (i%SAMPLE_PER_SYMBOL == 0) {
+      tmp_phy_bit_over_sampling_int8[i+(LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL-1)] = ( bit[i/SAMPLE_PER_SYMBOL] ) * 2 - 1;
+    } else {
+      tmp_phy_bit_over_sampling_int8[i+(LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL-1)] = 0;
+    }
+  }
+
+  #if 1 // new method
+  
+  int16_t tmp = 0;
+  sample[0] = cos_table_int8[tmp];
+  sample[1] = sin_table_int8[tmp];
+  
+  int len_conv_result = num_sample - 1;
+  for (i=0; i<len_conv_result; i++) {
+    int16_t acc = 0;
+    for (j=3; j<(LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL-4); j++) {
+      acc = acc + gauss_coef_int8[(LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL)-j-1]*tmp_phy_bit_over_sampling_int8[i+j];
+    }
+
+    tmp = (tmp + acc)&1023;
+    sample[(i+1)*2 + 0] = cos_table_int8[tmp];
+    sample[(i+1)*2 + 1] = sin_table_int8[tmp];
+  }
+  
+  #else // old method
+  
+  int len_conv_result = num_sample - 1;
+  for (i=0; i<len_conv_result; i++) {
+    int16_t acc = 0;
+    for (j=0; j<(LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL); j++) {
+      acc = acc + gauss_coef_int16[(LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL)-j-1]*tmp_phy_bit_over_sampling_int16[i+j];
+    }
+    tmp_phy_bit_over_sampling1_int16[i] = acc;
+  }
+
+  int16_t tmp = 0;
+  sample[0] = cos_table_int8[tmp];
+  sample[1] = sin_table_int8[tmp];
+  for (i=1; i<num_sample; i++) {
+    tmp = (tmp + tmp_phy_bit_over_sampling1_int16[i-1])&1023;
+    sample[i*2 + 0] = cos_table_int8[tmp];
+    sample[i*2 + 1] = sin_table_int8[tmp];
+  }
+  
+  #endif
+
+  return(num_sample);
+}
+
+#else // float point version
 
 int gen_sample_from_phy_bit(char *bit, char *sample, int num_bit) {
   int num_sample = (num_bit*SAMPLE_PER_SYMBOL)+(LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL);
@@ -762,7 +973,7 @@ int gen_sample_from_phy_bit(char *bit, char *sample, int num_bit) {
   float tmp = 0;
   sample[0] = (char)round( cos(tmp)*(float)AMPLITUDE );
   sample[1] = (char)round( sin(tmp)*(float)AMPLITUDE );
-  for (i=1; i<num_sample; i++) {
+   for (i=1; i<num_sample; i++) {
     tmp = tmp + (M_PI*MOD_IDX)*tmp_phy_bit_over_sampling1[i-1]/((float)SAMPLE_PER_SYMBOL);
     sample[i*2 + 0] = (char)round( cos(tmp)*(float)AMPLITUDE );
     sample[i*2 + 1] = (char)round( sin(tmp)*(float)AMPLITUDE );
@@ -770,6 +981,8 @@ int gen_sample_from_phy_bit(char *bit, char *sample, int num_bit) {
 
   return(num_sample);
 }
+
+#endif
 
 char* get_next_field_value(char *current_p, int *value_return, int *return_flag) {
 // return_flag: -1 failed; 0 success; 1 success and this is the last field
@@ -798,10 +1011,113 @@ char* get_next_field_name(char *current_p, char *name, int *return_flag) {
     return(next_p);
   }
   if (strcmp(toupper_str(tmp_str, tmp_str), name) != 0) {
-    printf("%s field is expected!\n", name);
+//    printf("%s field is expected!\n", name);
     (*return_flag) = -1;
     return(next_p);
   }
+
+  if (next_p == current_p) {
+    (*return_flag) = 1;
+    return(next_p);
+  }
+
+  (*return_flag) = 0;
+  return(next_p);
+}
+
+char* get_next_field_char(char *current_p, char *bit_return, int *num_bit_return, int stream_flip, int octet_limit, int *return_flag) {
+// return_flag: -1 failed; 0 success; 1 success and this is the last field
+// stream_flip: 0: normal order; 1: flip octets order in sequence
+  int i;
+  char *next_p = get_next_field(current_p, tmp_str, "-", MAX_NUM_CHAR_CMD);
+  if (next_p == NULL) {
+    (*return_flag) = -1;
+    return(next_p);
+  }
+  int num_hex = strlen(tmp_str);
+  while(tmp_str[num_hex-1]<=32 || tmp_str[num_hex-1]>=127) {
+    num_hex--;
+  }
+   
+  if ( num_hex>octet_limit ) {
+    printf("Too many octets(char)! Maximum allowed is %d\n", octet_limit);
+    (*return_flag) = -1;
+    return(next_p);
+  }
+  if (num_hex <= 1) { // NULL data
+    (*return_flag) = 0;
+    (*num_bit_return) = 0;
+    return(next_p);
+  }
+  
+  if (stream_flip == 1) {
+    for (i=0; i<num_hex; i++) {
+      int_to_bit(tmp_str[num_hex-i-1], bit_return + 8*i);
+    }
+  } else {
+    for (i=0; i<num_hex; i++) {
+      int_to_bit(tmp_str[i], bit_return + 8*i);
+    }
+  }
+
+  (*num_bit_return) = 8*num_hex;
+
+  if (next_p == current_p) {
+    (*return_flag) = 1;
+    return(next_p);
+  }
+
+  (*return_flag) = 0;
+  return(next_p);
+}
+
+char* get_next_field_bit_part_flip(char *current_p, char *bit_return, int *num_bit_return, int stream_flip, int octet_limit, int *return_flag) {
+// return_flag: -1 failed; 0 success; 1 success and this is the last field
+// stream_flip: 0: normal order; 1: flip octets order in sequence
+  int i;
+  char *next_p = get_next_field(current_p, tmp_str, "-", MAX_NUM_CHAR_CMD);
+  if (next_p == NULL) {
+    (*return_flag) = -1;
+    return(next_p);
+  }
+  int num_hex = strlen(tmp_str);
+   while(tmp_str[num_hex-1]<=32 || tmp_str[num_hex-1]>=127) {
+     num_hex--;
+   }
+  
+   if (num_hex%2 != 0) {
+     printf("get_next_field_bit: Half octet is encountered! num_hex %d\n", num_hex);
+     printf("%s\n", tmp_str);
+     (*return_flag) = -1;
+     return(next_p);
+   }
+
+  if ( num_hex>(octet_limit*2) ) {
+    printf("Too many octets! Maximum allowed is %d\n", octet_limit);
+    (*return_flag) = -1;
+    return(next_p);
+  }
+  if (num_hex <= 1) { // NULL data
+    (*return_flag) = 0;
+    (*num_bit_return) = 0;
+    return(next_p);
+  }
+  
+  int num_bit_tmp;
+
+  num_hex = 2*stream_flip;
+  strcpy(tmp_str1, tmp_str);
+  for (i=0; i<num_hex; i=i+2) {
+    tmp_str[num_hex-i-2] = tmp_str1[i];
+    tmp_str[num_hex-i-1] = tmp_str1[i+1];
+  }
+  
+  num_bit_tmp = convert_hex_to_bit(tmp_str, bit_return);
+  if ( num_bit_tmp == -1 ) {
+    (*return_flag) = -1;
+    return(next_p);
+  }
+  (*num_bit_return) = num_bit_tmp;
 
   if (next_p == current_p) {
     (*return_flag) = 1;
@@ -932,6 +1248,74 @@ int calculate_sample_for_RAW(char *pkt_str, PKT_INFO *pkt) {
   return(0);
 }
 
+/**
+ * Static table used for the table_driven implementation.
+ *****************************************************************************/
+static const uint_fast32_t crc_table[256] = {
+    0x000000, 0x01b4c0, 0x036980, 0x02dd40, 0x06d300, 0x0767c0, 0x05ba80, 0x040e40,
+    0x0da600, 0x0c12c0, 0x0ecf80, 0x0f7b40, 0x0b7500, 0x0ac1c0, 0x081c80, 0x09a840,
+    0x1b4c00, 0x1af8c0, 0x182580, 0x199140, 0x1d9f00, 0x1c2bc0, 0x1ef680, 0x1f4240,
+    0x16ea00, 0x175ec0, 0x158380, 0x143740, 0x103900, 0x118dc0, 0x135080, 0x12e440,
+    0x369800, 0x372cc0, 0x35f180, 0x344540, 0x304b00, 0x31ffc0, 0x332280, 0x329640,
+    0x3b3e00, 0x3a8ac0, 0x385780, 0x39e340, 0x3ded00, 0x3c59c0, 0x3e8480, 0x3f3040,
+    0x2dd400, 0x2c60c0, 0x2ebd80, 0x2f0940, 0x2b0700, 0x2ab3c0, 0x286e80, 0x29da40,
+    0x207200, 0x21c6c0, 0x231b80, 0x22af40, 0x26a100, 0x2715c0, 0x25c880, 0x247c40,
+    0x6d3000, 0x6c84c0, 0x6e5980, 0x6fed40, 0x6be300, 0x6a57c0, 0x688a80, 0x693e40,
+    0x609600, 0x6122c0, 0x63ff80, 0x624b40, 0x664500, 0x67f1c0, 0x652c80, 0x649840,
+    0x767c00, 0x77c8c0, 0x751580, 0x74a140, 0x70af00, 0x711bc0, 0x73c680, 0x727240,
+    0x7bda00, 0x7a6ec0, 0x78b380, 0x790740, 0x7d0900, 0x7cbdc0, 0x7e6080, 0x7fd440,
+    0x5ba800, 0x5a1cc0, 0x58c180, 0x597540, 0x5d7b00, 0x5ccfc0, 0x5e1280, 0x5fa640,
+    0x560e00, 0x57bac0, 0x556780, 0x54d340, 0x50dd00, 0x5169c0, 0x53b480, 0x520040,
+    0x40e400, 0x4150c0, 0x438d80, 0x423940, 0x463700, 0x4783c0, 0x455e80, 0x44ea40,
+    0x4d4200, 0x4cf6c0, 0x4e2b80, 0x4f9f40, 0x4b9100, 0x4a25c0, 0x48f880, 0x494c40,
+    0xda6000, 0xdbd4c0, 0xd90980, 0xd8bd40, 0xdcb300, 0xdd07c0, 0xdfda80, 0xde6e40,
+    0xd7c600, 0xd672c0, 0xd4af80, 0xd51b40, 0xd11500, 0xd0a1c0, 0xd27c80, 0xd3c840,
+    0xc12c00, 0xc098c0, 0xc24580, 0xc3f140, 0xc7ff00, 0xc64bc0, 0xc49680, 0xc52240,
+    0xcc8a00, 0xcd3ec0, 0xcfe380, 0xce5740, 0xca5900, 0xcbedc0, 0xc93080, 0xc88440,
+    0xecf800, 0xed4cc0, 0xef9180, 0xee2540, 0xea2b00, 0xeb9fc0, 0xe94280, 0xe8f640,
+    0xe15e00, 0xe0eac0, 0xe23780, 0xe38340, 0xe78d00, 0xe639c0, 0xe4e480, 0xe55040,
+    0xf7b400, 0xf600c0, 0xf4dd80, 0xf56940, 0xf16700, 0xf0d3c0, 0xf20e80, 0xf3ba40,
+    0xfa1200, 0xfba6c0, 0xf97b80, 0xf8cf40, 0xfcc100, 0xfd75c0, 0xffa880, 0xfe1c40,
+    0xb75000, 0xb6e4c0, 0xb43980, 0xb58d40, 0xb18300, 0xb037c0, 0xb2ea80, 0xb35e40,
+    0xbaf600, 0xbb42c0, 0xb99f80, 0xb82b40, 0xbc2500, 0xbd91c0, 0xbf4c80, 0xbef840,
+    0xac1c00, 0xada8c0, 0xaf7580, 0xaec140, 0xaacf00, 0xab7bc0, 0xa9a680, 0xa81240,
+    0xa1ba00, 0xa00ec0, 0xa2d380, 0xa36740, 0xa76900, 0xa6ddc0, 0xa40080, 0xa5b440,
+    0x81c800, 0x807cc0, 0x82a180, 0x831540, 0x871b00, 0x86afc0, 0x847280, 0x85c640,
+    0x8c6e00, 0x8ddac0, 0x8f0780, 0x8eb340, 0x8abd00, 0x8b09c0, 0x89d480, 0x886040,
+    0x9a8400, 0x9b30c0, 0x99ed80, 0x985940, 0x9c5700, 0x9de3c0, 0x9f3e80, 0x9e8a40,
+    0x972200, 0x9696c0, 0x944b80, 0x95ff40, 0x91f100, 0x9045c0, 0x929880, 0x932c40
+};
+
+/**
+ * Update the crc value with new data.
+ *
+ * \param crc      The current crc value.
+ * \param data     Pointer to a buffer of \a data_len bytes.
+ * \param data_len Number of bytes in the \a data buffer.
+ * \return         The updated crc value.
+ *****************************************************************************/
+uint_fast32_t crc_update(uint_fast32_t crc, const void *data, size_t data_len)
+{
+    const unsigned char *d = (const unsigned char *)data;
+    unsigned int tbl_idx;
+
+    while (data_len--) {
+            tbl_idx = (crc ^ *d) & 0xff;
+            crc = (crc_table[tbl_idx] ^ (crc >> 8)) & 0xffffff;
+
+        d++;
+    }
+    return crc & 0xffffff;
+}
+
+uint_fast32_t crc24_byte(uint8_t *byte_in, int num_byte, int init_hex) {
+  uint_fast32_t crc = init_hex;
+  
+  crc = crc_update(crc, byte_in, num_byte);
+
+  return(crc);
+}
+
 void crc24(char *bit_in, int num_bit, char *init_hex, char *crc_result) {
   char bit_store[24], bit_store_update[24];
   int i;
@@ -960,6 +1344,14 @@ void crc24(char *bit_in, int num_bit, char *init_hex, char *crc_result) {
 
   for (i=0; i<24; i++) {
     crc_result[i] = bit_store[23-i];
+  }
+}
+
+#include "scramble_table_ch37.h"
+void scramble_byte(uint8_t *byte_in, int num_byte, int channel_number, uint8_t *byte_out) {
+  int i;
+  for(i=0; i<num_byte; i++){
+    byte_out[i] = byte_in[i]^scramble_table_ch37[i];
   }
 }
 
@@ -1065,12 +1457,60 @@ void get_opcode(PKT_TYPE pkt_type, char *bit_out) {
   }
 }
 
+void fill_adv_pdu_header_byte(PKT_TYPE pkt_type, int txadd, int rxadd, int payload_len, uint8_t *byte_out) {
+  if (pkt_type == ADV_IND || pkt_type == IBEACON) {
+    //bit_out[3] = 0; bit_out[2] = 0; bit_out[1] = 0; bit_out[0] = 0;
+    byte_out[0] = 0;
+  } else if (pkt_type == ADV_DIRECT_IND) {
+    //bit_out[3] = 0; bit_out[2] = 0; bit_out[1] = 0; bit_out[0] = 1;
+    byte_out[0] = 1;
+  } else if (pkt_type == ADV_NONCONN_IND || pkt_type == DISCOVERY) {
+    //bit_out[3] = 0; bit_out[2] = 0; bit_out[1] = 1; bit_out[0] = 0;
+    byte_out[0] = 2;
+  } else if (pkt_type == SCAN_REQ) {
+    //bit_out[3] = 0; bit_out[2] = 0; bit_out[1] = 1; bit_out[0] = 1;
+    byte_out[0] = 3;
+  } else if (pkt_type == SCAN_RSP) {
+    //bit_out[3] = 0; bit_out[2] = 1; bit_out[1] = 0; bit_out[0] = 0;
+    byte_out[0] = 4;
+  } else if (pkt_type == CONNECT_REQ) {
+    //bit_out[3] = 0; bit_out[2] = 1; bit_out[1] = 0; bit_out[0] = 1;
+    byte_out[0] = 5;
+  } else if (pkt_type == ADV_SCAN_IND) {
+    //bit_out[3] = 0; bit_out[2] = 1; bit_out[1] = 1; bit_out[0] = 0;
+    byte_out[0] = 6;
+  } else {
+    //bit_out[3] = 1; bit_out[2] = 1; bit_out[1] = 1; bit_out[0] = 1;
+    byte_out[0] = 0xF;
+    printf("Warning! Reserved TYPE!\n");
+  }
+
+  /*bit_out[4] = 0;
+  bit_out[5] = 0;
+
+  bit_out[6] = txadd;
+  bit_out[7] = rxadd;*/
+  byte_out[0] =  byte_out[0] | (txadd << 6);
+  byte_out[0] =  byte_out[0] | (rxadd << 7);
+
+  /*bit_out[8] = 0x01&(payload_len>>0);
+  bit_out[9] = 0x01&(payload_len>>1);
+  bit_out[10] = 0x01&(payload_len>>2);
+  bit_out[11] = 0x01&(payload_len>>3);
+  bit_out[12] = 0x01&(payload_len>>4);
+  bit_out[13] = 0x01&(payload_len>>5);
+
+  bit_out[14] = 0;
+  bit_out[15] = 0;*/
+  byte_out[1] = payload_len;
+}
+
 void fill_adv_pdu_header(PKT_TYPE pkt_type, int txadd, int rxadd, int payload_len, char *bit_out) {
   if (pkt_type == ADV_IND || pkt_type == IBEACON) {
     bit_out[3] = 0; bit_out[2] = 0; bit_out[1] = 0; bit_out[0] = 0;
   } else if (pkt_type == ADV_DIRECT_IND) {
     bit_out[3] = 0; bit_out[2] = 0; bit_out[1] = 0; bit_out[0] = 1;
-  } else if (pkt_type == ADV_NONCONN_IND) {
+  } else if (pkt_type == ADV_NONCONN_IND || pkt_type == DISCOVERY) {
     bit_out[3] = 0; bit_out[2] = 0; bit_out[1] = 1; bit_out[0] = 0;
   } else if (pkt_type == SCAN_REQ) {
     bit_out[3] = 0; bit_out[2] = 0; bit_out[1] = 1; bit_out[0] = 1;
@@ -1148,6 +1588,28 @@ char* get_next_field_hex(char *current_p, char *hex_return, int stream_flip, int
   (*return_flag) = 0;
   return(next_p);
 }
+
+char *get_next_field_name_char(char *input_p, char *name, char *out_bit, int *num_bit, int flip_flag, int octet_limit, int *ret_last){
+// ret_last: -1 failed; 0 success; 1 success and this is the last field
+  int ret;
+  char *current_p = input_p;
+
+  char *next_p = get_next_field_name(current_p, name, &ret);
+  if (ret != 0) { // failed or the last
+    (*ret_last) = -1;
+    return(NULL);
+  }
+
+  current_p = next_p;
+  next_p = get_next_field_char(current_p, out_bit, num_bit, flip_flag, octet_limit, &ret);
+  (*ret_last) = ret;
+  if (ret == -1) { // failed
+    return(NULL);
+  }
+
+  return(next_p);
+}
+
 char *get_next_field_name_hex(char *input_p, char *name, char *out_hex, int flip_flag, int octet_limit, int *ret_last){
 // ret_last: -1 failed; 0 success; 1 success and this is the last field
   int ret;
@@ -1161,6 +1623,27 @@ char *get_next_field_name_hex(char *input_p, char *name, char *out_hex, int flip
 
   current_p = next_p;
   next_p = get_next_field_hex(current_p, out_hex, flip_flag, octet_limit, &ret);
+  (*ret_last) = ret;
+  if (ret == -1) { // failed
+    return(NULL);
+  }
+
+  return(next_p);
+}
+
+char *get_next_field_name_bit_part_flip(char *input_p, char *name, char *out_bit, int *num_bit, int flip_flag, int octet_limit, int *ret_last){
+// ret_last: -1 failed; 0 success; 1 success and this is the last field
+  int ret;
+  char *current_p = input_p;
+
+  char *next_p = get_next_field_name(current_p, name, &ret);
+  if (ret != 0) { // failed or the last
+    (*ret_last) = -1;
+    return(NULL);
+  }
+
+  current_p = next_p;
+  next_p = get_next_field_bit_part_flip(current_p, out_bit, num_bit, flip_flag, octet_limit, &ret);
   (*ret_last) = ret;
   if (ret == -1) { // failed
     return(NULL);
@@ -1190,11 +1673,273 @@ char *get_next_field_name_bit(char *input_p, char *name, char *out_bit, int *num
   return(next_p);
 }
 
+void disp_bit(char *bit, int num_bit)
+{
+  int i, bit_val;
+  for(i=0; i<num_bit; i++) {
+    bit_val = bit[i];
+    if (i%8 == 0 && i != 0) {
+      printf(" ");
+    } else if (i%4 == 0 && i != 0) {
+      printf("-");
+    }
+    printf("%d", bit_val);
+  }
+  printf("\n");
+}
+
+void disp_bit_in_hex(char *bit, int num_bit)
+{
+  int i, a;
+  for(i=0; i<num_bit; i=i+8) {
+    a = bit[i] + bit[i+1]*2 + bit[i+2]*4 + bit[i+3]*8 + bit[i+4]*16 + bit[i+5]*32 + bit[i+6]*64 + bit[i+7]*128;
+    //a = bit[i+7] + bit[i+6]*2 + bit[i+5]*4 + bit[i+4]*8 + bit[i+3]*16 + bit[i+2]*32 + bit[i+1]*64 + bit[i]*128;
+    printf("%02x", a);
+  }
+  printf("\n");
+}
+
+void disp_hex(uint8_t *hex, int num_hex)
+{
+  int i;
+  for(i=0; i<num_hex; i++)
+  {
+     printf("%02x", hex[i]);
+  }
+  printf("\n");
+}
+
+void disp_hex_in_bit(uint8_t *hex, int num_hex)
+{
+  int i, j, bit_val;
+
+  for(j=0; j<num_hex; j++) {
+
+    for(i=0; i<8; i++) {
+      bit_val = (hex[j]>>i)&0x01;
+      if (i==4) {
+        printf("-");
+      }
+      printf("%d", bit_val);
+    }
+
+    printf(" ");
+
+  }
+
+  printf("\n");
+}
+
 void crc24_and_scramble_to_gen_phy_bit(char *crc_init_hex, PKT_INFO *pkt) {
   crc24(pkt->info_bit+5*8, pkt->num_info_bit-5*8, crc_init_hex, pkt->info_bit+pkt->num_info_bit);
+  
+  int crc24_checksum = crc24_byte(pkt->info_byte+5, pkt->num_info_byte-5, 0xAAAAAA); // 0x555555 --> 0xaaaaaa
+  (pkt->info_byte+pkt->num_info_byte)[0] = crc24_checksum & 0xFF;
+  (pkt->info_byte+pkt->num_info_byte)[1] = (crc24_checksum>>8) & 0xFF;
+  (pkt->info_byte+pkt->num_info_byte)[2] = (crc24_checksum>>16) & 0xFF;
+
+  printf("after crc24\n");
+  disp_bit_in_hex(pkt->info_bit, pkt->num_info_bit + 3*8);
+  disp_hex(pkt->info_byte, pkt->num_info_byte + 3);
+  
   scramble(pkt->info_bit+5*8, pkt->num_info_bit-5*8+24, pkt->channel_number, pkt->phy_bit+5*8);
   memcpy(pkt->phy_bit, pkt->info_bit, 5*8);
   pkt->num_phy_bit = pkt->num_info_bit + 24;
+
+  scramble_byte(pkt->info_byte+5, pkt->num_info_byte-5+3, pkt->channel_number, pkt->phy_byte+5);
+  memcpy(pkt->phy_byte, pkt->info_byte, 5);
+  pkt->num_phy_byte = pkt->num_info_byte + 3;
+
+  printf("after scramble %d %d\n", pkt->num_phy_bit , pkt->num_phy_byte);
+  disp_bit_in_hex(pkt->phy_bit, pkt->num_phy_bit);
+  disp_hex(pkt->phy_byte, pkt->num_phy_byte);  
+}
+
+int calculate_sample_for_DISCOVERY(char *pkt_str, PKT_INFO*pkt) {
+// example
+// ./btle_tx 37-DISCOVERY-TxAdd-1-RxAdd-0-AdvA-010203040506-FLAGS-02-LOCALNAME09-CA-TXPOWER-03-SERVICE03-180D1810-SERVICEDATA-180D40-MANUFDATA-0001FF-CONN_INTERVAL-0006 (-SERVICESOLI-0123)
+// FLAGS: 0x01 LE Limited Discoverable Mode; 0x02 LE General Discoverable Mode
+// SERVICE:
+// 0x02 16-bit Service UUIDs More 16-bit UUIDs available
+// 0x03 16-bit Service UUIDs Complete list of 16-bit UUIDs available
+// 0x04 32-bit Service UUIDs More 32-bit UUIDs available
+// 0x05 32-bit Service UUIDs Complete list of 32-bit UUIDs available
+// 0x06 128-bit Service UUIDs More 128-bit UUIDs available
+// 0x07 128-bit Service UUIDs Complete list of 128-bit UUIDs available
+  char *current_p;
+  int ret, num_bit_tmp, num_octet_tmp, i;
+
+  pkt->num_info_bit = 0;
+  pkt->num_info_byte = 0;
+
+// gen preamble and access address
+  num_bit_tmp = convert_hex_to_bit("AA", pkt->info_bit);
+  num_octet_tmp = 1;
+  pkt->info_byte[0] = 0xAA;
+
+  printf("AA %d\n", num_bit_tmp);
+  disp_bit(pkt->info_bit, num_bit_tmp);
+  disp_hex_in_bit(pkt->info_byte, num_octet_tmp);
+
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+  pkt->num_info_byte = pkt->num_info_byte + num_octet_tmp;
+
+  num_bit_tmp = convert_hex_to_bit("D6BE898E", pkt->info_bit + pkt->num_info_bit);
+  num_octet_tmp = 4;
+  (pkt->info_byte + pkt->num_info_byte)[0] = 0xD6;
+  (pkt->info_byte + pkt->num_info_byte)[1] = 0xBE;
+  (pkt->info_byte + pkt->num_info_byte)[2] = 0x89;
+  (pkt->info_byte + pkt->num_info_byte)[3] = 0x8E;
+  
+  printf("D6BE898E %d\n", num_bit_tmp);
+  disp_bit(pkt->info_bit + pkt->num_info_bit, num_bit_tmp);
+  disp_hex_in_bit(pkt->info_byte + pkt->num_info_byte, num_octet_tmp);
+  
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+  pkt->num_info_byte = pkt->num_info_byte + num_octet_tmp;
+
+// get txadd and rxadd
+  current_p = pkt_str;
+  int txadd, rxadd;
+  current_p = get_next_field_name_value(current_p, "TXADD", &txadd, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+
+  current_p = get_next_field_name_value(current_p, "RXADD", &rxadd, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+  pkt->num_info_bit = pkt->num_info_bit + 16; // 16 is header length
+  pkt->num_info_byte = pkt->num_info_byte + 2;
+
+// get AdvA
+  current_p = get_next_field_name_bit(current_p, "ADVA", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 6, &ret);
+  if (ret != 0) { // failed or the last
+    return(-1);
+  }
+
+  num_octet_tmp = 6;
+  (pkt->info_byte + pkt->num_info_byte)[0] = 0x06;
+  (pkt->info_byte + pkt->num_info_byte)[1] = 0x05;
+  (pkt->info_byte + pkt->num_info_byte)[2] = 0x04;
+  (pkt->info_byte + pkt->num_info_byte)[3] = 0x03;
+  (pkt->info_byte + pkt->num_info_byte)[4] = 0x02;
+  (pkt->info_byte + pkt->num_info_byte)[5] = 0x01;
+  printf("ADVA buffer begin from %d\n",  pkt->num_info_byte);
+  
+  printf("010203040506 %d\n", num_bit_tmp);
+  disp_bit(pkt->info_bit + pkt->num_info_bit, num_bit_tmp);
+  disp_hex_in_bit(pkt->info_byte + pkt->num_info_byte, num_octet_tmp);
+  
+  pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+  pkt->num_info_byte = pkt->num_info_byte + num_octet_tmp;
+
+// then get AdvData. maximum 31 octets
+  int octets_left_room = 31;
+  while(ret == 0) {
+    // get name of next field
+    for(i=0; i<NUM_AD_TYPE; i++) {
+      get_next_field_name(current_p, AD_TYPE_STR[i], &ret);
+      if (ret == 0) {
+        break;
+      }
+    }
+
+    //printf("i %d %s\n", i, AD_TYPE_STR[i]);
+    
+    if (ret != 0) {
+      printf("Get name of AD TYPE failed. i %d ret %d NUM_AD_TYPE %d\n", i, ret, NUM_AD_TYPE);
+      return(-1);
+    }
+
+    if (i==(NUM_AD_TYPE-1)) { // it is SPACE field, should be processed later on.
+      break;
+    }
+
+    // get data followed according to AD TYPE
+    // except LOCAL_NAME, all others are values.
+    octets_left_room = octets_left_room  - 2; // 2 -- length and AD_TYPE
+    if (i == LOCAL_NAME08 || i == LOCAL_NAME09) {
+      current_p = get_next_field_name_char(current_p, AD_TYPE_STR[i], pkt->info_bit+ 2*8 + pkt->num_info_bit, &num_bit_tmp, 0, octets_left_room, &ret);
+
+      num_octet_tmp = num_bit_tmp/8;
+      sprintf((char*)(pkt->info_byte + 2 + pkt->num_info_byte), "CA1308 11950 22.626 113.823 8");
+      printf("display buffer begin from %d\n",  2 + pkt->num_info_byte);
+      
+      printf("CA1308 11950 22.626 113.823 8 %d\n", num_bit_tmp);
+      disp_bit(pkt->info_bit + 2*8 + pkt->num_info_bit, num_bit_tmp);
+      disp_hex_in_bit(pkt->info_byte + 2+ pkt->num_info_byte, num_octet_tmp);
+      
+    } else if (i == SERVICE02 || i == SERVICE03 || i == SERVICE04 || i == SERVICE05 || i == SERVICE06 || i == SERVICE07) {
+      current_p = get_next_field_name_bit(current_p, AD_TYPE_STR[i], pkt->info_bit+ 2*8 + pkt->num_info_bit, &num_bit_tmp, 1, octets_left_room, &ret);
+    } else if (i == SERVICE_DATA) {
+      current_p = get_next_field_name_bit_part_flip(current_p, AD_TYPE_STR[i], pkt->info_bit+ 2*8 + pkt->num_info_bit, &num_bit_tmp, 2, octets_left_room, &ret);
+    } else {
+      current_p = get_next_field_name_bit(current_p, AD_TYPE_STR[i], pkt->info_bit+ 2*8 + pkt->num_info_bit, &num_bit_tmp, 0, octets_left_room, &ret);
+    }
+    if (ret == -1) { // failed
+      return(-1);
+    }
+    
+    // fill length and AD_TYPE octets
+    num_octet_tmp = num_bit_tmp/8;
+    int_to_bit(num_octet_tmp+1, pkt->info_bit + pkt->num_info_bit);
+    (pkt->info_byte + pkt->num_info_byte)[0] = num_octet_tmp+1;
+    int_to_bit(AD_TYPE_VAL[i], pkt->info_bit + pkt->num_info_bit + 8 );
+    (pkt->info_byte + 1 + pkt->num_info_byte)[0] = AD_TYPE_VAL[i];
+
+    printf("length and AD_TYPE %d\n", 16);
+    disp_bit(pkt->info_bit + pkt->num_info_bit,  2*8);
+    disp_hex_in_bit(pkt->info_byte + pkt->num_info_byte,  2);
+    
+    pkt->num_info_bit = pkt->num_info_bit + 2*8 + num_bit_tmp;
+    pkt->num_info_byte = pkt->num_info_byte + 2 + num_octet_tmp;
+    
+    octets_left_room = octets_left_room  - num_octet_tmp;
+  }
+
+  int payload_len = (pkt->num_info_bit/8) - 7;
+  printf("payload_len %d\n", payload_len);
+  printf("num_info_bit %d\n", pkt->num_info_bit);
+  printf("num_info_byte %d\n", pkt->num_info_byte);
+
+  fill_adv_pdu_header(pkt->pkt_type, txadd, rxadd, payload_len, pkt->info_bit+5*8);
+  fill_adv_pdu_header_byte(pkt->pkt_type, txadd, rxadd, payload_len, pkt->info_byte+5);
+
+  printf("before crc24\n");
+  disp_bit_in_hex(pkt->info_bit, pkt->num_info_bit);
+  disp_hex(pkt->info_byte, pkt->num_info_byte);
+  
+  crc24_and_scramble_to_gen_phy_bit("555555", pkt);
+  printf("num_phy_bit %d\n", pkt->num_phy_bit);
+
+  pkt->num_phy_sample = gen_sample_from_phy_bit(pkt->phy_bit, pkt->phy_sample, pkt->num_phy_bit);
+  gen_sample_from_phy_byte(pkt->phy_byte, pkt->phy_sample1, pkt->num_phy_byte);
+  printf("num_phy_sample %d\n", pkt->num_phy_sample);
+
+// get space value
+  if (ret==1) { // if space value not present
+    pkt->space = DEFAULT_SPACE_MS;
+    printf("space %d\n", pkt->space);
+    return(0);
+  }
+
+  int space;
+  current_p = get_next_field_name_value(current_p, "SPACE", &space, &ret);
+  if (ret == -1) { // failed
+    return(-1);
+  }
+
+  if (space <= 0) {
+    printf("Invalid space!\n");
+    return(-1);
+  }
+
+  pkt->space = space;
+  printf("space %d\n", pkt->space);
+  
+  return(0);
 }
 
 int calculate_sample_for_ADV_IND(char *pkt_str, PKT_INFO *pkt) {
@@ -2818,7 +3563,14 @@ int calculate_sample_from_pkt_type(char *type_str, char *pkt_str, PKT_INFO *pkt)
     if ( calculate_sample_for_RAW(pkt_str, pkt) == -1 ) {
       return(-1);
     }
-  } else if ( strcmp( toupper_str(type_str, tmp_str), "IBEACON" ) == 0 ) {
+  } else if ( strcmp( toupper_str(type_str, tmp_str), "DISCOVERY" ) == 0 ) {
+    pkt->pkt_type = DISCOVERY;
+    printf("pkt_type DISCOVERY\n");
+    if ( calculate_sample_for_DISCOVERY(pkt_str, pkt) == -1 ) {
+      return(-1);
+    }
+  }
+    else if ( strcmp( toupper_str(type_str, tmp_str), "IBEACON" ) == 0 ) {
     pkt->pkt_type = IBEACON;
     printf("pkt_type IBEACON\n");
     if ( calculate_sample_for_IBEACON(pkt_str, pkt) == -1 ) {
@@ -3013,15 +3765,46 @@ int calculate_pkt_info( PKT_INFO *pkt ){
   return(0);
 }
 
-void disp_bit_in_hex(char *bit, int num_bit)
+void save_phy_sample(char *IQ_sample, int num_IQ_sample, char *filename)
 {
-  int i, a;
-  for(i=0; i<num_bit; i=i+8) {
-    a = bit[i] + bit[i+1]*2 + bit[i+2]*4 + bit[i+3]*8 + bit[i+4]*16 + bit[i+5]*32 + bit[i+6]*64 + bit[i+7]*128;
-    //a = bit[i+7] + bit[i+6]*2 + bit[i+5]*4 + bit[i+4]*8 + bit[i+3]*16 + bit[i+2]*32 + bit[i+1]*64 + bit[i]*128;
-    printf("%02x", a);
+  int i;
+
+  FILE *fp = fopen(filename, "w");
+  if (fp == NULL) {
+    printf("save_phy_sample: fopen failed!\n");
+    return;
   }
-  printf("\n");
+  
+  for(i=0; i<num_IQ_sample; i++) {
+    if (i%24 == 0) {
+      fprintf(fp, "\n");
+    }
+    fprintf(fp, "%d, ", IQ_sample[i]);
+  }
+  fprintf(fp, "\n");
+
+  fclose(fp);
+}
+
+void save_phy_sample_for_matlab(char *IQ_sample, int num_IQ_sample, char *filename)
+{
+  int i;
+
+  FILE *fp = fopen(filename, "w");
+  if (fp == NULL) {
+    printf("save_phy_sample_for_matlab: fopen failed!\n");
+    return;
+  }
+  
+  for(i=0; i<num_IQ_sample; i++) {
+    if (i%24 == 0) {
+      fprintf(fp, "...\n");
+    }
+    fprintf(fp, "%d ", IQ_sample[i]);
+  }
+  fprintf(fp, "\n");
+
+  fclose(fp);
 }
 
 int parse_input(int num_input, char** argv, int *num_repeat_return){
@@ -3057,8 +3840,13 @@ int parse_input(int num_input, char** argv, int *num_repeat_return){
       printf("failed!\n");
       return(-2);
     }
-    printf("INFO:"); disp_bit_in_hex(packets[i].info_bit, packets[i].num_info_bit);
-    printf(" PHY:"); disp_bit_in_hex(packets[i].phy_bit, packets[i].num_phy_bit);
+    printf("INFO bit:"); disp_bit_in_hex(packets[i].info_bit, packets[i].num_info_bit);
+    printf(" PHY bit:"); disp_bit_in_hex(packets[i].phy_bit, packets[i].num_phy_bit);
+    printf("PHY SMPL: PHY_bit_for_matlab.txt IQ_sample_for_matlab.txt IQ_sample.txt IQ_sample_byte.txt\n");
+    save_phy_sample(packets[i].phy_sample, 2*packets[i].num_phy_sample, "IQ_sample.txt");
+    save_phy_sample((char*)(packets[i].phy_sample1), 2*packets[i].num_phy_sample, "IQ_sample_byte.txt");
+    save_phy_sample_for_matlab(packets[i].phy_sample, 2*packets[i].num_phy_sample, "IQ_sample_for_matlab.txt");
+    save_phy_sample_for_matlab(packets[i].phy_bit, packets[i].num_phy_bit, "PHY_bit_for_matlab.txt");
   }
 
   return(num_packet);
