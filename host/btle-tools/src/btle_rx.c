@@ -99,16 +99,9 @@ TimevalDiff(const struct timeval *a, const struct timeval *b)
    return (a->tv_sec - b->tv_sec) + 1e-6f * (a->tv_usec - b->tv_usec);
 }
 
-#ifdef USE_BLADERF
 #define SAMPLE_PER_SYMBOL 4
-#else
-#define SAMPLE_PER_SYMBOL 4
-#endif // USE_BLADERF
 
-//#define AMPLITUDE (110.0)
-#define AMPLITUDE (127.0)
 #define MOD_IDX (0.5)
-//#define LEN_GAUSS_FILTER (11) // pre 8, post 3
 #define LEN_GAUSS_FILTER (4) // pre 2, post 2
 #define MAX_NUM_INFO_BYTE (43)
 #define MAX_NUM_PHY_BYTE (47)

@@ -185,7 +185,7 @@ void sigint_callback_handler(int signum)
 #endif
 
 static void usage() {
-  printf("BTLE/BT4.0 Radio packet sender. Jiao Xianjun. putaoshu@gmail.com\n\n");
+  printf("BTLE/BT4.0 Radio packet sender. Xianjun Jiao. putaoshu@gmail.com\n\n");
 	printf("Usage:\n");
 	printf("./btle_tx packet1 packet2 ... packetX ...  rN\n");
 	printf("or\n");
