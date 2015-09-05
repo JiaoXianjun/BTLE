@@ -32,6 +32,9 @@ endif()
 add_executable(btle_tx btle_tx.c)
 install(TARGETS btle_tx RUNTIME DESTINATION ${INSTALL_DEFAULT_BINDIR})
 
+add_executable(btle_rx btle_rx.c)
+install(TARGETS btle_rx RUNTIME DESTINATION ${INSTALL_DEFAULT_BINDIR})
+
 IF (USE_BLADERF MATCHES 1)
 include_directories(${LIBBLADERF_INCLUDE_DIR})
 LIST(APPEND TOOLS_LINK_LIBS ${LIBBLADERF_LIBRARIES})
@@ -45,6 +48,9 @@ LIST(APPEND TOOLS_LINK_LIBS libgetopt_static)
 endif()
 
 target_link_libraries(btle_tx ${TOOLS_LINK_LIBS} m)
+
+target_link_libraries(btle_rx ${TOOLS_LINK_LIBS} m)
+
 # MESSAGE(STATUS "1")
 # MESSAGE(STATUS ${LIBBLADERF_LIBRARIES})
 # MESSAGE(STATUS "2")

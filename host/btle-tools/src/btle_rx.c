@@ -1,4 +1,4 @@
-// BTLE packet sender tool by Xianjun Jiao (putaoshu@gmail.com)
+// BTLE signal scanner by Xianjun Jiao (putaoshu@gmail.com)
 
 /*
  * Copyright 2012 Jared Boone <jared@sharebrained.com>
