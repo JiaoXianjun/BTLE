@@ -187,7 +187,7 @@ void sigint_callback_handler(int signum)
 static void usage() {
   printf("BTLE/BT4.0 Radio packet sender. Xianjun Jiao. putaoshu@gmail.com\n\n");
 	printf("Usage:\n");
-	printf("./btle_tx packet1 packet2 ... packetX ...  rN\n");
+	printf("btle_tx packet1 packet2 ... packetX ...  rN\n");
 	printf("or\n");
 	printf("./btle_tx packets.txt\n");
 	printf("(packets.txt contains parameters: packet1 ... packetX rN\n");
@@ -339,7 +339,7 @@ inline int open_board() {
 
   status = bladerf_enable_module(dev, BLADERF_MODULE_TX, true);
   if (status != 0) {
-     printf("open_board: Failed to enable TX module: %s\n",
+     printf("open_board: Failed to enable module: %s\n",
              bladerf_strerror(status));
      return(-1);
   }
@@ -351,7 +351,7 @@ inline int close_board() {
   // Disable TX module, shutting down our underlying TX stream
   int status = bladerf_enable_module(dev, BLADERF_MODULE_TX, false);
   if (status != 0) {
-    printf("close_board: Failed to disable TX module: %s\n",
+    printf("close_board: Failed to disable module: %s\n",
              bladerf_strerror(status));
     return(-1);
   }
