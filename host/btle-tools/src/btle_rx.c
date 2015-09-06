@@ -116,6 +116,8 @@ volatile int rx_buf_offset; // remember to initialize it!
 #define LEN_BUF_IN_SAMPLE (64*4096) //4096 samples = ~1ms for 4Msps
 
 #ifdef USE_BLADERF
+typedef struct bladerf_devinfo bladerf_devinfo;
+typedef struct bladerf bladerf_device;
 volatile int16_t rx_buf[LEN_BUF_IN_SAMPLE*2];
 struct bladerf_devinfo *devices = NULL;
 struct bladerf *dev;
