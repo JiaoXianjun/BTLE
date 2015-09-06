@@ -154,7 +154,7 @@ void sigint_callback_handler(int signum)
 
 static void print_usage() {
   printf("BTLE/BT4.0 Scanner. Xianjun Jiao. putaoshu@gmail.com\n\n");
-	printf("Usage:\n");
+	printf("Usage (NOT support bladeRF so far):\n");
   printf("    -h --help\n");
   printf("      print this help screen\n");
   printf("    -c --chan\n");
@@ -1122,7 +1122,15 @@ void save_phy_sample_for_matlab(char *IQ_sample, int num_IQ_sample, char *filena
 }
 
 #ifdef USE_BLADERF
-  !NOT SUPPORT BLADERF NOW!
+
+bladerf_device* config_run_board(uint64_t freq_hz, int gain) {
+  bladerf_device *dev = NULL;
+  return(dev);
+}
+
+void stop_close_board(bladerf_device* rf_dev){
+  
+}
 
 #else
 
@@ -1157,7 +1165,7 @@ int main(int argc, char** argv) {
   
   // scan
 #ifdef USE_BLADERF
-  !NOT SUPPORT BLADERF NOW!
+  while(do_exit == false) {
 #else
   while(do_exit == false) { //hackrf_is_streaming(hackrf_dev) == HACKRF_TRUE?
 #endif
