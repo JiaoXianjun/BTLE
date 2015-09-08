@@ -332,8 +332,8 @@ static inline const char *backend2str(bladerf_backend b)
     }
 }
 
-int init_board(bladerf_devinfo *devices) {
-  int n_devices = bladerf_get_device_list(&devices);
+int init_board(bladerf_devices *dev, bladerf_devinfo *dev_info) {
+  int n_devices = bladerf_get_device_list(&dev_info);
 
   if (n_devices < 0) {
     if (n_devices == BLADERF_ERR_NODEV) {
@@ -346,10 +346,10 @@ int init_board(bladerf_devinfo *devices) {
   }
 
   printf("init_board: %d bladeRF devices found! The 1st one will be used:\n", n_devices);
-  printf("    Backend:        %s\n", backend2str(devices[0].backend));
-  printf("    Serial:         %s\n", devices[0].serial);
-  printf("    USB Bus:        %d\n", devices[0].usb_bus);
-  printf("    USB Address:    %d\n", devices[0].usb_addr);
+  printf("    Backend:        %s\n", backend2str(dev_info[0].backend));
+  printf("    Serial:         %s\n", dev_info[0].serial);
+  printf("    USB Bus:        %d\n", dev_info[0].usb_bus);
+  printf("    USB Address:    %d\n", dev_info[0].usb_addr);
 
   int fpga_loaded;
   int status = bladerf_open(&dev, NULL);
