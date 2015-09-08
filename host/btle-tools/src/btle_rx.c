@@ -416,7 +416,7 @@ initialize_device_out_point:
   return(0);
 }
 
-inline int open_board(uint64_t freq_hz, int gain) {
+inline int open_board(uint64_t freq_hz, int gain, bladerf_device *dev) {
   int status;
 
   status = bladerf_set_frequency(dev, BLADERF_MODULE_RX, freq_hz);
