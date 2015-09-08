@@ -43,6 +43,7 @@
 #include <fcntl.h>
 #include <errno.h>
 
+//----------------------------------some sys stuff----------------------------------
 #ifndef bool
 typedef int bool;
 #define true 1
@@ -100,41 +101,7 @@ TimevalDiff(const struct timeval *a, const struct timeval *b)
    return (a->tv_sec - b->tv_sec) + 1e-6f * (a->tv_usec - b->tv_usec);
 }
 
-#define SAMPLE_PER_SYMBOL 4 // 4M sampling rate
-
-#define MOD_IDX (0.5)
-#define LEN_GAUSS_FILTER (4) // pre 2, post 2
-#define MAX_NUM_INFO_BYTE (43)
-#define MAX_NUM_PHY_BYTE (47)
-#define MAX_NUM_PHY_SAMPLE ((MAX_NUM_PHY_BYTE*8*SAMPLE_PER_SYMBOL)+(LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL))
-
-float gauss_coef[LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL] = {7.561773e-09, 1.197935e-06, 8.050684e-05, 2.326833e-03, 2.959908e-02, 1.727474e-01, 4.999195e-01, 8.249246e-01, 9.408018e-01, 8.249246e-01, 4.999195e-01, 1.727474e-01, 2.959908e-02, 2.326833e-03, 8.050684e-05, 1.197935e-06};
-
 volatile bool do_exit = false;
-volatile int rx_buf_offset; // remember to initialize it!
-
-#define LEN_BUF_IN_SAMPLE (64*4096) //4096 samples = ~1ms for 4Msps
-
-#ifdef USE_BLADERF
-typedef struct bladerf_devinfo bladerf_devinfo;
-typedef struct bladerf bladerf_device;
-volatile int16_t rx_buf[LEN_BUF_IN_SAMPLE*2];
-struct bladerf_devinfo *devices = NULL;
-struct bladerf *dev;
-#else
-volatile char rx_buf[LEN_BUF_IN_SAMPLE*2];
-static hackrf_device* device = NULL;
-
-int rx_callback(hackrf_transfer* transfer) {
-  int i;
-  for( i=0; i<transfer->valid_length; i++) {
-    rx_buf[rx_buf_offset] = transfer->buffer[i];
-    rx_buf_offset = (rx_buf_offset+1)&( (LEN_BUF_IN_SAMPLE*2)-1 ); //cyclic buffer
-  }
-  return(0);
-}
-#endif
-
 #ifdef _MSC_VER
 BOOL WINAPI
 sighandler(int signum)
@@ -154,129 +121,205 @@ void sigint_callback_handler(int signum)
 }
 #endif
 
+//----------------------------------some sys stuff----------------------------------
+
+//----------------------------------print_usage----------------------------------
 static void print_usage() {
-  printf("BTLE/BT4.0 Scanner. Xianjun Jiao. putaoshu@gmail.com\n\n");
-	printf("Usage (NOT support bladeRF so far):\n");
+	printf("Usage:\n");
   printf("    -h --help\n");
   printf("      print this help screen\n");
   printf("    -c --chan\n");
-  printf("      channel number. default 38. valid range 0~39\n");
+  printf("      channel number. default 37. valid range 0~39\n");
   printf("    -g --gain\n");
   printf("      rx gain in dB. HACKRF rxvga default 40, valid 0~62, lna in max gain. bladeRF default is max rx gain 66dB (valid 0~66)\n");
   printf("\nSee README for detailed information.\n");
 }
+//----------------------------------print_usage----------------------------------
 
-// Parse the command line arguments and return optional parameters as
-// variables.
-// Also performs some basic sanity checks on the parameters.
-void parse_commandline(
-  // Inputs
-  int argc,
-  char * const argv[],
-  // Outputs
-  int* chan,
-  int* gain
-) {
-  // Default values
-  (*chan) = 38;
-  
-#ifdef USE_BLADERF
-  (*gain) = 66;
-#else
-  (*gain) = 40;
-#endif
+//----------------------------------MISC MISC MISC----------------------------------
+char* toupper_str(char *input_str, char *output_str) {
+  int len_str = strlen(input_str);
+  int i;
 
-  while (1) {
-    static struct option long_options[] = {
-      {"help",         no_argument,       0, 'h'},
-      {"chan",   required_argument, 0, 'c'},
-      {"gain",         required_argument, 0, 'g'},
-      {0, 0, 0, 0}
-    };
-    /* getopt_long stores the option index here. */
-    int option_index = 0;
-    int c = getopt_long (argc, argv, "hc:g:",
-                     long_options, &option_index);
+  for (i=0; i<=len_str; i++) {
+    output_str[i] = toupper( input_str[i] );
+  }
 
-    /* Detect the end of the options. */
-    if (c == -1)
-      break;
+  return(output_str);
+}
 
-    switch (c) {
-      char * endp;
-      case 0:
-        // Code should only get here if a long option was given a non-null
-        // flag value.
-        printf("Check code!\n");
-        exit(-1);
-        break;
-      case 'h':
-        print_usage();
-        exit(-1);
-        break;
-      case 'c':
-        (*chan) = strtol(optarg,&endp,10);
-        break;
-      case 'g':
-        (*gain) = strtol(optarg,&endp,10);
-        break;
-      case '?':
-        /* getopt_long already printed an error message. */
-        exit(-1);
-      default:
-        exit(-1);
+void octet_hex_to_bit(char *hex, char *bit) {
+  char tmp_hex[3];
+
+  tmp_hex[0] = hex[0];
+  tmp_hex[1] = hex[1];
+  tmp_hex[2] = 0;
+
+  int n = strtol(tmp_hex, NULL, 16);
+
+  bit[0] = 0x01&(n>>0);
+  bit[1] = 0x01&(n>>1);
+  bit[2] = 0x01&(n>>2);
+  bit[3] = 0x01&(n>>3);
+  bit[4] = 0x01&(n>>4);
+  bit[5] = 0x01&(n>>5);
+  bit[6] = 0x01&(n>>6);
+  bit[7] = 0x01&(n>>7);
+}
+
+void int_to_bit(int n, char *bit) {
+  bit[0] = 0x01&(n>>0);
+  bit[1] = 0x01&(n>>1);
+  bit[2] = 0x01&(n>>2);
+  bit[3] = 0x01&(n>>3);
+  bit[4] = 0x01&(n>>4);
+  bit[5] = 0x01&(n>>5);
+  bit[6] = 0x01&(n>>6);
+  bit[7] = 0x01&(n>>7);
+}
+
+int convert_hex_to_bit(char *hex, char *bit){
+  int num_hex = strlen(hex);
+  while(hex[num_hex-1]<=32 || hex[num_hex-1]>=127) {
+    num_hex--;
+  }
+
+  if (num_hex%2 != 0) {
+    printf("convert_hex_to_bit: Half octet is encountered! num_hex %d\n", num_hex);
+    printf("%s\n", hex);
+    return(-1);
+  }
+
+  int num_bit = num_hex*4;
+
+  int i, j;
+  for (i=0; i<num_hex; i=i+2) {
+    j = i*4;
+    octet_hex_to_bit(hex+i, bit+j);
+  }
+
+  return(num_bit);
+}
+
+
+void disp_bit(char *bit, int num_bit)
+{
+  int i, bit_val;
+  for(i=0; i<num_bit; i++) {
+    bit_val = bit[i];
+    if (i%8 == 0 && i != 0) {
+      printf(" ");
+    } else if (i%4 == 0 && i != 0) {
+      printf("-");
     }
-    
+    printf("%d", bit_val);
   }
-
-  if ( (*chan)<0 || (*chan)>39 ) {
-    printf("channel number must be within 0~39!\n");
-    exit(-1);
-  }
-  
-#ifdef USE_BLADERF
-  if ( (*gain)<0 || (*gain)>66 ) {
-    printf("rx gain must be within 0~66!\n");
-    exit(-1);
-  }
-#else
-  if ( (*gain)<0 || (*gain)>62 ) {
-    printf("rxvga gain must be within 0~62!\n");
-    exit(-1);
-  }
-#endif
-  
-  // Error if extra arguments are found on the command line
-  if (optind < argc) {
-    printf("Error: unknown/extra arguments specified on command line\n");
-    exit(-1);
-  }
-
+  printf("\n");
 }
 
-uint64_t get_freq_by_channel_number(int channel_number) {
-  
-  uint64_t freq_hz;
-  
-  if ( channel_number == 37 ) {
-    freq_hz = 2402000000ull;
-  } else if (channel_number == 38) {
-    freq_hz = 2426000000ull;
-  } else if (channel_number == 39) {
-    freq_hz = 2480000000ull;
-  } else if (channel_number >=0 && channel_number <= 10 ) {
-    freq_hz = 2404000000ull + channel_number*2000000ull;
-  } else if (channel_number >=11 && channel_number <= 36 ) {
-    freq_hz = 2428000000ull + (channel_number-11)*2000000ull;
-  } else {
-    freq_hz = 0xffffffffffffffff;
+void disp_bit_in_hex(char *bit, int num_bit)
+{
+  int i, a;
+  for(i=0; i<num_bit; i=i+8) {
+    a = bit[i] + bit[i+1]*2 + bit[i+2]*4 + bit[i+3]*8 + bit[i+4]*16 + bit[i+5]*32 + bit[i+6]*64 + bit[i+7]*128;
+    //a = bit[i+7] + bit[i+6]*2 + bit[i+5]*4 + bit[i+4]*8 + bit[i+3]*16 + bit[i+2]*32 + bit[i+1]*64 + bit[i]*128;
+    printf("%02x", a);
   }
-    
-  return(freq_hz);
-  
+  printf("\n");
 }
 
+void disp_hex(uint8_t *hex, int num_hex)
+{
+  int i;
+  for(i=0; i<num_hex; i++)
+  {
+     printf("%02x", hex[i]);
+  }
+  printf("\n");
+}
+
+void disp_hex_in_bit(uint8_t *hex, int num_hex)
+{
+  int i, j, bit_val;
+
+  for(j=0; j<num_hex; j++) {
+
+    for(i=0; i<8; i++) {
+      bit_val = (hex[j]>>i)&0x01;
+      if (i==4) {
+        printf("-");
+      }
+      printf("%d", bit_val);
+    }
+
+    printf(" ");
+
+  }
+
+  printf("\n");
+}
+
+void save_phy_sample(char *IQ_sample, int num_IQ_sample, char *filename)
+{
+  int i;
+
+  FILE *fp = fopen(filename, "w");
+  if (fp == NULL) {
+    printf("save_phy_sample: fopen failed!\n");
+    return;
+  }
+
+  for(i=0; i<num_IQ_sample; i++) {
+    if (i%24 == 0) {
+      fprintf(fp, "\n");
+    }
+    fprintf(fp, "%d, ", IQ_sample[i]);
+  }
+  fprintf(fp, "\n");
+
+  fclose(fp);
+}
+
+void save_phy_sample_for_matlab(char *IQ_sample, int num_IQ_sample, char *filename)
+{
+  int i;
+
+  FILE *fp = fopen(filename, "w");
+  if (fp == NULL) {
+    printf("save_phy_sample_for_matlab: fopen failed!\n");
+    return;
+  }
+
+  for(i=0; i<num_IQ_sample; i++) {
+    if (i%24 == 0) {
+      fprintf(fp, "...\n");
+    }
+    fprintf(fp, "%d ", IQ_sample[i]);
+  }
+  fprintf(fp, "\n");
+
+  fclose(fp);
+}
+//----------------------------------MISC MISC MISC----------------------------------
+
+//----------------------------------some basic signal definition----------------------------------
+#define SAMPLE_PER_SYMBOL 4 // 4M sampling rate
+
+#define MOD_IDX (0.5)
+#define LEN_GAUSS_FILTER (4) // pre 2, post 2
+
+volatile int rx_buf_offset; // remember to initialize it!
+
+#define LEN_BUF_IN_SAMPLE (64*4096) //4096 samples = ~1ms for 4Msps
+//----------------------------------some basic signal definition----------------------------------
+
+//----------------------------------board specific operation----------------------------------
 #ifdef USE_BLADERF
+#define MAX_GAIN 66
+#define DEFAULT_GAIN 66
+typedef struct bladerf_devinfo bladerf_devinfo;
+typedef struct bladerf bladerf_device;
+volatile int16_t rx_buf[LEN_BUF_IN_SAMPLE*2];
 static inline const char *backend2str(bladerf_backend b)
 {
     switch (b) {
@@ -424,7 +467,31 @@ void exit_board() {
   dev = NULL;
 }
 
-#else
+bladerf_device* config_run_board(uint64_t freq_hz, int gain) {
+  bladerf_device *dev = NULL;
+  return(dev);
+}
+
+void stop_close_board(bladerf_device* rf_dev){
+  
+}
+
+#else //-----------------------------the board is HACKRF-----------------------------
+#define MAX_GAIN 62
+#define DEFAULT_GAIN 40
+#define MAX_LNA_GAIN 40
+
+volatile char rx_buf[LEN_BUF_IN_SAMPLE*2];
+
+int rx_callback(hackrf_transfer* transfer) {
+  int i;
+  for( i=0; i<transfer->valid_length; i++) {
+    rx_buf[rx_buf_offset] = transfer->buffer[i];
+    rx_buf_offset = (rx_buf_offset+1)&( (LEN_BUF_IN_SAMPLE*2)-1 ); //cyclic buffer
+  }
+  return(0);
+}
+
 int init_board() {
 	int result = hackrf_init();
 	if( result != HACKRF_SUCCESS ) {
@@ -447,47 +514,44 @@ int init_board() {
   return(0);
 }
 
-inline int open_board(uint64_t freq_hz, int gain) {
+inline int open_board(uint64_t freq_hz, int gain, hackrf_device** device) {
   int result;
 
-	result = hackrf_open(&device);
+	result = hackrf_open(device);
 	if( result != HACKRF_SUCCESS ) {
 		printf("open_board: hackrf_open() failed: %s (%d)\n", hackrf_error_name(result), result);
 		return(-1);
 	}
 
-  result = hackrf_set_freq(device, freq_hz);
+  result = hackrf_set_freq(*device, freq_hz);
   if( result != HACKRF_SUCCESS ) {
     printf("open_board: hackrf_set_freq() failed: %s (%d)\n", hackrf_error_name(result), result);
     return(-1);
   }
 
-  result = hackrf_set_sample_rate(device, SAMPLE_PER_SYMBOL*1000000ul);
+  result = hackrf_set_sample_rate(*device, SAMPLE_PER_SYMBOL*1000000ul);
   if( result != HACKRF_SUCCESS ) {
     printf("open_board: hackrf_set_sample_rate() failed: %s (%d)\n", hackrf_error_name(result), result);
     return(-1);
   }
-
-  gain = (gain/2)*2;
-  result = hackrf_set_vga_gain(device, gain);
-	result |= hackrf_set_lna_gain(device, 40);
+  
+  result = hackrf_set_baseband_filter_bandwidth(*device, SAMPLE_PER_SYMBOL*1000000ul/2);
+  if( result != HACKRF_SUCCESS ) {
+    printf("open_board: hackrf_set_baseband_filter_bandwidth() failed: %s (%d)\n", hackrf_error_name(result), result);
+    return(-1);
+  }
+  
+  result = hackrf_set_vga_gain(*device, gain);
+	result |= hackrf_set_lna_gain(*device, MAX_LNA_GAIN);
   if( result != HACKRF_SUCCESS ) {
     printf("open_board: hackrf_set_txvga_gain() failed: %s (%d)\n", hackrf_error_name(result), result);
     return(-1);
   }
 
-  #if 0
-  result = hackrf_set_antenna_enable(device, 1);
-  if( result != HACKRF_SUCCESS ) {
-    printf("open_board: hackrf_set_antenna_enable() failed: %s (%d)\n", hackrf_error_name(result), result);
-    return(-1);
-  }
-  #endif
-
   return(0);
 }
 
-void exit_board() {
+void exit_board(hackrf_device *device) {
 	if(device != NULL)
 	{
 		hackrf_exit();
@@ -495,7 +559,7 @@ void exit_board() {
 	}
 }
 
-inline int close_board() {
+inline int close_board(hackrf_device *device) {
   int result;
 
 	if(device != NULL)
@@ -519,7 +583,120 @@ inline int close_board() {
 	}
 }
 
-#endif // USE_BLADERF
+inline int run_board(hackrf_device* device) {
+  int result;
+
+	result = hackrf_stop_rx(device);
+	if( result != HACKRF_SUCCESS ) {
+		printf("run_board: hackrf_stop_rx() failed: %s (%d)\n", hackrf_error_name(result), result);
+		return(-1);
+	}
+  
+  result = hackrf_start_rx(device, rx_callback, NULL);
+  if( result != HACKRF_SUCCESS ) {
+    printf("run_board: hackrf_start_rx() failed: %s (%d)\n", hackrf_error_name(result), result);
+    return(-1);
+  }
+
+  return(0);
+}
+
+void* config_run_board(uint64_t freq_hz, int gain) {
+  hackrf_device *dev = NULL;
+  
+  if (init_board() != 0) {
+    return(NULL);
+  }
+  
+  if ( open_board(freq_hz, gain, &dev) != 0 ) {
+    return(dev);
+  }
+
+  if ( run_board(dev) != 0 ) {
+    return(dev);
+  }
+  
+  return(dev);
+}
+
+void stop_close_board(hackrf_device* device){
+  if (close_board(device)!=0){
+    return;
+  }
+  exit_board(device);
+}
+
+#endif
+//----------------------------------board specific operation----------------------------------
+
+//----------------------------------BTLE SPEC related----------------------------------
+#include "scramble_table_ch37.h"
+#define MAX_NUM_CHAR_CMD (256)
+#define DEFAULT_CHANNEL 37
+#define MAX_CHANNEL_NUMBER 39
+#define MAX_NUM_INFO_BYTE (43)
+#define MAX_NUM_PHY_BYTE (47)
+#define MAX_NUM_PHY_SAMPLE ((MAX_NUM_PHY_BYTE*8*SAMPLE_PER_SYMBOL)+(LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL))
+
+/**
+ * Static table used for the table_driven implementation.
+ *****************************************************************************/
+static const uint_fast32_t crc_table[256] = {
+    0x000000, 0x01b4c0, 0x036980, 0x02dd40, 0x06d300, 0x0767c0, 0x05ba80, 0x040e40,
+    0x0da600, 0x0c12c0, 0x0ecf80, 0x0f7b40, 0x0b7500, 0x0ac1c0, 0x081c80, 0x09a840,
+    0x1b4c00, 0x1af8c0, 0x182580, 0x199140, 0x1d9f00, 0x1c2bc0, 0x1ef680, 0x1f4240,
+    0x16ea00, 0x175ec0, 0x158380, 0x143740, 0x103900, 0x118dc0, 0x135080, 0x12e440,
+    0x369800, 0x372cc0, 0x35f180, 0x344540, 0x304b00, 0x31ffc0, 0x332280, 0x329640,
+    0x3b3e00, 0x3a8ac0, 0x385780, 0x39e340, 0x3ded00, 0x3c59c0, 0x3e8480, 0x3f3040,
+    0x2dd400, 0x2c60c0, 0x2ebd80, 0x2f0940, 0x2b0700, 0x2ab3c0, 0x286e80, 0x29da40,
+    0x207200, 0x21c6c0, 0x231b80, 0x22af40, 0x26a100, 0x2715c0, 0x25c880, 0x247c40,
+    0x6d3000, 0x6c84c0, 0x6e5980, 0x6fed40, 0x6be300, 0x6a57c0, 0x688a80, 0x693e40,
+    0x609600, 0x6122c0, 0x63ff80, 0x624b40, 0x664500, 0x67f1c0, 0x652c80, 0x649840,
+    0x767c00, 0x77c8c0, 0x751580, 0x74a140, 0x70af00, 0x711bc0, 0x73c680, 0x727240,
+    0x7bda00, 0x7a6ec0, 0x78b380, 0x790740, 0x7d0900, 0x7cbdc0, 0x7e6080, 0x7fd440,
+    0x5ba800, 0x5a1cc0, 0x58c180, 0x597540, 0x5d7b00, 0x5ccfc0, 0x5e1280, 0x5fa640,
+    0x560e00, 0x57bac0, 0x556780, 0x54d340, 0x50dd00, 0x5169c0, 0x53b480, 0x520040,
+    0x40e400, 0x4150c0, 0x438d80, 0x423940, 0x463700, 0x4783c0, 0x455e80, 0x44ea40,
+    0x4d4200, 0x4cf6c0, 0x4e2b80, 0x4f9f40, 0x4b9100, 0x4a25c0, 0x48f880, 0x494c40,
+    0xda6000, 0xdbd4c0, 0xd90980, 0xd8bd40, 0xdcb300, 0xdd07c0, 0xdfda80, 0xde6e40,
+    0xd7c600, 0xd672c0, 0xd4af80, 0xd51b40, 0xd11500, 0xd0a1c0, 0xd27c80, 0xd3c840,
+    0xc12c00, 0xc098c0, 0xc24580, 0xc3f140, 0xc7ff00, 0xc64bc0, 0xc49680, 0xc52240,
+    0xcc8a00, 0xcd3ec0, 0xcfe380, 0xce5740, 0xca5900, 0xcbedc0, 0xc93080, 0xc88440,
+    0xecf800, 0xed4cc0, 0xef9180, 0xee2540, 0xea2b00, 0xeb9fc0, 0xe94280, 0xe8f640,
+    0xe15e00, 0xe0eac0, 0xe23780, 0xe38340, 0xe78d00, 0xe639c0, 0xe4e480, 0xe55040,
+    0xf7b400, 0xf600c0, 0xf4dd80, 0xf56940, 0xf16700, 0xf0d3c0, 0xf20e80, 0xf3ba40,
+    0xfa1200, 0xfba6c0, 0xf97b80, 0xf8cf40, 0xfcc100, 0xfd75c0, 0xffa880, 0xfe1c40,
+    0xb75000, 0xb6e4c0, 0xb43980, 0xb58d40, 0xb18300, 0xb037c0, 0xb2ea80, 0xb35e40,
+    0xbaf600, 0xbb42c0, 0xb99f80, 0xb82b40, 0xbc2500, 0xbd91c0, 0xbf4c80, 0xbef840,
+    0xac1c00, 0xada8c0, 0xaf7580, 0xaec140, 0xaacf00, 0xab7bc0, 0xa9a680, 0xa81240,
+    0xa1ba00, 0xa00ec0, 0xa2d380, 0xa36740, 0xa76900, 0xa6ddc0, 0xa40080, 0xa5b440,
+    0x81c800, 0x807cc0, 0x82a180, 0x831540, 0x871b00, 0x86afc0, 0x847280, 0x85c640,
+    0x8c6e00, 0x8ddac0, 0x8f0780, 0x8eb340, 0x8abd00, 0x8b09c0, 0x89d480, 0x886040,
+    0x9a8400, 0x9b30c0, 0x99ed80, 0x985940, 0x9c5700, 0x9de3c0, 0x9f3e80, 0x9e8a40,
+    0x972200, 0x9696c0, 0x944b80, 0x95ff40, 0x91f100, 0x9045c0, 0x929880, 0x932c40
+};
+
+uint64_t get_freq_by_channel_number(int channel_number) {
+  
+uint64_t freq_hz;
+
+if ( channel_number == 37 ) {
+  freq_hz = 2402000000ull;
+} else if (channel_number == 38) {
+  freq_hz = 2426000000ull;
+} else if (channel_number == 39) {
+  freq_hz = 2480000000ull;
+} else if (channel_number >=0 && channel_number <= 10 ) {
+  freq_hz = 2404000000ull + channel_number*2000000ull;
+} else if (channel_number >=11 && channel_number <= 36 ) {
+  freq_hz = 2428000000ull + (channel_number-11)*2000000ull;
+} else {
+  freq_hz = 0xffffffffffffffff;
+}
+  
+return(freq_hz);
+  
+}
 
 typedef enum
 {
@@ -610,11 +787,6 @@ const int AD_TYPE_VAL[] = {
     0x12   //"CONN_INTERVAL",
 };
 
-#define MAX_NUM_CHAR_CMD (256)
-char tmp_str[MAX_NUM_CHAR_CMD];
-char tmp_str1[MAX_NUM_CHAR_CMD];
-float tmp_phy_bit_over_sampling[MAX_NUM_PHY_SAMPLE + 2*LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL];
-float tmp_phy_bit_over_sampling1[MAX_NUM_PHY_SAMPLE];
 typedef struct
 {
     int channel_number;
@@ -640,108 +812,6 @@ typedef struct
 
     int space; // how many millisecond null signal shouwl be padded after this packet
 } PKT_INFO;
-
-char* toupper_str(char *input_str, char *output_str) {
-  int len_str = strlen(input_str);
-  int i;
-
-  for (i=0; i<=len_str; i++) {
-    output_str[i] = toupper( input_str[i] );
-  }
-
-  return(output_str);
-}
-
-void octet_hex_to_bit(char *hex, char *bit) {
-  char tmp_hex[3];
-
-  tmp_hex[0] = hex[0];
-  tmp_hex[1] = hex[1];
-  tmp_hex[2] = 0;
-
-  int n = strtol(tmp_hex, NULL, 16);
-
-  bit[0] = 0x01&(n>>0);
-  bit[1] = 0x01&(n>>1);
-  bit[2] = 0x01&(n>>2);
-  bit[3] = 0x01&(n>>3);
-  bit[4] = 0x01&(n>>4);
-  bit[5] = 0x01&(n>>5);
-  bit[6] = 0x01&(n>>6);
-  bit[7] = 0x01&(n>>7);
-}
-
-void int_to_bit(int n, char *bit) {
-  bit[0] = 0x01&(n>>0);
-  bit[1] = 0x01&(n>>1);
-  bit[2] = 0x01&(n>>2);
-  bit[3] = 0x01&(n>>3);
-  bit[4] = 0x01&(n>>4);
-  bit[5] = 0x01&(n>>5);
-  bit[6] = 0x01&(n>>6);
-  bit[7] = 0x01&(n>>7);
-}
-
-int convert_hex_to_bit(char *hex, char *bit){
-  int num_hex = strlen(hex);
-  while(hex[num_hex-1]<=32 || hex[num_hex-1]>=127) {
-    num_hex--;
-  }
-
-  if (num_hex%2 != 0) {
-    printf("convert_hex_to_bit: Half octet is encountered! num_hex %d\n", num_hex);
-    printf("%s\n", hex);
-    return(-1);
-  }
-
-  int num_bit = num_hex*4;
-
-  int i, j;
-  for (i=0; i<num_hex; i=i+2) {
-    j = i*4;
-    octet_hex_to_bit(hex+i, bit+j);
-  }
-
-  return(num_bit);
-}
-
-/**
- * Static table used for the table_driven implementation.
- *****************************************************************************/
-static const uint_fast32_t crc_table[256] = {
-    0x000000, 0x01b4c0, 0x036980, 0x02dd40, 0x06d300, 0x0767c0, 0x05ba80, 0x040e40,
-    0x0da600, 0x0c12c0, 0x0ecf80, 0x0f7b40, 0x0b7500, 0x0ac1c0, 0x081c80, 0x09a840,
-    0x1b4c00, 0x1af8c0, 0x182580, 0x199140, 0x1d9f00, 0x1c2bc0, 0x1ef680, 0x1f4240,
-    0x16ea00, 0x175ec0, 0x158380, 0x143740, 0x103900, 0x118dc0, 0x135080, 0x12e440,
-    0x369800, 0x372cc0, 0x35f180, 0x344540, 0x304b00, 0x31ffc0, 0x332280, 0x329640,
-    0x3b3e00, 0x3a8ac0, 0x385780, 0x39e340, 0x3ded00, 0x3c59c0, 0x3e8480, 0x3f3040,
-    0x2dd400, 0x2c60c0, 0x2ebd80, 0x2f0940, 0x2b0700, 0x2ab3c0, 0x286e80, 0x29da40,
-    0x207200, 0x21c6c0, 0x231b80, 0x22af40, 0x26a100, 0x2715c0, 0x25c880, 0x247c40,
-    0x6d3000, 0x6c84c0, 0x6e5980, 0x6fed40, 0x6be300, 0x6a57c0, 0x688a80, 0x693e40,
-    0x609600, 0x6122c0, 0x63ff80, 0x624b40, 0x664500, 0x67f1c0, 0x652c80, 0x649840,
-    0x767c00, 0x77c8c0, 0x751580, 0x74a140, 0x70af00, 0x711bc0, 0x73c680, 0x727240,
-    0x7bda00, 0x7a6ec0, 0x78b380, 0x790740, 0x7d0900, 0x7cbdc0, 0x7e6080, 0x7fd440,
-    0x5ba800, 0x5a1cc0, 0x58c180, 0x597540, 0x5d7b00, 0x5ccfc0, 0x5e1280, 0x5fa640,
-    0x560e00, 0x57bac0, 0x556780, 0x54d340, 0x50dd00, 0x5169c0, 0x53b480, 0x520040,
-    0x40e400, 0x4150c0, 0x438d80, 0x423940, 0x463700, 0x4783c0, 0x455e80, 0x44ea40,
-    0x4d4200, 0x4cf6c0, 0x4e2b80, 0x4f9f40, 0x4b9100, 0x4a25c0, 0x48f880, 0x494c40,
-    0xda6000, 0xdbd4c0, 0xd90980, 0xd8bd40, 0xdcb300, 0xdd07c0, 0xdfda80, 0xde6e40,
-    0xd7c600, 0xd672c0, 0xd4af80, 0xd51b40, 0xd11500, 0xd0a1c0, 0xd27c80, 0xd3c840,
-    0xc12c00, 0xc098c0, 0xc24580, 0xc3f140, 0xc7ff00, 0xc64bc0, 0xc49680, 0xc52240,
-    0xcc8a00, 0xcd3ec0, 0xcfe380, 0xce5740, 0xca5900, 0xcbedc0, 0xc93080, 0xc88440,
-    0xecf800, 0xed4cc0, 0xef9180, 0xee2540, 0xea2b00, 0xeb9fc0, 0xe94280, 0xe8f640,
-    0xe15e00, 0xe0eac0, 0xe23780, 0xe38340, 0xe78d00, 0xe639c0, 0xe4e480, 0xe55040,
-    0xf7b400, 0xf600c0, 0xf4dd80, 0xf56940, 0xf16700, 0xf0d3c0, 0xf20e80, 0xf3ba40,
-    0xfa1200, 0xfba6c0, 0xf97b80, 0xf8cf40, 0xfcc100, 0xfd75c0, 0xffa880, 0xfe1c40,
-    0xb75000, 0xb6e4c0, 0xb43980, 0xb58d40, 0xb18300, 0xb037c0, 0xb2ea80, 0xb35e40,
-    0xbaf600, 0xbb42c0, 0xb99f80, 0xb82b40, 0xbc2500, 0xbd91c0, 0xbf4c80, 0xbef840,
-    0xac1c00, 0xada8c0, 0xaf7580, 0xaec140, 0xaacf00, 0xab7bc0, 0xa9a680, 0xa81240,
-    0xa1ba00, 0xa00ec0, 0xa2d380, 0xa36740, 0xa76900, 0xa6ddc0, 0xa40080, 0xa5b440,
-    0x81c800, 0x807cc0, 0x82a180, 0x831540, 0x871b00, 0x86afc0, 0x847280, 0x85c640,
-    0x8c6e00, 0x8ddac0, 0x8f0780, 0x8eb340, 0x8abd00, 0x8b09c0, 0x89d480, 0x886040,
-    0x9a8400, 0x9b30c0, 0x99ed80, 0x985940, 0x9c5700, 0x9de3c0, 0x9f3e80, 0x9e8a40,
-    0x972200, 0x9696c0, 0x944b80, 0x95ff40, 0x91f100, 0x9045c0, 0x929880, 0x932c40
-};
 
 /**
  * Update the crc value with new data.
@@ -804,7 +874,6 @@ void crc24(char *bit_in, int num_bit, char *init_hex, char *crc_result) {
   }
 }
 
-#include "scramble_table_ch37.h"
 void scramble_byte(uint8_t *byte_in, int num_byte, int channel_number, uint8_t *byte_out) {
   int i;
   for(i=0; i<num_byte; i++){
@@ -999,63 +1068,6 @@ void fill_adv_pdu_header(PKT_TYPE pkt_type, int txadd, int rxadd, int payload_le
   bit_out[15] = 0;
 }
 
-void disp_bit(char *bit, int num_bit)
-{
-  int i, bit_val;
-  for(i=0; i<num_bit; i++) {
-    bit_val = bit[i];
-    if (i%8 == 0 && i != 0) {
-      printf(" ");
-    } else if (i%4 == 0 && i != 0) {
-      printf("-");
-    }
-    printf("%d", bit_val);
-  }
-  printf("\n");
-}
-
-void disp_bit_in_hex(char *bit, int num_bit)
-{
-  int i, a;
-  for(i=0; i<num_bit; i=i+8) {
-    a = bit[i] + bit[i+1]*2 + bit[i+2]*4 + bit[i+3]*8 + bit[i+4]*16 + bit[i+5]*32 + bit[i+6]*64 + bit[i+7]*128;
-    //a = bit[i+7] + bit[i+6]*2 + bit[i+5]*4 + bit[i+4]*8 + bit[i+3]*16 + bit[i+2]*32 + bit[i+1]*64 + bit[i]*128;
-    printf("%02x", a);
-  }
-  printf("\n");
-}
-
-void disp_hex(uint8_t *hex, int num_hex)
-{
-  int i;
-  for(i=0; i<num_hex; i++)
-  {
-     printf("%02x", hex[i]);
-  }
-  printf("\n");
-}
-
-void disp_hex_in_bit(uint8_t *hex, int num_hex)
-{
-  int i, j, bit_val;
-
-  for(j=0; j<num_hex; j++) {
-
-    for(i=0; i<8; i++) {
-      bit_val = (hex[j]>>i)&0x01;
-      if (i==4) {
-        printf("-");
-      }
-      printf("%d", bit_val);
-    }
-
-    printf(" ");
-
-  }
-
-  printf("\n");
-}
-
 void crc24_and_scramble_to_gen_phy_bit(char *crc_init_hex, PKT_INFO *pkt) {
   crc24(pkt->info_bit+5*8, pkt->num_info_bit-5*8, crc_init_hex, pkt->info_bit+pkt->num_info_bit);
 
@@ -1080,72 +1092,94 @@ void crc24_and_scramble_to_gen_phy_bit(char *crc_init_hex, PKT_INFO *pkt) {
   disp_bit_in_hex(pkt->phy_bit, pkt->num_phy_bit);
   disp_hex(pkt->phy_byte, pkt->num_phy_byte);
 }
+//----------------------------------BTLE SPEC related----------------------------------
 
-void save_phy_sample(char *IQ_sample, int num_IQ_sample, char *filename)
-{
-  int i;
-
-  FILE *fp = fopen(filename, "w");
-  if (fp == NULL) {
-    printf("save_phy_sample: fopen failed!\n");
-    return;
-  }
-
-  for(i=0; i<num_IQ_sample; i++) {
-    if (i%24 == 0) {
-      fprintf(fp, "\n");
-    }
-    fprintf(fp, "%d, ", IQ_sample[i]);
-  }
-  fprintf(fp, "\n");
-
-  fclose(fp);
-}
-
-void save_phy_sample_for_matlab(char *IQ_sample, int num_IQ_sample, char *filename)
-{
-  int i;
-
-  FILE *fp = fopen(filename, "w");
-  if (fp == NULL) {
-    printf("save_phy_sample_for_matlab: fopen failed!\n");
-    return;
-  }
-
-  for(i=0; i<num_IQ_sample; i++) {
-    if (i%24 == 0) {
-      fprintf(fp, "...\n");
-    }
-    fprintf(fp, "%d ", IQ_sample[i]);
-  }
-  fprintf(fp, "\n");
-
-  fclose(fp);
-}
-
-#ifdef USE_BLADERF
-
-bladerf_device* config_run_board(uint64_t freq_hz, int gain) {
-  bladerf_device *dev = NULL;
-  return(dev);
-}
-
-void stop_close_board(bladerf_device* rf_dev){
+//----------------------------------command line parameters----------------------------------
+// Parse the command line arguments and return optional parameters as
+// variables.
+// Also performs some basic sanity checks on the parameters.
+void parse_commandline(
+  // Inputs
+  int argc,
+  char * const argv[],
+  // Outputs
+  int* chan,
+  int* gain
+) {
+  printf("BTLE/BT4.0 Scanner(NOT support bladeRF so far). Xianjun Jiao. putaoshu@gmail.com\n\n");
   
-}
+  // Default values
+  (*chan) = DEFAULT_CHANNEL;
 
-#else
+  (*gain) = DEFAULT_GAIN;
 
-hackrf_device* config_run_board(uint64_t freq_hz, int gain) {
-  hackrf_device *dev = NULL;
-  return(dev);
-}
+  while (1) {
+    static struct option long_options[] = {
+      {"help",         no_argument,       0, 'h'},
+      {"chan",   required_argument, 0, 'c'},
+      {"gain",         required_argument, 0, 'g'},
+      {0, 0, 0, 0}
+    };
+    /* getopt_long stores the option index here. */
+    int option_index = 0;
+    int c = getopt_long (argc, argv, "hc:g:",
+                     long_options, &option_index);
 
-void stop_close_board(hackrf_device* rf_dev){
+    /* Detect the end of the options. */
+    if (c == -1)
+      break;
+
+    switch (c) {
+      char * endp;
+      case 0:
+        // Code should only get here if a long option was given a non-null
+        // flag value.
+        printf("Check code!\n");
+        goto exit_out_point;
+        break;
+        
+      case 'h':
+        goto exit_out_point;
+        break;
+        
+      case 'c':
+        (*chan) = strtol(optarg,&endp,10);
+        break;
+        
+      case 'g':
+        (*gain) = strtol(optarg,&endp,10);
+        break;
+        
+      case '?':
+        /* getopt_long already printed an error message. */
+        goto exit_out_point;
+        
+      default:
+        goto exit_out_point;
+    }
+    
+  }
+
+  if ( (*chan)<0 || (*chan)>MAX_CHANNEL_NUMBER ) {
+    printf("channel number must be within 0~%d!\n", MAX_CHANNEL_NUMBER);
+    goto exit_out_point;
+  }
   
+  if ( (*gain)<0 || (*gain)>MAX_GAIN ) {
+    printf("rx gain must be within 0~%d!\n", MAX_GAIN);
+    goto exit_out_point;
+  }
+  
+  // Error if extra arguments are found on the command line
+  if (optind < argc) {
+    printf("Error: unknown/extra arguments specified on command line\n");
+  }
+  
+exit_out_point:
+    print_usage();
+    exit(-1);
 }
-
-#endif
+//----------------------------------command line parameters----------------------------------
 
 int main(int argc, char** argv) {
   uint64_t freq_hz;
@@ -1159,18 +1193,10 @@ int main(int argc, char** argv) {
   printf("cmd line input: chan %d, freq %ldMHz, rx %ddB\n", chan, freq_hz/1000000, gain);
 	
   // run cyclic recv in background
-#ifdef USE_BLADERF
-  bladerf_device* rf_dev = config_run_board(freq_hz, gain);
-#else
-  hackrf_device* rf_dev = config_run_board(freq_hz, gain);
-#endif
+  void* rf_dev = config_run_board(freq_hz, gain);
   
   // scan
-#ifdef USE_BLADERF
-  while(do_exit == false) {
-#else
   while(do_exit == false) { //hackrf_is_streaming(hackrf_dev) == HACKRF_TRUE?
-#endif
     printf("%d\n", rx_buf_offset);
   }
   
