@@ -332,7 +332,7 @@ static inline const char *backend2str(bladerf_backend b)
     }
 }
 
-int init_board(bladerf_devices *dev, bladerf_devinfo *dev_info) {
+int init_board(bladerf_device *dev, bladerf_devinfo *dev_info) {
   int n_devices = bladerf_get_device_list(&dev_info);
 
   if (n_devices < 0) {
