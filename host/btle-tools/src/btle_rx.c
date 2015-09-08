@@ -450,7 +450,7 @@ inline int open_board(uint64_t freq_hz, int gain, bladerf_device *dev) {
   return(0);
 }
 
-inline int close_board() {
+inline int close_board(bladerf_device *dev) {
   // Disable TX module, shutting down our underlying TX stream
   int status = bladerf_enable_module(dev, BLADERF_MODULE_RX, false);
   if (status != 0) {
@@ -462,7 +462,7 @@ inline int close_board() {
   return(0);
 }
 
-void exit_board() {
+void exit_board(bladerf_device *dev) {
   bladerf_close(dev);
   dev = NULL;
 }
