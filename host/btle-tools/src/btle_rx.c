@@ -314,7 +314,9 @@ volatile int rx_buf_offset; // remember to initialize it!
 //----------------------------------some basic signal definition----------------------------------
 
 //----------------------------------board specific operation----------------------------------
-#ifdef USE_BLADERF
+
+#ifdef USE_BLADERF //--------------------------------------BladeRF-----------------------
+char *board_name = "BladeRF";
 #define MAX_GAIN 66
 #define DEFAULT_GAIN 66
 typedef struct bladerf_devinfo bladerf_devinfo;
@@ -477,6 +479,7 @@ void stop_close_board(bladerf_device* rf_dev){
 }
 
 #else //-----------------------------the board is HACKRF-----------------------------
+char *board_name = "HACKRF";
 #define MAX_GAIN 62
 #define DEFAULT_GAIN 40
 #define MAX_LNA_GAIN 40
@@ -601,22 +604,26 @@ inline int run_board(hackrf_device* device) {
   return(0);
 }
 
-void* config_run_board(uint64_t freq_hz, int gain) {
+inline int config_run_board(uint64_t freq_hz, int gain, void **rf_dev) {
   hackrf_device *dev = NULL;
   
+  (*rf_dev) = dev;
+  
   if (init_board() != 0) {
-    return(NULL);
+    return(-1);
   }
   
   if ( open_board(freq_hz, gain, &dev) != 0 ) {
-    return(dev);
+    (*rf_dev) = dev;
+    return(-1);
   }
 
+  (*rf_dev) = dev;
   if ( run_board(dev) != 0 ) {
-    return(dev);
+    return(-1);
   }
   
-  return(dev);
+  return(0);
 }
 
 void stop_close_board(hackrf_device* device){
@@ -1135,11 +1142,11 @@ void parse_commandline(
         // Code should only get here if a long option was given a non-null
         // flag value.
         printf("Check code!\n");
-        goto exit_out_point;
+        goto abnormal_quit;
         break;
         
       case 'h':
-        goto exit_out_point;
+        goto abnormal_quit;
         break;
         
       case 'c':
@@ -1152,54 +1159,70 @@ void parse_commandline(
         
       case '?':
         /* getopt_long already printed an error message. */
-        goto exit_out_point;
+        goto abnormal_quit;
         
       default:
-        goto exit_out_point;
+        goto abnormal_quit;
     }
     
   }
 
   if ( (*chan)<0 || (*chan)>MAX_CHANNEL_NUMBER ) {
     printf("channel number must be within 0~%d!\n", MAX_CHANNEL_NUMBER);
-    goto exit_out_point;
+    goto abnormal_quit;
   }
   
   if ( (*gain)<0 || (*gain)>MAX_GAIN ) {
     printf("rx gain must be within 0~%d!\n", MAX_GAIN);
-    goto exit_out_point;
+    goto abnormal_quit;
   }
   
   // Error if extra arguments are found on the command line
   if (optind < argc) {
     printf("Error: unknown/extra arguments specified on command line\n");
+    goto abnormal_quit;
   }
+
+  return;
   
-exit_out_point:
-    print_usage();
-    exit(-1);
+abnormal_quit:
+  print_usage();
+  exit(-1);
 }
 //----------------------------------command line parameters----------------------------------
 
 int main(int argc, char** argv) {
   uint64_t freq_hz;
-  int gain, chan;
-  
-  rx_buf_offset = 0;
-  do_exit = false;
-  
+  int gain, chan, rx_buf_offset_old;
+  void* rf_dev;
+
   parse_commandline(argc, argv, &chan, &gain);
   freq_hz = get_freq_by_channel_number(chan);
-  printf("cmd line input: chan %d, freq %ldMHz, rx %ddB\n", chan, freq_hz/1000000, gain);
-	
-  // run cyclic recv in background
-  void* rf_dev = config_run_board(freq_hz, gain);
+  printf("cmd line input: chan %d, freq %ldMHz, rx %ddB (%s)\n", chan, freq_hz/1000000, gain, board_name);
   
-  // scan
-  while(do_exit == false) { //hackrf_is_streaming(hackrf_dev) == HACKRF_TRUE?
-    printf("%d\n", rx_buf_offset);
+  rx_buf_offset = 0;
+  rx_buf_offset_old = rx_buf_offset;
+  // run cyclic recv in background
+  do_exit = false;
+  if ( config_run_board(freq_hz, gain, &rf_dev) != 0 ){
+    if (rf_dev != NULL) {
+      goto program_quit;
+    }
+    else {
+      return(1);
+    }
   }
   
+  // scan
+  do_exit = false;
+ while(do_exit == false) { //hackrf_is_streaming(hackrf_dev) == HACKRF_TRUE?
+    if ( (rx_buf_offset-rx_buf_offset_old) > 65536 || (rx_buf_offset-rx_buf_offset_old) < -65536 ) {
+      printf("%d\n", rx_buf_offset);
+      rx_buf_offset_old = rx_buf_offset;
+    }
+  }
+
+program_quit:
   stop_close_board(rf_dev);
   
   return(0);
