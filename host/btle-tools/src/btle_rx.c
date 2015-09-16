@@ -310,7 +310,7 @@ void save_phy_sample_for_matlab(char *IQ_sample, int num_IQ_sample, char *filena
 
 volatile int rx_buf_offset; // remember to initialize it!
 
-#define LEN_BUF_IN_SAMPLE (64*4096) //4096 samples = ~1ms for 4Msps
+#define LEN_BUF_IN_SAMPLE (4*4096) //4096 samples = ~1ms for 4Msps
 //----------------------------------some basic signal definition----------------------------------
 
 //----------------------------------board specific operation----------------------------------
@@ -684,7 +684,7 @@ static const uint_fast32_t crc_table[256] = {
 };
 
 uint64_t get_freq_by_channel_number(int channel_number) {
-  
+
 uint64_t freq_hz;
 
 if ( channel_number == 37 ) {
@@ -1216,10 +1216,14 @@ int main(int argc, char** argv) {
   // scan
   do_exit = false;
  while(do_exit == false) { //hackrf_is_streaming(hackrf_dev) == HACKRF_TRUE?
+    /*
     if ( (rx_buf_offset-rx_buf_offset_old) > 65536 || (rx_buf_offset-rx_buf_offset_old) < -65536 ) {
       printf("%d\n", rx_buf_offset);
       rx_buf_offset_old = rx_buf_offset;
     }
+     * */
+     // total buf len LEN_BUF_IN_SAMPLE*2 = (4*4096)*2 =  (~ 4ms)
+     
   }
 
 program_quit:
