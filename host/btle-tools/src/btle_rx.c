@@ -310,7 +310,7 @@ void save_phy_sample_for_matlab(char *IQ_sample, int num_IQ_sample, char *filena
 
 volatile int rx_buf_offset; // remember to initialize it!
 
-#define LEN_BUF_IN_SAMPLE (64*4096) //4096 samples = ~1ms for 4Msps
+#define LEN_BUF_IN_SAMPLE (4*4096) //4096 samples = ~1ms for 4Msps
 #define LEN_BUF (LEN_BUF_IN_SAMPLE*2)
 //----------------------------------some basic signal definition----------------------------------
 
@@ -796,7 +796,7 @@ char *board_name = "BladeRF";
 #define DEFAULT_GAIN 66
 typedef struct bladerf_devinfo bladerf_devinfo;
 typedef struct bladerf bladerf_device;
-volatile int16_t rx_buf[LEN_BUF];
+volatile int16_t rx_buf[LEN_BUF+LEN_BUF_MAX_NUM_BODY];
 static inline const char *backend2str(bladerf_backend b)
 {
     switch (b) {
@@ -959,7 +959,7 @@ char *board_name = "HACKRF";
 #define DEFAULT_GAIN 40
 #define MAX_LNA_GAIN 40
 
-volatile char rx_buf[LEN_BUF + (MAX_NUM_BODY_SAMPLE*2)];
+volatile int8_t rx_buf[LEN_BUF + LEN_BUF_MAX_NUM_BODY];
 
 int rx_callback(hackrf_transfer* transfer) {
   int i;
@@ -1108,7 +1108,7 @@ void stop_close_board(hackrf_device* device){
   exit_board(device);
 }
 
-#endif
+#endif  //#ifdef USE_BLADERF
 //----------------------------------board specific operation----------------------------------
 
 
@@ -1202,9 +1202,28 @@ abnormal_quit:
 }
 //----------------------------------command line parameters----------------------------------
 
+//----------------------------------receiver----------------------------------
+inline void receiver(int phase, int buf_sp, const int buf_len){
+  #ifdef USE_BLADERF
+  const int mem_size_scale = 2;
+  int16_t *rxp = (int16_t *)(rx_buf + buf_sp);
+  #else
+  const int mem_size_scale = 1;
+  int8_t *rxp = (int8_t *)(rx_buf + buf_sp);
+  #endif
+  
+  if (phase==0) {
+    memcpy((void *)(rx_buf+LEN_BUF), (void *)rx_buf, LEN_BUF_MAX_NUM_BODY*mem_size_scale);
+  }
+
+  printf("phase %d rx_buf_offset %d buf_sp %d LEN_BUF/2 %d mem scale %d\n", phase, rx_buf_offset, buf_sp, LEN_BUF/2, mem_size_scale);
+}
+//----------------------------------receiver----------------------------------
+
 int main(int argc, char** argv) {
   uint64_t freq_hz;
-  int gain, chan, phase, rx_buf_offset_tmp;
+  int gain, chan, phase, rx_buf_offset_tmp, buf_sp;
+  bool run_flag = false;
   void* rf_dev;
 
   parse_commandline(argc, argv, &chan, &gain);
@@ -1233,19 +1252,30 @@ int main(int argc, char** argv) {
       rx_buf_offset_old = rx_buf_offset;
     }
      * */
-    // total buf len LEN_BUF = (4*4096)*2 =  (~ 4ms); tail length MAX_NUM_BODY_SAMPLE*2
+    // total buf len LEN_BUF = (4*4096)*2 =  (~ 4ms); tail length MAX_NUM_BODY_SAMPLE*2=LEN_BUF_MAX_NUM_BODY
     
     rx_buf_offset_tmp = rx_buf_offset - LEN_BUF_MAX_NUM_BODY;
     // cross point 0
     if (rx_buf_offset_tmp>=0 && rx_buf_offset_tmp<(LEN_BUF/2) && phase==1) {
-      printf("rx_buf_offset cross 0: %d %d %d\n", rx_buf_offset, (LEN_BUF/2), LEN_BUF_MAX_NUM_BODY);
+      //printf("rx_buf_offset cross 0: %d %d %d\n", rx_buf_offset, (LEN_BUF/2), LEN_BUF_MAX_NUM_BODY);
       phase = 0;
+      
+      buf_sp = (LEN_BUF/2);
+      run_flag = true;
     }
 
     // cross point 1
     if (rx_buf_offset_tmp>=(LEN_BUF/2) && phase==0) {
-        printf("rx_buf_offset cross 1: %d %d %d\n", rx_buf_offset, (LEN_BUF/2), LEN_BUF_MAX_NUM_BODY);
-        phase = 1;
+      //printf("rx_buf_offset cross 1: %d %d %d\n", rx_buf_offset, (LEN_BUF/2), LEN_BUF_MAX_NUM_BODY);
+      phase = 1;
+
+      buf_sp = 0;
+      run_flag = true;
+    }
+    
+    if (run_flag) {
+      receiver(phase, buf_sp, (LEN_BUF/2)+LEN_BUF_MAX_NUM_BODY);
+      run_flag = false;
     }
   }
 
