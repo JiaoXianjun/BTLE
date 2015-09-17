@@ -944,7 +944,7 @@ void exit_board(bladerf_device *dev) {
   dev = NULL;
 }
 
-bladerf_device* config_run_board(uint64_t freq_hz, int gain) {
+bladerf_device* config_run_board(uint64_t freq_hz, int gain, void **rf_dev) {
   bladerf_device *dev = NULL;
   return(dev);
 }
