@@ -327,8 +327,9 @@ volatile int rx_buf_offset; // remember to initialize it!
 
 #define NUM_PREAMBLE_BYTE (1)
 #define NUM_ACCESS_ADDR_BYTE (4)
-#define NUM_PRE_SAMPLE ((NUM_PREAMBLE_BYTE+NUM_ACCESS_ADDR_BYTE)*8*SAMPLE_PER_SYMBOL)
-#define MAX_NUM_BODY_BYTE (MAX_NUM_PHY_BYTE-NUM_PREAMBLE_BYTE-NUM_ACCESS_ADDR_BYTE)
+#define NUM_PREAMBLE_ACCESS_BYTE (NUM_PREAMBLE_BYTE+NUM_ACCESS_ADDR_BYTE)
+#define NUM_PRE_SAMPLE (NUM_PREAMBLE_ACCESS_BYTE*8*SAMPLE_PER_SYMBOL)
+#define MAX_NUM_BODY_BYTE (MAX_NUM_PHY_BYTE-NUM_PREAMBLE_ACCESS_BYTE)
 #define MAX_NUM_BODY_SAMPLE (MAX_NUM_BODY_BYTE*8*SAMPLE_PER_SYMBOL)
 #define LEN_BUF_MAX_NUM_BODY (MAX_NUM_BODY_SAMPLE*2)
 
@@ -1204,6 +1205,24 @@ abnormal_quit:
 //----------------------------------command line parameters----------------------------------
 
 //----------------------------------receiver----------------------------------
+
+#ifdef USE_BLADERF
+bool search_unique_bytes(int16_t* rxp, const uint8_t *unique_bytes, const int num_bytes) {
+#else
+bool search_unique_bytes(int8_t* rxp, const uint8_t *unique_bytes, const int num_bytes) {
+#endif
+
+  return(true);
+}
+
+#ifdef USE_BLADERF
+void demod_bytes(int16_t* rxp, uint8_t *out_bytes, int num_bytes) {
+#else
+void demod_bytes(int8_t* rxp, uint8_t *out_bytes, int num_bytes) {
+#endif
+
+}
+
 inline void receiver(int phase, int buf_sp){
   #ifdef USE_BLADERF
   const int mem_size_scale = 2;
@@ -1213,11 +1232,29 @@ inline void receiver(int phase, int buf_sp){
   int8_t *rxp = (int8_t *)(rx_buf + buf_sp);
   #endif
   
+  
   if (phase==0) {
     memcpy((void *)(rx_buf+LEN_BUF), (void *)rx_buf, LEN_BUF_MAX_NUM_PHY_SAMPLE*mem_size_scale);
   }
 
-  printf("phase %d rx_buf_offset %d buf_sp %d LEN_BUF/2 %d mem scale %d\n", phase, rx_buf_offset, buf_sp, LEN_BUF/2, mem_size_scale);
+  //printf("phase %d rx_buf_offset %d buf_sp %d LEN_BUF/2 %d mem scale %d\n", phase, rx_buf_offset, buf_sp, LEN_BUF/2, mem_size_scale);
+  
+  static uint8_t tmp_bytes[MAX_NUM_BODY_BYTE];
+  const uint8_t preamble_access_bytes[NUM_PREAMBLE_ACCESS_BYTE] = {0xAA, 0xD6, 0xBE, 0x89, 0x8E};
+  int i = 0;
+  int running_sp, num_demod_bytes;
+  while( i< (LEN_BUF/2) ) {
+    running_sp = i;
+    if (~search_unique_bytes(rxp+running_sp, preamble_access_bytes, NUM_PREAMBLE_ACCESS_BYTE)) {
+      continue;
+    }
+    
+    running_sp = running_sp + 8*NUM_PREAMBLE_ACCESS_BYTE*2*SAMPLE_PER_SYMBOL;
+    num_demod_bytes = 1;
+    demod_bytes(rxp+running_sp, tmp_bytes, num_demod_bytes);
+    
+    i = i + running_sp + 8*num_demod_bytes*2*SAMPLE_PER_SYMBOL;
+  }
 }
 //----------------------------------receiver----------------------------------
 
