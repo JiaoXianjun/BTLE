@@ -323,6 +323,7 @@ volatile int rx_buf_offset; // remember to initialize it!
 #define MAX_NUM_PHY_BYTE (47)
 //#define MAX_NUM_PHY_SAMPLE ((MAX_NUM_PHY_BYTE*8*SAMPLE_PER_SYMBOL)+(LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL))
 #define MAX_NUM_PHY_SAMPLE (MAX_NUM_PHY_BYTE*8*SAMPLE_PER_SYMBOL)
+#define LEN_BUF_MAX_NUM_PHY_SAMPLE (MAX_NUM_PHY_BYTE*8*SAMPLE_PER_SYMBOL)
 
 #define NUM_PREAMBLE_BYTE (1)
 #define NUM_ACCESS_ADDR_BYTE (4)
@@ -796,7 +797,7 @@ char *board_name = "BladeRF";
 #define DEFAULT_GAIN 66
 typedef struct bladerf_devinfo bladerf_devinfo;
 typedef struct bladerf bladerf_device;
-volatile int16_t rx_buf[LEN_BUF+LEN_BUF_MAX_NUM_BODY];
+volatile int16_t rx_buf[LEN_BUF+LEN_BUF_MAX_NUM_PHY_SAMPLE];
 static inline const char *backend2str(bladerf_backend b)
 {
     switch (b) {
@@ -959,7 +960,7 @@ char *board_name = "HACKRF";
 #define DEFAULT_GAIN 40
 #define MAX_LNA_GAIN 40
 
-volatile int8_t rx_buf[LEN_BUF + LEN_BUF_MAX_NUM_BODY];
+volatile int8_t rx_buf[LEN_BUF + LEN_BUF_MAX_NUM_PHY_SAMPLE];
 
 int rx_callback(hackrf_transfer* transfer) {
   int i;
@@ -1203,7 +1204,7 @@ abnormal_quit:
 //----------------------------------command line parameters----------------------------------
 
 //----------------------------------receiver----------------------------------
-inline void receiver(int phase, int buf_sp, const int buf_len){
+inline void receiver(int phase, int buf_sp){
   #ifdef USE_BLADERF
   const int mem_size_scale = 2;
   int16_t *rxp = (int16_t *)(rx_buf + buf_sp);
@@ -1213,7 +1214,7 @@ inline void receiver(int phase, int buf_sp, const int buf_len){
   #endif
   
   if (phase==0) {
-    memcpy((void *)(rx_buf+LEN_BUF), (void *)rx_buf, LEN_BUF_MAX_NUM_BODY*mem_size_scale);
+    memcpy((void *)(rx_buf+LEN_BUF), (void *)rx_buf, LEN_BUF_MAX_NUM_PHY_SAMPLE*mem_size_scale);
   }
 
   printf("phase %d rx_buf_offset %d buf_sp %d LEN_BUF/2 %d mem scale %d\n", phase, rx_buf_offset, buf_sp, LEN_BUF/2, mem_size_scale);
@@ -1252,12 +1253,12 @@ int main(int argc, char** argv) {
       rx_buf_offset_old = rx_buf_offset;
     }
      * */
-    // total buf len LEN_BUF = (4*4096)*2 =  (~ 4ms); tail length MAX_NUM_BODY_SAMPLE*2=LEN_BUF_MAX_NUM_BODY
+    // total buf len LEN_BUF = (4*4096)*2 =  (~ 4ms); tail length MAX_NUM_PHY_SAMPLE*2=LEN_BUF_MAX_NUM_PHY_SAMPLE
     
-    rx_buf_offset_tmp = rx_buf_offset - LEN_BUF_MAX_NUM_BODY;
+    rx_buf_offset_tmp = rx_buf_offset - LEN_BUF_MAX_NUM_PHY_SAMPLE;
     // cross point 0
     if (rx_buf_offset_tmp>=0 && rx_buf_offset_tmp<(LEN_BUF/2) && phase==1) {
-      //printf("rx_buf_offset cross 0: %d %d %d\n", rx_buf_offset, (LEN_BUF/2), LEN_BUF_MAX_NUM_BODY);
+      //printf("rx_buf_offset cross 0: %d %d %d\n", rx_buf_offset, (LEN_BUF/2), LEN_BUF_MAX_NUM_PHY_SAMPLE);
       phase = 0;
       
       buf_sp = (LEN_BUF/2);
@@ -1266,7 +1267,7 @@ int main(int argc, char** argv) {
 
     // cross point 1
     if (rx_buf_offset_tmp>=(LEN_BUF/2) && phase==0) {
-      //printf("rx_buf_offset cross 1: %d %d %d\n", rx_buf_offset, (LEN_BUF/2), LEN_BUF_MAX_NUM_BODY);
+      //printf("rx_buf_offset cross 1: %d %d %d\n", rx_buf_offset, (LEN_BUF/2), LEN_BUF_MAX_NUM_PHY_SAMPLE);
       phase = 1;
 
       buf_sp = 0;
@@ -1274,7 +1275,7 @@ int main(int argc, char** argv) {
     }
     
     if (run_flag) {
-      receiver(phase, buf_sp, (LEN_BUF/2)+LEN_BUF_MAX_NUM_BODY);
+      receiver(phase, buf_sp);
       run_flag = false;
     }
   }
