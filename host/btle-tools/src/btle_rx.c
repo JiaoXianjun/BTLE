@@ -1208,13 +1208,43 @@ abnormal_quit:
 
 //----------------------------------receiver----------------------------------
 
-bool search_unique_bytes(IQ_TYPE* rxp, const uint8_t *unique_bytes, const int num_bytes) {
+void demod_bytes(IQ_TYPE* rxp, uint8_t *out_bytes, int num_bytes) {
+  int i, j;
+  int I0, Q0, I1, Q1;
+  uint8_t bit_decision;
+  int sample_idx = 0;
+  
+  for (i=0; i<num_bytes; i++) {
+    out_bytes[i] = 0;
+    for (j=0; j<8; j++) {
+      I0 = rxp[sample_idx];
+      Q0 = rxp[sample_idx+1];
+      I1 = rxp[sample_idx+2];
+      Q1 = rxp[sample_idx+3];
+      bit_decision = (I0*Q1 - I1*Q0)>0? 1 : 0;
+      out_bytes[i] = out_bytes[i] | (bit_decision<<j);
 
-  return(true);
+      sample_idx = sample_idx + SAMPLE_PER_SYMBOL*2;
+    }
+  }
 }
 
-void demod_bytes(IQ_TYPE* rxp, uint8_t *out_bytes, int num_bytes) {
-
+bool search_unique_bytes(IQ_TYPE* rxp, const uint8_t *unique_bytes, const int num_bytes, uint8_t *result_bytes) {
+  int i, j;
+  
+  for (i=0; i<SAMPLE_PER_SYMBOL*2; i=i+2) {
+    demod_bytes(rxp+i, result_bytes, num_bytes);
+    for (j=0; j<num_bytes; j++) {
+      if (result_bytes[j] != unique_bytes[j]) {
+        break;
+      }
+    }
+    if (j==num_bytes) {
+      return(true);
+    }
+  }
+  
+  return(false);
 }
 
 inline void receiver(int phase, int buf_sp){
@@ -1232,7 +1262,7 @@ inline void receiver(int phase, int buf_sp){
   int running_sp, num_demod_bytes;
   while( i< (LEN_BUF/2) ) {
     running_sp = i;
-    if (~search_unique_bytes(rxp+running_sp, preamble_access_bytes, NUM_PREAMBLE_ACCESS_BYTE)) {
+    if (~search_unique_bytes(rxp+running_sp, preamble_access_bytes, NUM_PREAMBLE_ACCESS_BYTE, tmp_bytes)) {
       continue;
     }
     
