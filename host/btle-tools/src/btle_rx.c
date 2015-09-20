@@ -798,7 +798,8 @@ char *board_name = "BladeRF";
 #define DEFAULT_GAIN 66
 typedef struct bladerf_devinfo bladerf_devinfo;
 typedef struct bladerf bladerf_device;
-volatile int16_t rx_buf[LEN_BUF+LEN_BUF_MAX_NUM_PHY_SAMPLE];
+typedef int16_t IQ_TYPE;
+volatile IQ_TYPE rx_buf[LEN_BUF+LEN_BUF_MAX_NUM_PHY_SAMPLE];
 static inline const char *backend2str(bladerf_backend b)
 {
     switch (b) {
@@ -961,7 +962,8 @@ char *board_name = "HACKRF";
 #define DEFAULT_GAIN 40
 #define MAX_LNA_GAIN 40
 
-volatile int8_t rx_buf[LEN_BUF + LEN_BUF_MAX_NUM_PHY_SAMPLE];
+typedef int8_t IQ_TYPE;
+volatile IQ_TYPE rx_buf[LEN_BUF + LEN_BUF_MAX_NUM_PHY_SAMPLE];
 
 int rx_callback(hackrf_transfer* transfer) {
   int i;
@@ -1206,38 +1208,23 @@ abnormal_quit:
 
 //----------------------------------receiver----------------------------------
 
-#ifdef USE_BLADERF
-bool search_unique_bytes(int16_t* rxp, const uint8_t *unique_bytes, const int num_bytes) {
-#else
-bool search_unique_bytes(int8_t* rxp, const uint8_t *unique_bytes, const int num_bytes) {
-#endif
+bool search_unique_bytes(IQ_TYPE* rxp, const uint8_t *unique_bytes, const int num_bytes) {
 
   return(true);
 }
 
-#ifdef USE_BLADERF
-void demod_bytes(int16_t* rxp, uint8_t *out_bytes, int num_bytes) {
-#else
-void demod_bytes(int8_t* rxp, uint8_t *out_bytes, int num_bytes) {
-#endif
+void demod_bytes(IQ_TYPE* rxp, uint8_t *out_bytes, int num_bytes) {
 
 }
 
 inline void receiver(int phase, int buf_sp){
-  #ifdef USE_BLADERF
-  const int mem_size_scale = 2;
-  int16_t *rxp = (int16_t *)(rx_buf + buf_sp);
-  #else
-  const int mem_size_scale = 1;
-  int8_t *rxp = (int8_t *)(rx_buf + buf_sp);
-  #endif
-  
+  IQ_TYPE *rxp = (IQ_TYPE *)(rx_buf + buf_sp);
   
   if (phase==0) {
-    memcpy((void *)(rx_buf+LEN_BUF), (void *)rx_buf, LEN_BUF_MAX_NUM_PHY_SAMPLE*mem_size_scale);
+    memcpy((void *)(rx_buf+LEN_BUF), (void *)rx_buf, LEN_BUF_MAX_NUM_PHY_SAMPLE*sizeof(IQ_TYPE));
   }
 
-  //printf("phase %d rx_buf_offset %d buf_sp %d LEN_BUF/2 %d mem scale %d\n", phase, rx_buf_offset, buf_sp, LEN_BUF/2, mem_size_scale);
+  //printf("phase %d rx_buf_offset %d buf_sp %d LEN_BUF/2 %d mem scale %d\n", phase, rx_buf_offset, buf_sp, LEN_BUF/2, sizeof(IQ_TYPE));
   
   static uint8_t tmp_bytes[MAX_NUM_BODY_BYTE];
   const uint8_t preamble_access_bytes[NUM_PREAMBLE_ACCESS_BYTE] = {0xAA, 0xD6, 0xBE, 0x89, 0x8E};
