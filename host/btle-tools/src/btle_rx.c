@@ -1263,8 +1263,7 @@ inline void receiver(int phase, int buf_sp){
   
   while( i< (LEN_BUF/2) ) {
     running_sp = i;
-    //if (~search_unique_bytes(rxp+running_sp, preamble_access_bytes, NUM_PREAMBLE_ACCESS_BYTE, tmp_bytes)) {
-    if (~search_unique_bytes(rxp+running_sp, preamble_access_bytes, 1, tmp_bytes)) {
+    if (~search_unique_bytes(rxp+running_sp, preamble_access_bytes, NUM_PREAMBLE_ACCESS_BYTE, tmp_bytes)) {
       i = i + 2;
       continue;
     }
