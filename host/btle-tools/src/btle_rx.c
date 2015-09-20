@@ -1235,7 +1235,7 @@ bool search_unique_bytes(IQ_TYPE* rxp, const uint8_t *unique_bytes, const int nu
   for (i=0; i<SAMPLE_PER_SYMBOL*2; i=i+2) {
     demod_bytes(rxp+i, result_bytes, num_bytes);
     for (j=0; j<num_bytes; j++) {
-      if (result_bytes[j] != unique_bytes[j]) {
+      if (result_bytes[j] != unique_bytes[j] ) {
         break;
       }
     }
@@ -1249,6 +1249,11 @@ bool search_unique_bytes(IQ_TYPE* rxp, const uint8_t *unique_bytes, const int nu
 
 inline void receiver(int phase, int buf_sp){
   IQ_TYPE *rxp = (IQ_TYPE *)(rx_buf + buf_sp);
+  static uint8_t tmp_bytes[MAX_NUM_BODY_BYTE];
+  const uint8_t preamble_access_bytes[NUM_PREAMBLE_ACCESS_BYTE] = {0xAA, 0xD6, 0xBE, 0x89, 0x8E};
+  int i = 0;
+  int running_sp, num_demod_bytes;
+  static int pkt_count = 0;
   
   if (phase==0) {
     memcpy((void *)(rx_buf+LEN_BUF), (void *)rx_buf, LEN_BUF_MAX_NUM_PHY_SAMPLE*sizeof(IQ_TYPE));
@@ -1256,21 +1261,22 @@ inline void receiver(int phase, int buf_sp){
 
   //printf("phase %d rx_buf_offset %d buf_sp %d LEN_BUF/2 %d mem scale %d\n", phase, rx_buf_offset, buf_sp, LEN_BUF/2, sizeof(IQ_TYPE));
   
-  static uint8_t tmp_bytes[MAX_NUM_BODY_BYTE];
-  const uint8_t preamble_access_bytes[NUM_PREAMBLE_ACCESS_BYTE] = {0xAA, 0xD6, 0xBE, 0x89, 0x8E};
-  int i = 0;
-  int running_sp, num_demod_bytes;
   while( i< (LEN_BUF/2) ) {
     running_sp = i;
-    if (~search_unique_bytes(rxp+running_sp, preamble_access_bytes, NUM_PREAMBLE_ACCESS_BYTE, tmp_bytes)) {
+    //if (~search_unique_bytes(rxp+running_sp, preamble_access_bytes, NUM_PREAMBLE_ACCESS_BYTE, tmp_bytes)) {
+    if (~search_unique_bytes(rxp+running_sp, preamble_access_bytes, 1, tmp_bytes)) {
+      i = i + 2;
       continue;
     }
     
     running_sp = running_sp + 8*NUM_PREAMBLE_ACCESS_BYTE*2*SAMPLE_PER_SYMBOL;
-    num_demod_bytes = 1;
+    num_demod_bytes = MAX_NUM_BODY_BYTE;
     demod_bytes(rxp+running_sp, tmp_bytes, num_demod_bytes);
     
     i = i + running_sp + 8*num_demod_bytes*2*SAMPLE_PER_SYMBOL;
+    
+    pkt_count++;
+    printf("%d\n", pkt_count);
   }
 }
 //----------------------------------receiver----------------------------------
