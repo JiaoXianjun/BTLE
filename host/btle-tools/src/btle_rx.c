@@ -136,6 +136,365 @@ static void print_usage() {
 }
 //----------------------------------print_usage----------------------------------
 
+//----------------------------------some basic signal definition----------------------------------
+#define SAMPLE_PER_SYMBOL 4 // 4M sampling rate
+
+#define MOD_IDX (0.5)
+#define LEN_GAUSS_FILTER (4) // pre 2, post 2
+
+volatile int rx_buf_offset; // remember to initialize it!
+
+#define LEN_BUF_IN_SAMPLE (1024*4096) //4096 samples = ~1ms for 4Msps; ATTENTION each rx callback get 32*4096 samples!!!
+#define LEN_BUF (LEN_BUF_IN_SAMPLE*2)
+//----------------------------------some basic signal definition----------------------------------
+
+//----------------------------------BTLE SPEC related--------------------------------
+#include "scramble_table_ch37.h"
+#define MAX_NUM_CHAR_CMD (256)
+#define DEFAULT_CHANNEL 37
+#define MAX_CHANNEL_NUMBER 39
+#define MAX_NUM_INFO_BYTE (43)
+#define MAX_NUM_PHY_BYTE (47)
+//#define MAX_NUM_PHY_SAMPLE ((MAX_NUM_PHY_BYTE*8*SAMPLE_PER_SYMBOL)+(LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL))
+#define MAX_NUM_PHY_SAMPLE (MAX_NUM_PHY_BYTE*8*SAMPLE_PER_SYMBOL)
+#define LEN_BUF_MAX_NUM_PHY_SAMPLE (MAX_NUM_PHY_BYTE*8*SAMPLE_PER_SYMBOL)
+
+#define NUM_PREAMBLE_BYTE (1)
+#define NUM_ACCESS_ADDR_BYTE (4)
+#define NUM_PREAMBLE_ACCESS_BYTE (NUM_PREAMBLE_BYTE+NUM_ACCESS_ADDR_BYTE)
+#define NUM_PRE_SAMPLE (NUM_PREAMBLE_ACCESS_BYTE*8*SAMPLE_PER_SYMBOL)
+#define MAX_NUM_BODY_BYTE (MAX_NUM_PHY_BYTE-NUM_PREAMBLE_ACCESS_BYTE)
+#define MAX_NUM_BODY_SAMPLE (MAX_NUM_BODY_BYTE*8*SAMPLE_PER_SYMBOL)
+#define LEN_BUF_MAX_NUM_BODY (MAX_NUM_BODY_SAMPLE*2)
+//----------------------------------BTLE SPEC related--------------------------------
+
+//----------------------------------board specific operation----------------------------------
+
+#ifdef USE_BLADERF //--------------------------------------BladeRF-----------------------
+char *board_name = "BladeRF";
+#define MAX_GAIN 66
+#define DEFAULT_GAIN 66
+typedef struct bladerf_devinfo bladerf_devinfo;
+typedef struct bladerf bladerf_device;
+typedef int16_t IQ_TYPE;
+volatile IQ_TYPE rx_buf[LEN_BUF+LEN_BUF_MAX_NUM_PHY_SAMPLE];
+static inline const char *backend2str(bladerf_backend b)
+{
+    switch (b) {
+        case BLADERF_BACKEND_LIBUSB:
+            return "libusb";
+        case BLADERF_BACKEND_LINUX:
+            return "Linux kernel driver";
+        default:
+            return "Unknown";
+    }
+}
+
+int init_board(bladerf_device *dev, bladerf_devinfo *dev_info) {
+  int n_devices = bladerf_get_device_list(&dev_info);
+
+  if (n_devices < 0) {
+    if (n_devices == BLADERF_ERR_NODEV) {
+        printf("init_board: No bladeRF devices found.\n");
+    } else {
+        printf("init_board: Failed to probe for bladeRF devices: %s\n", bladerf_strerror(n_devices));
+    }
+		print_usage();
+		return(-1);
+  }
+
+  printf("init_board: %d bladeRF devices found! The 1st one will be used:\n", n_devices);
+  printf("    Backend:        %s\n", backend2str(dev_info[0].backend));
+  printf("    Serial:         %s\n", dev_info[0].serial);
+  printf("    USB Bus:        %d\n", dev_info[0].usb_bus);
+  printf("    USB Address:    %d\n", dev_info[0].usb_addr);
+
+  int fpga_loaded;
+  int status = bladerf_open(&dev, NULL);
+  if (status != 0) {
+    printf("init_board: Failed to open bladeRF device: %s\n",
+            bladerf_strerror(status));
+    return(-1);
+  }
+
+  fpga_loaded = bladerf_is_fpga_configured(dev);
+  if (fpga_loaded < 0) {
+      printf("init_board: Failed to check FPGA state: %s\n",
+                bladerf_strerror(fpga_loaded));
+      status = -1;
+      goto initialize_device_out_point;
+  } else if (fpga_loaded == 0) {
+      printf("init_board: The device's FPGA is not loaded.\n");
+      status = -1;
+      goto initialize_device_out_point;
+  }
+
+  unsigned int actual_sample_rate;
+  status = bladerf_set_sample_rate(dev, BLADERF_MODULE_RX, SAMPLE_PER_SYMBOL*1000000ul, &actual_sample_rate);
+  if (status != 0) {
+      printf("init_board: Failed to set samplerate: %s\n",
+              bladerf_strerror(status));
+      goto initialize_device_out_point;
+  }
+
+  status = bladerf_set_frequency(dev, BLADERF_MODULE_RX, 2402000000ul);
+  if (status != 0) {
+      printf("init_board: Failed to set frequency: %s\n",
+              bladerf_strerror(status));
+      goto initialize_device_out_point;
+  }
+
+  unsigned int actual_frequency;
+  status = bladerf_get_frequency(dev, BLADERF_MODULE_RX, &actual_frequency);
+  if (status != 0) {
+      printf("init_board: Failed to read back frequency: %s\n",
+              bladerf_strerror(status));
+      goto initialize_device_out_point;
+  }
+
+initialize_device_out_point:
+  if (status != 0) {
+      bladerf_close(dev);
+      dev = NULL;
+      return(-1);
+  }
+
+  #ifdef _MSC_VER
+    SetConsoleCtrlHandler( (PHANDLER_ROUTINE) sighandler, TRUE );
+  #else
+    signal(SIGINT, &sigint_callback_handler);
+    signal(SIGILL, &sigint_callback_handler);
+    signal(SIGFPE, &sigint_callback_handler);
+    signal(SIGSEGV, &sigint_callback_handler);
+    signal(SIGTERM, &sigint_callback_handler);
+    signal(SIGABRT, &sigint_callback_handler);
+  #endif
+
+  printf("init_board: set bladeRF to %f MHz %u sps BLADERF_LB_NONE.\n", (float)actual_frequency/1000000.0f, actual_sample_rate);
+  return(0);
+}
+
+inline int open_board(uint64_t freq_hz, int gain, bladerf_device *dev) {
+  int status;
+
+  status = bladerf_set_frequency(dev, BLADERF_MODULE_RX, freq_hz);
+  if (status != 0) {
+    printf("open_board: Failed to set frequency: %s\n",
+            bladerf_strerror(status));
+    return(-1);
+  }
+
+  status = bladerf_set_gain(dev, BLADERF_MODULE_RX, gain);
+  if (status != 0) {
+    printf("open_board: Failed to set gain: %s\n",
+            bladerf_strerror(status));
+    return(-1);
+  }
+
+  status = bladerf_sync_config(dev, BLADERF_MODULE_RX, BLADERF_FORMAT_SC16_Q11, 2, LEN_BUF_IN_SAMPLE, 1, 3500);
+  if (status != 0) {
+     printf("open_board: Failed to configure sync interface: %s\n",
+             bladerf_strerror(status));
+     return(-1);
+  }
+
+  status = bladerf_enable_module(dev, BLADERF_MODULE_RX, true);
+  if (status != 0) {
+     printf("open_board: Failed to enable module: %s\n",
+             bladerf_strerror(status));
+     return(-1);
+  }
+
+  return(0);
+}
+
+inline int close_board(bladerf_device *dev) {
+  // Disable TX module, shutting down our underlying TX stream
+  int status = bladerf_enable_module(dev, BLADERF_MODULE_RX, false);
+  if (status != 0) {
+    printf("close_board: Failed to disable module: %s\n",
+             bladerf_strerror(status));
+    return(-1);
+  }
+
+  return(0);
+}
+
+void exit_board(bladerf_device *dev) {
+  bladerf_close(dev);
+  dev = NULL;
+}
+
+bladerf_device* config_run_board(uint64_t freq_hz, int gain, void **rf_dev) {
+  bladerf_device *dev = NULL;
+  return(dev);
+}
+
+void stop_close_board(bladerf_device* rf_dev){
+  
+}
+
+#else //-----------------------------the board is HACKRF-----------------------------
+char *board_name = "HACKRF";
+#define MAX_GAIN 62
+#define DEFAULT_GAIN 20
+#define MAX_LNA_GAIN 40
+
+typedef int8_t IQ_TYPE;
+volatile IQ_TYPE rx_buf[LEN_BUF + LEN_BUF_MAX_NUM_PHY_SAMPLE];
+
+int rx_callback(hackrf_transfer* transfer) {
+  int i;
+  int8_t *p = (int8_t *)transfer->buffer;
+  for( i=0; i<transfer->valid_length; i++) {
+    rx_buf[rx_buf_offset] = p[i];
+    rx_buf_offset = (rx_buf_offset+1)&( LEN_BUF-1 ); //cyclic buffer
+  }
+  //printf("%d\n", transfer->valid_length); // !!!!it is 262144 always!!!!
+  return(0);
+}
+
+int init_board() {
+	int result = hackrf_init();
+	if( result != HACKRF_SUCCESS ) {
+		printf("open_board: hackrf_init() failed: %s (%d)\n", hackrf_error_name(result), result);
+		print_usage();
+		return(-1);
+	}
+
+  #ifdef _MSC_VER
+    SetConsoleCtrlHandler( (PHANDLER_ROUTINE) sighandler, TRUE );
+  #else
+    signal(SIGINT, &sigint_callback_handler);
+    signal(SIGILL, &sigint_callback_handler);
+    signal(SIGFPE, &sigint_callback_handler);
+    signal(SIGSEGV, &sigint_callback_handler);
+    signal(SIGTERM, &sigint_callback_handler);
+    signal(SIGABRT, &sigint_callback_handler);
+  #endif
+
+  return(0);
+}
+
+inline int open_board(uint64_t freq_hz, int gain, hackrf_device** device) {
+  int result;
+
+	result = hackrf_open(device);
+	if( result != HACKRF_SUCCESS ) {
+		printf("open_board: hackrf_open() failed: %s (%d)\n", hackrf_error_name(result), result);
+		return(-1);
+	}
+
+  result = hackrf_set_freq(*device, freq_hz);
+  if( result != HACKRF_SUCCESS ) {
+    printf("open_board: hackrf_set_freq() failed: %s (%d)\n", hackrf_error_name(result), result);
+    return(-1);
+  }
+
+  result = hackrf_set_sample_rate(*device, SAMPLE_PER_SYMBOL*1000000ul);
+  if( result != HACKRF_SUCCESS ) {
+    printf("open_board: hackrf_set_sample_rate() failed: %s (%d)\n", hackrf_error_name(result), result);
+    return(-1);
+  }
+  
+  result = hackrf_set_baseband_filter_bandwidth(*device, SAMPLE_PER_SYMBOL*1000000ul/2);
+  if( result != HACKRF_SUCCESS ) {
+    printf("open_board: hackrf_set_baseband_filter_bandwidth() failed: %s (%d)\n", hackrf_error_name(result), result);
+    return(-1);
+  }
+  
+  result = hackrf_set_vga_gain(*device, gain);
+	result |= hackrf_set_lna_gain(*device, MAX_LNA_GAIN);
+  if( result != HACKRF_SUCCESS ) {
+    printf("open_board: hackrf_set_txvga_gain() failed: %s (%d)\n", hackrf_error_name(result), result);
+    return(-1);
+  }
+
+  return(0);
+}
+
+void exit_board(hackrf_device *device) {
+	if(device != NULL)
+	{
+		hackrf_exit();
+		printf("hackrf_exit() done\n");
+	}
+}
+
+inline int close_board(hackrf_device *device) {
+  int result;
+
+	if(device != NULL)
+	{
+    result = hackrf_stop_rx(device);
+    if( result != HACKRF_SUCCESS ) {
+      printf("close_board: hackrf_stop_rx() failed: %s (%d)\n", hackrf_error_name(result), result);
+      return(-1);
+    }
+
+		result = hackrf_close(device);
+		if( result != HACKRF_SUCCESS )
+		{
+			printf("close_board: hackrf_close() failed: %s (%d)\n", hackrf_error_name(result), result);
+			return(-1);
+		}
+
+    return(0);
+	} else {
+	  return(-1);
+	}
+}
+
+inline int run_board(hackrf_device* device) {
+  int result;
+
+	result = hackrf_stop_rx(device);
+	if( result != HACKRF_SUCCESS ) {
+		printf("run_board: hackrf_stop_rx() failed: %s (%d)\n", hackrf_error_name(result), result);
+		return(-1);
+	}
+  
+  result = hackrf_start_rx(device, rx_callback, NULL);
+  if( result != HACKRF_SUCCESS ) {
+    printf("run_board: hackrf_start_rx() failed: %s (%d)\n", hackrf_error_name(result), result);
+    return(-1);
+  }
+
+  return(0);
+}
+
+inline int config_run_board(uint64_t freq_hz, int gain, void **rf_dev) {
+  hackrf_device *dev = NULL;
+  
+  (*rf_dev) = dev;
+  
+  if (init_board() != 0) {
+    return(-1);
+  }
+  
+  if ( open_board(freq_hz, gain, &dev) != 0 ) {
+    (*rf_dev) = dev;
+    return(-1);
+  }
+
+  (*rf_dev) = dev;
+  if ( run_board(dev) != 0 ) {
+    return(-1);
+  }
+  
+  return(0);
+}
+
+void stop_close_board(hackrf_device* device){
+  if (close_board(device)!=0){
+    return;
+  }
+  exit_board(device);
+}
+
+#endif  //#ifdef USE_BLADERF
+//----------------------------------board specific operation----------------------------------
+
 //----------------------------------MISC MISC MISC----------------------------------
 char* toupper_str(char *input_str, char *output_str) {
   int len_str = strlen(input_str);
@@ -259,7 +618,7 @@ void disp_hex_in_bit(uint8_t *hex, int num_hex)
   printf("\n");
 }
 
-void save_phy_sample(char *IQ_sample, int num_IQ_sample, char *filename)
+void save_phy_sample(IQ_TYPE *IQ_sample, int num_IQ_sample, char *filename)
 {
   int i;
 
@@ -270,7 +629,7 @@ void save_phy_sample(char *IQ_sample, int num_IQ_sample, char *filename)
   }
 
   for(i=0; i<num_IQ_sample; i++) {
-    if (i%24 == 0) {
+    if (i%64 == 0) {
       fprintf(fp, "\n");
     }
     fprintf(fp, "%d, ", IQ_sample[i]);
@@ -280,7 +639,7 @@ void save_phy_sample(char *IQ_sample, int num_IQ_sample, char *filename)
   fclose(fp);
 }
 
-void save_phy_sample_for_matlab(char *IQ_sample, int num_IQ_sample, char *filename)
+void save_phy_sample_for_matlab(IQ_TYPE *IQ_sample, int num_IQ_sample, char *filename)
 {
   int i;
 
@@ -291,7 +650,7 @@ void save_phy_sample_for_matlab(char *IQ_sample, int num_IQ_sample, char *filena
   }
 
   for(i=0; i<num_IQ_sample; i++) {
-    if (i%24 == 0) {
+    if (i%64 == 0) {
       fprintf(fp, "...\n");
     }
     fprintf(fp, "%d ", IQ_sample[i]);
@@ -302,37 +661,7 @@ void save_phy_sample_for_matlab(char *IQ_sample, int num_IQ_sample, char *filena
 }
 //----------------------------------MISC MISC MISC----------------------------------
 
-//----------------------------------some basic signal definition----------------------------------
-#define SAMPLE_PER_SYMBOL 4 // 4M sampling rate
-
-#define MOD_IDX (0.5)
-#define LEN_GAUSS_FILTER (4) // pre 2, post 2
-
-volatile int rx_buf_offset; // remember to initialize it!
-
-#define LEN_BUF_IN_SAMPLE (4*4096) //4096 samples = ~1ms for 4Msps
-#define LEN_BUF (LEN_BUF_IN_SAMPLE*2)
-//----------------------------------some basic signal definition----------------------------------
-
-//----------------------------------BTLE SPEC related----------------------------------
-#include "scramble_table_ch37.h"
-#define MAX_NUM_CHAR_CMD (256)
-#define DEFAULT_CHANNEL 37
-#define MAX_CHANNEL_NUMBER 39
-#define MAX_NUM_INFO_BYTE (43)
-#define MAX_NUM_PHY_BYTE (47)
-//#define MAX_NUM_PHY_SAMPLE ((MAX_NUM_PHY_BYTE*8*SAMPLE_PER_SYMBOL)+(LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL))
-#define MAX_NUM_PHY_SAMPLE (MAX_NUM_PHY_BYTE*8*SAMPLE_PER_SYMBOL)
-#define LEN_BUF_MAX_NUM_PHY_SAMPLE (MAX_NUM_PHY_BYTE*8*SAMPLE_PER_SYMBOL)
-
-#define NUM_PREAMBLE_BYTE (1)
-#define NUM_ACCESS_ADDR_BYTE (4)
-#define NUM_PREAMBLE_ACCESS_BYTE (NUM_PREAMBLE_BYTE+NUM_ACCESS_ADDR_BYTE)
-#define NUM_PRE_SAMPLE (NUM_PREAMBLE_ACCESS_BYTE*8*SAMPLE_PER_SYMBOL)
-#define MAX_NUM_BODY_BYTE (MAX_NUM_PHY_BYTE-NUM_PREAMBLE_ACCESS_BYTE)
-#define MAX_NUM_BODY_SAMPLE (MAX_NUM_BODY_BYTE*8*SAMPLE_PER_SYMBOL)
-#define LEN_BUF_MAX_NUM_BODY (MAX_NUM_BODY_SAMPLE*2)
-
+//----------------------------------BTLE SPEC related--------------------------------
 /**
  * Static table used for the table_driven implementation.
  *****************************************************************************/
@@ -789,333 +1118,6 @@ void crc24_and_scramble_to_gen_phy_bit(char *crc_init_hex, PKT_INFO *pkt) {
 }
 //----------------------------------BTLE SPEC related----------------------------------
 
-
-//----------------------------------board specific operation----------------------------------
-
-#ifdef USE_BLADERF //--------------------------------------BladeRF-----------------------
-char *board_name = "BladeRF";
-#define MAX_GAIN 66
-#define DEFAULT_GAIN 66
-typedef struct bladerf_devinfo bladerf_devinfo;
-typedef struct bladerf bladerf_device;
-typedef int16_t IQ_TYPE;
-volatile IQ_TYPE rx_buf[LEN_BUF+LEN_BUF_MAX_NUM_PHY_SAMPLE];
-static inline const char *backend2str(bladerf_backend b)
-{
-    switch (b) {
-        case BLADERF_BACKEND_LIBUSB:
-            return "libusb";
-        case BLADERF_BACKEND_LINUX:
-            return "Linux kernel driver";
-        default:
-            return "Unknown";
-    }
-}
-
-int init_board(bladerf_device *dev, bladerf_devinfo *dev_info) {
-  int n_devices = bladerf_get_device_list(&dev_info);
-
-  if (n_devices < 0) {
-    if (n_devices == BLADERF_ERR_NODEV) {
-        printf("init_board: No bladeRF devices found.\n");
-    } else {
-        printf("init_board: Failed to probe for bladeRF devices: %s\n", bladerf_strerror(n_devices));
-    }
-		print_usage();
-		return(-1);
-  }
-
-  printf("init_board: %d bladeRF devices found! The 1st one will be used:\n", n_devices);
-  printf("    Backend:        %s\n", backend2str(dev_info[0].backend));
-  printf("    Serial:         %s\n", dev_info[0].serial);
-  printf("    USB Bus:        %d\n", dev_info[0].usb_bus);
-  printf("    USB Address:    %d\n", dev_info[0].usb_addr);
-
-  int fpga_loaded;
-  int status = bladerf_open(&dev, NULL);
-  if (status != 0) {
-    printf("init_board: Failed to open bladeRF device: %s\n",
-            bladerf_strerror(status));
-    return(-1);
-  }
-
-  fpga_loaded = bladerf_is_fpga_configured(dev);
-  if (fpga_loaded < 0) {
-      printf("init_board: Failed to check FPGA state: %s\n",
-                bladerf_strerror(fpga_loaded));
-      status = -1;
-      goto initialize_device_out_point;
-  } else if (fpga_loaded == 0) {
-      printf("init_board: The device's FPGA is not loaded.\n");
-      status = -1;
-      goto initialize_device_out_point;
-  }
-
-  unsigned int actual_sample_rate;
-  status = bladerf_set_sample_rate(dev, BLADERF_MODULE_RX, SAMPLE_PER_SYMBOL*1000000ul, &actual_sample_rate);
-  if (status != 0) {
-      printf("init_board: Failed to set samplerate: %s\n",
-              bladerf_strerror(status));
-      goto initialize_device_out_point;
-  }
-
-  status = bladerf_set_frequency(dev, BLADERF_MODULE_RX, 2402000000ul);
-  if (status != 0) {
-      printf("init_board: Failed to set frequency: %s\n",
-              bladerf_strerror(status));
-      goto initialize_device_out_point;
-  }
-
-  unsigned int actual_frequency;
-  status = bladerf_get_frequency(dev, BLADERF_MODULE_RX, &actual_frequency);
-  if (status != 0) {
-      printf("init_board: Failed to read back frequency: %s\n",
-              bladerf_strerror(status));
-      goto initialize_device_out_point;
-  }
-
-initialize_device_out_point:
-  if (status != 0) {
-      bladerf_close(dev);
-      dev = NULL;
-      return(-1);
-  }
-
-  #ifdef _MSC_VER
-    SetConsoleCtrlHandler( (PHANDLER_ROUTINE) sighandler, TRUE );
-  #else
-    signal(SIGINT, &sigint_callback_handler);
-    signal(SIGILL, &sigint_callback_handler);
-    signal(SIGFPE, &sigint_callback_handler);
-    signal(SIGSEGV, &sigint_callback_handler);
-    signal(SIGTERM, &sigint_callback_handler);
-    signal(SIGABRT, &sigint_callback_handler);
-  #endif
-
-  printf("init_board: set bladeRF to %f MHz %u sps BLADERF_LB_NONE.\n", (float)actual_frequency/1000000.0f, actual_sample_rate);
-  return(0);
-}
-
-inline int open_board(uint64_t freq_hz, int gain, bladerf_device *dev) {
-  int status;
-
-  status = bladerf_set_frequency(dev, BLADERF_MODULE_RX, freq_hz);
-  if (status != 0) {
-    printf("open_board: Failed to set frequency: %s\n",
-            bladerf_strerror(status));
-    return(-1);
-  }
-
-  status = bladerf_set_gain(dev, BLADERF_MODULE_RX, gain);
-  if (status != 0) {
-    printf("open_board: Failed to set gain: %s\n",
-            bladerf_strerror(status));
-    return(-1);
-  }
-
-  status = bladerf_sync_config(dev, BLADERF_MODULE_RX, BLADERF_FORMAT_SC16_Q11, 2, LEN_BUF_IN_SAMPLE, 1, 3500);
-  if (status != 0) {
-     printf("open_board: Failed to configure sync interface: %s\n",
-             bladerf_strerror(status));
-     return(-1);
-  }
-
-  status = bladerf_enable_module(dev, BLADERF_MODULE_RX, true);
-  if (status != 0) {
-     printf("open_board: Failed to enable module: %s\n",
-             bladerf_strerror(status));
-     return(-1);
-  }
-
-  return(0);
-}
-
-inline int close_board(bladerf_device *dev) {
-  // Disable TX module, shutting down our underlying TX stream
-  int status = bladerf_enable_module(dev, BLADERF_MODULE_RX, false);
-  if (status != 0) {
-    printf("close_board: Failed to disable module: %s\n",
-             bladerf_strerror(status));
-    return(-1);
-  }
-
-  return(0);
-}
-
-void exit_board(bladerf_device *dev) {
-  bladerf_close(dev);
-  dev = NULL;
-}
-
-bladerf_device* config_run_board(uint64_t freq_hz, int gain, void **rf_dev) {
-  bladerf_device *dev = NULL;
-  return(dev);
-}
-
-void stop_close_board(bladerf_device* rf_dev){
-  
-}
-
-#else //-----------------------------the board is HACKRF-----------------------------
-char *board_name = "HACKRF";
-#define MAX_GAIN 62
-#define DEFAULT_GAIN 40
-#define MAX_LNA_GAIN 40
-
-typedef int8_t IQ_TYPE;
-volatile IQ_TYPE rx_buf[LEN_BUF + LEN_BUF_MAX_NUM_PHY_SAMPLE];
-
-int rx_callback(hackrf_transfer* transfer) {
-  int i;
-  for( i=0; i<transfer->valid_length; i++) {
-    rx_buf[rx_buf_offset] = transfer->buffer[i];
-    rx_buf_offset = (rx_buf_offset+1)&( LEN_BUF-1 ); //cyclic buffer
-  }
-  return(0);
-}
-
-int init_board() {
-	int result = hackrf_init();
-	if( result != HACKRF_SUCCESS ) {
-		printf("open_board: hackrf_init() failed: %s (%d)\n", hackrf_error_name(result), result);
-		print_usage();
-		return(-1);
-	}
-
-  #ifdef _MSC_VER
-    SetConsoleCtrlHandler( (PHANDLER_ROUTINE) sighandler, TRUE );
-  #else
-    signal(SIGINT, &sigint_callback_handler);
-    signal(SIGILL, &sigint_callback_handler);
-    signal(SIGFPE, &sigint_callback_handler);
-    signal(SIGSEGV, &sigint_callback_handler);
-    signal(SIGTERM, &sigint_callback_handler);
-    signal(SIGABRT, &sigint_callback_handler);
-  #endif
-
-  return(0);
-}
-
-inline int open_board(uint64_t freq_hz, int gain, hackrf_device** device) {
-  int result;
-
-	result = hackrf_open(device);
-	if( result != HACKRF_SUCCESS ) {
-		printf("open_board: hackrf_open() failed: %s (%d)\n", hackrf_error_name(result), result);
-		return(-1);
-	}
-
-  result = hackrf_set_freq(*device, freq_hz);
-  if( result != HACKRF_SUCCESS ) {
-    printf("open_board: hackrf_set_freq() failed: %s (%d)\n", hackrf_error_name(result), result);
-    return(-1);
-  }
-
-  result = hackrf_set_sample_rate(*device, SAMPLE_PER_SYMBOL*1000000ul);
-  if( result != HACKRF_SUCCESS ) {
-    printf("open_board: hackrf_set_sample_rate() failed: %s (%d)\n", hackrf_error_name(result), result);
-    return(-1);
-  }
-  
-  result = hackrf_set_baseband_filter_bandwidth(*device, SAMPLE_PER_SYMBOL*1000000ul/2);
-  if( result != HACKRF_SUCCESS ) {
-    printf("open_board: hackrf_set_baseband_filter_bandwidth() failed: %s (%d)\n", hackrf_error_name(result), result);
-    return(-1);
-  }
-  
-  result = hackrf_set_vga_gain(*device, gain);
-	result |= hackrf_set_lna_gain(*device, MAX_LNA_GAIN);
-  if( result != HACKRF_SUCCESS ) {
-    printf("open_board: hackrf_set_txvga_gain() failed: %s (%d)\n", hackrf_error_name(result), result);
-    return(-1);
-  }
-
-  return(0);
-}
-
-void exit_board(hackrf_device *device) {
-	if(device != NULL)
-	{
-		hackrf_exit();
-		printf("hackrf_exit() done\n");
-	}
-}
-
-inline int close_board(hackrf_device *device) {
-  int result;
-
-	if(device != NULL)
-	{
-    result = hackrf_stop_rx(device);
-    if( result != HACKRF_SUCCESS ) {
-      printf("close_board: hackrf_stop_rx() failed: %s (%d)\n", hackrf_error_name(result), result);
-      return(-1);
-    }
-
-		result = hackrf_close(device);
-		if( result != HACKRF_SUCCESS )
-		{
-			printf("close_board: hackrf_close() failed: %s (%d)\n", hackrf_error_name(result), result);
-			return(-1);
-		}
-
-    return(0);
-	} else {
-	  return(-1);
-	}
-}
-
-inline int run_board(hackrf_device* device) {
-  int result;
-
-	result = hackrf_stop_rx(device);
-	if( result != HACKRF_SUCCESS ) {
-		printf("run_board: hackrf_stop_rx() failed: %s (%d)\n", hackrf_error_name(result), result);
-		return(-1);
-	}
-  
-  result = hackrf_start_rx(device, rx_callback, NULL);
-  if( result != HACKRF_SUCCESS ) {
-    printf("run_board: hackrf_start_rx() failed: %s (%d)\n", hackrf_error_name(result), result);
-    return(-1);
-  }
-
-  return(0);
-}
-
-inline int config_run_board(uint64_t freq_hz, int gain, void **rf_dev) {
-  hackrf_device *dev = NULL;
-  
-  (*rf_dev) = dev;
-  
-  if (init_board() != 0) {
-    return(-1);
-  }
-  
-  if ( open_board(freq_hz, gain, &dev) != 0 ) {
-    (*rf_dev) = dev;
-    return(-1);
-  }
-
-  (*rf_dev) = dev;
-  if ( run_board(dev) != 0 ) {
-    return(-1);
-  }
-  
-  return(0);
-}
-
-void stop_close_board(hackrf_device* device){
-  if (close_board(device)!=0){
-    return;
-  }
-  exit_board(device);
-}
-
-#endif  //#ifdef USE_BLADERF
-//----------------------------------board specific operation----------------------------------
-
-
 //----------------------------------command line parameters----------------------------------
 // Parse the command line arguments and return optional parameters as
 // variables.
@@ -1247,6 +1249,40 @@ bool search_unique_bytes(IQ_TYPE* rxp, const uint8_t *unique_bytes, const int nu
   return(false);
 }
 
+typedef enum {
+  RISE_EDGE,
+  FALL_EDGE
+} EDGE_TYPE;
+
+bool edge_detect(IQ_TYPE *rxp, EDGE_TYPE edge_target, int avg_len, int th) {
+  int fake_power[2] = {0, 0};
+  int i, j, sample_idx;
+  
+  sample_idx = 0;
+  for (i=0; i<2; i++) {
+    for (j=0; j<avg_len; j++) {
+      fake_power[i] = fake_power[i] + rxp[sample_idx]*rxp[sample_idx] + rxp[sample_idx+1]*rxp[sample_idx+1];
+      sample_idx = sample_idx + 2;
+    }
+  }
+  
+  if (edge_target == RISE_EDGE) {
+    if (fake_power[1] > fake_power[0]*th) {
+      return(true);
+    } else {
+      return(false);
+    }
+  } else {
+    if (fake_power[0] > fake_power[1]*th) {
+      return(true);
+    } else {
+      return(false);
+    }
+  }
+  
+  return(false);
+}
+
 inline void receiver(int phase, int buf_sp){
   IQ_TYPE *rxp = (IQ_TYPE *)(rx_buf + buf_sp);
   static uint8_t tmp_bytes[MAX_NUM_BODY_BYTE];
@@ -1261,6 +1297,28 @@ inline void receiver(int phase, int buf_sp){
 
   //printf("phase %d rx_buf_offset %d buf_sp %d LEN_BUF/2 %d mem scale %d\n", phase, rx_buf_offset, buf_sp, LEN_BUF/2, sizeof(IQ_TYPE));
   
+  //save_phy_sample_for_matlab(rxp, LEN_BUF/2, "tmp.txt");
+  //save_phy_sample(rxp, LEN_BUF/2, "tmp.txt");
+  
+  bool pkt_flag = false;
+  while( i< (LEN_BUF/2) ) {
+    if (edge_detect(rxp+i, RISE_EDGE, 16, 12) && pkt_flag==false) {
+      pkt_flag = true;
+      pkt_count++;
+    }
+
+    if (edge_detect(rxp+i, FALL_EDGE, 16, 12) && pkt_flag ==true) {
+      pkt_flag = false;
+    }
+
+    if (pkt_flag) {
+      printf( "%d %d %d\n", rxp[i], rxp[i+1], pkt_count);
+    }
+    
+    i = i + 2;
+  }
+
+#if 0
   while( i< (LEN_BUF/2) ) {
     running_sp = i;
     if (~search_unique_bytes(rxp+running_sp, preamble_access_bytes, NUM_PREAMBLE_ACCESS_BYTE, tmp_bytes)) {
@@ -1277,6 +1335,7 @@ inline void receiver(int phase, int buf_sp){
     pkt_count++;
     printf("%d\n", pkt_count);
   }
+#endif
 }
 //----------------------------------receiver----------------------------------
 
@@ -1334,7 +1393,9 @@ int main(int argc, char** argv) {
     }
     
     if (run_flag) {
-      receiver(phase, buf_sp);
+      save_phy_sample(rx_buf+buf_sp, LEN_BUF/2, "tmp.txt");
+      break;
+      //receiver(phase, buf_sp);
       run_flag = false;
     }
   }
