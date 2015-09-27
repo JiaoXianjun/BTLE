@@ -146,6 +146,7 @@ volatile int rx_buf_offset; // remember to initialize it!
 
 #define LEN_BUF_IN_SAMPLE (512*4096) //4096 samples = ~1ms for 4Msps; ATTENTION each rx callback get 32*4096 samples!!!
 #define LEN_BUF (LEN_BUF_IN_SAMPLE*2)
+#define LEN_BUF_IN_SYMBOL (LEN_BUF_IN_SAMPLE/SAMPLE_PER_SYMBOL)
 //----------------------------------some basic signal definition----------------------------------
 
 //----------------------------------BTLE SPEC related--------------------------------
@@ -163,6 +164,8 @@ volatile int rx_buf_offset; // remember to initialize it!
 #define NUM_ACCESS_ADDR_BYTE (4)
 #define NUM_PREAMBLE_ACCESS_BYTE (NUM_PREAMBLE_BYTE+NUM_ACCESS_ADDR_BYTE)
 #define NUM_PRE_SAMPLE (NUM_PREAMBLE_ACCESS_BYTE*8*SAMPLE_PER_SYMBOL)
+#define LEN_BUF_NUM_PRE (NUM_PRE_SAMPLE*2)
+
 #define MAX_NUM_BODY_BYTE (MAX_NUM_PHY_BYTE-NUM_PREAMBLE_ACCESS_BYTE)
 #define MAX_NUM_BODY_SAMPLE (MAX_NUM_BODY_BYTE*8*SAMPLE_PER_SYMBOL)
 #define LEN_BUF_MAX_NUM_BODY (MAX_NUM_BODY_SAMPLE*2)
@@ -1258,22 +1261,50 @@ void demod_bytes(IQ_TYPE* rxp, uint8_t *out_bytes, int num_bytes) {
   }
 }
 
-bool search_unique_bytes(IQ_TYPE* rxp, const uint8_t *unique_bytes, const int num_bytes, uint8_t *result_bytes) {
-  int i, j;
+#define LEN_DEMOD_BUF_PREAMBLE_ACCESS ( (NUM_PREAMBLE_ACCESS_BYTE*8)-8 )
+static uint8_t demod_buf_preamble_access[SAMPLE_PER_SYMBOL][LEN_DEMOD_BUF_PREAMBLE_ACCESS];
+
+int search_unique_bits(IQ_TYPE* rxp, int search_len, uint8_t *unique_bits, const int num_bits, int *phase) {
+  int i, sp, j, i0, q0, i1, q1, k, p, phase_idx;
+  bool unequal_flag;
+  const int demod_buf_len = num_bits;
+  int demod_buf_offset = 0;
   
-  for (i=0; i<SAMPLE_PER_SYMBOL*2; i=i+2) {
-    demod_bytes(rxp+i, result_bytes, num_bytes);
-    for (j=0; j<num_bytes; j++) {
-      if (result_bytes[j] != unique_bytes[j] ) {
-        break;
+  for(i=0; i<search_len*SAMPLE_PER_SYMBOL*2; i=i+(SAMPLE_PER_SYMBOL*2)) {
+    sp = ( (demod_buf_offset-demod_buf_len+1)&(demod_buf_len-1) );
+    
+    for(j=0; j<(SAMPLE_PER_SYMBOL*2); j=j+2) {
+      i0 = rxp[i+j];
+      q0 = rxp[i+j+1];
+      i1 = rxp[i+j+2];
+      q1 = rxp[i+j+3];
+      
+      phase_idx = j/2;
+      demod_buf_preamble_access[phase_idx][demod_buf_offset] = (i0*q1 - i1*q0) > 0? 1: 0;
+      
+      k = sp;
+      unequal_flag = false;
+      for (p=0; p<demod_buf_len; p++) {
+        if (demod_buf_preamble_access[phase_idx][k] != unique_bits[p]) {
+          unequal_flag = true;
+          break;
+        }
+        k = ( (k + 1)&(demod_buf_len-1) );
       }
+      
+      if(unequal_flag==false) {
+        (*phase) = j;
+        return(i);
+      }
+      
     }
-    if (j==num_bytes) {
-      return(true);
-    }
+
+    demod_buf_offset  = ( (demod_buf_offset+1)&(demod_buf_len-1) );
+    
   }
   
-  return(false);
+  (*phase) = -1;
+  return(-1);
 }
 
 typedef enum {
@@ -1314,8 +1345,9 @@ inline void receiver(int phase, int buf_sp){
   IQ_TYPE *rxp = (IQ_TYPE *)(rx_buf + buf_sp);
   static uint8_t tmp_bytes[MAX_NUM_BODY_BYTE];
   const uint8_t preamble_access_bytes[NUM_PREAMBLE_ACCESS_BYTE] = {0xAA, 0xD6, 0xBE, 0x89, 0x8E};
-  int i = 0;
-  int running_sp, num_demod_bytes;
+  static uint8_t preamble_access_bits[NUM_PREAMBLE_ACCESS_BYTE*8];
+  int num_demod_bytes, phase_idx, i;
+  const int num_symbol = (LEN_BUF_IN_SYMBOL/2) + (NUM_PREAMBLE_ACCESS_BYTE*8)-1;
   static int pkt_count = 0;
   
   if (phase==0) {
@@ -1323,46 +1355,25 @@ inline void receiver(int phase, int buf_sp){
   }
 
   //printf("phase %d rx_buf_offset %d buf_sp %d LEN_BUF/2 %d mem scale %d\n", phase, rx_buf_offset, buf_sp, LEN_BUF/2, sizeof(IQ_TYPE));
-  
-  //save_phy_sample_for_matlab(rxp, LEN_BUF/2, "tmp.txt");
-  //save_phy_sample(rxp, LEN_BUF/2, "tmp.txt");
-  
-  bool pkt_flag = false;
-  while( i< (LEN_BUF/2) ) {
-    if (edge_detect(rxp+i, RISE_EDGE, 16, 12) && pkt_flag==false) {
-      pkt_flag = true;
-      pkt_count++;
-    }
 
-    if (edge_detect(rxp+i, FALL_EDGE, 16, 12) && pkt_flag ==true) {
-      pkt_flag = false;
-    }
-
-    if (pkt_flag) {
-      printf( "%d %d %d\n", rxp[i], rxp[i+1], pkt_count);
+  //while( 1 ) 
+    {
+    if ( -1 == (i=search_unique_bits(rxp, num_symbol, preamble_access_bits, LEN_DEMOD_BUF_PREAMBLE_ACCESS, &phase_idx)) ) {
+      //break;
     }
     
-    i = i + 2;
-  }
-
-#if 0
-  while( i< (LEN_BUF/2) ) {
-    running_sp = i;
-    if (~search_unique_bytes(rxp+running_sp, preamble_access_bytes, NUM_PREAMBLE_ACCESS_BYTE, tmp_bytes)) {
-      i = i + 2;
-      continue;
-    }
+    printf("%d %d\n", i, phase_idx);
+    rxp = rxp + i + phase_idx + 2;
     
-    running_sp = running_sp + 8*NUM_PREAMBLE_ACCESS_BYTE*2*SAMPLE_PER_SYMBOL;
-    num_demod_bytes = MAX_NUM_BODY_BYTE;
-    demod_bytes(rxp+running_sp, tmp_bytes, num_demod_bytes);
+    //num_demod_bytes = MAX_NUM_BODY_BYTE;
+    //demod_bytes(rxp, tmp_bytes, num_demod_bytes);
     
-    i = i + running_sp + 8*num_demod_bytes*2*SAMPLE_PER_SYMBOL;
+    //rxp = rxp + 8*num_demod_bytes*2*SAMPLE_PER_SYMBOL;
     
     pkt_count++;
     printf("%d\n", pkt_count);
   }
-#endif
+
 }
 //----------------------------------receiver----------------------------------
 
@@ -1422,7 +1433,7 @@ int main(int argc, char** argv) {
     if (run_flag) {
       //save_phy_sample(rx_buf+buf_sp, LEN_BUF/2, "/home/jxj/git/BTLE/matlab/sample_iq_4msps.txt");
       load_phy_sample(rx_buf+buf_sp, LEN_BUF/2, "/home/jxj/git/BTLE/matlab/sample_iq_4msps.txt");
-      //receiver(phase, buf_sp);
+      receiver(phase, buf_sp);
       break;
       run_flag = false;
     }
