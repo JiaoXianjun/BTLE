@@ -144,7 +144,7 @@ static void print_usage() {
 
 volatile int rx_buf_offset; // remember to initialize it!
 
-#define LEN_BUF_IN_SAMPLE (1024*4096) //4096 samples = ~1ms for 4Msps; ATTENTION each rx callback get 32*4096 samples!!!
+#define LEN_BUF_IN_SAMPLE (512*4096) //4096 samples = ~1ms for 4Msps; ATTENTION each rx callback get 32*4096 samples!!!
 #define LEN_BUF (LEN_BUF_IN_SAMPLE*2)
 //----------------------------------some basic signal definition----------------------------------
 
@@ -635,6 +635,33 @@ void save_phy_sample(IQ_TYPE *IQ_sample, int num_IQ_sample, char *filename)
     fprintf(fp, "%d, ", IQ_sample[i]);
   }
   fprintf(fp, "\n");
+
+  fclose(fp);
+}
+
+void load_phy_sample(IQ_TYPE *IQ_sample, int num_IQ_sample, char *filename)
+{
+  int i;
+
+  FILE *fp = fopen(filename, "r");
+  if (fp == NULL) {
+    printf("load_phy_sample: fopen failed!\n");
+    return;
+  }
+
+  i = 0;
+  while( ~feof(fp) ) {
+    if ( fscanf(fp, "%d,", IQ_sample+i) ) {
+      i++;
+    }
+    if (num_IQ_sample != -1) {
+      if (i==num_IQ_sample) {
+        break;
+      }
+    }
+    //printf("%d\n", i);
+  }
+  printf("%d I/Q are read.\n", i);
 
   fclose(fp);
 }
@@ -1393,9 +1420,10 @@ int main(int argc, char** argv) {
     }
     
     if (run_flag) {
-      save_phy_sample(rx_buf+buf_sp, LEN_BUF/2, "tmp.txt");
-      break;
+      //save_phy_sample(rx_buf+buf_sp, LEN_BUF/2, "/home/jxj/git/BTLE/matlab/sample_iq_4msps.txt");
+      load_phy_sample(rx_buf+buf_sp, LEN_BUF/2, "/home/jxj/git/BTLE/matlab/sample_iq_4msps.txt");
       //receiver(phase, buf_sp);
+      break;
       run_flag = false;
     }
   }
