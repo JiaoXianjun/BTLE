@@ -529,7 +529,16 @@ void octet_hex_to_bit(char *hex, char *bit) {
   bit[7] = 0x01&(n>>7);
 }
 
-void int_to_bit(int n, char *bit) {
+void byte_array_to_bit_array(uint8_t *bytes_in, int num_byte, uint8_t *bit) {
+  int i, j;
+  j=0;
+  for(i=0; i<num_byte*8; i=i+8) {
+    int_to_bit(bytes_in[j], bit+i);
+    j++;
+  }
+}
+
+void int_to_bit(int n, uint8_t *bit) {
   bit[0] = 0x01&(n>>0);
   bit[1] = 0x01&(n>>1);
   bit[2] = 0x01&(n>>2);
@@ -1294,7 +1303,7 @@ int search_unique_bits(IQ_TYPE* rxp, int search_len, uint8_t *unique_bits, const
       
       if(unequal_flag==false) {
         (*phase) = j;
-        return(i);
+        return(i - demod_buf_len*SAMPLE_PER_SYMBOL*2);
       }
       
     }
@@ -1341,11 +1350,16 @@ bool edge_detect(IQ_TYPE *rxp, EDGE_TYPE edge_target, int avg_len, int th) {
   return(false);
 }
 
+uint8_t preamble_access_bytes[NUM_PREAMBLE_ACCESS_BYTE] = {0xAA, 0xD6, 0xBE, 0x89, 0x8E};
+uint8_t preamble_access_bits[NUM_PREAMBLE_ACCESS_BYTE*8];
+
+inline void receiver_init(void) {
+  byte_array_to_bit_array(preamble_access_bytes, 5, preamble_access_bits);
+}
+
 inline void receiver(int phase, int buf_sp){
   IQ_TYPE *rxp = (IQ_TYPE *)(rx_buf + buf_sp);
   static uint8_t tmp_bytes[MAX_NUM_BODY_BYTE];
-  const uint8_t preamble_access_bytes[NUM_PREAMBLE_ACCESS_BYTE] = {0xAA, 0xD6, 0xBE, 0x89, 0x8E};
-  static uint8_t preamble_access_bits[NUM_PREAMBLE_ACCESS_BYTE*8];
   int num_demod_bytes, phase_idx, i;
   const int num_symbol = (LEN_BUF_IN_SYMBOL/2) + (NUM_PREAMBLE_ACCESS_BYTE*8)-1;
   static int pkt_count = 0;
@@ -1397,6 +1411,9 @@ int main(int argc, char** argv) {
       return(1);
     }
   }
+  
+  // init receiver
+  receiver_init();
   
   // scan
   do_exit = false;

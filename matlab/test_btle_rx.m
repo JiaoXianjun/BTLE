@@ -49,7 +49,7 @@ while 1
     end
     
     if unequal_flag==0
-        disp(num2str([i j] ));
+        disp(num2str([i-demod_buf_len*sample_per_symbol j] ));
         break;
     end 
     
