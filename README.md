@@ -10,13 +10,12 @@ News:
     btle_tx packets_discovery.txt
     (packets_discovery.txt is under host/btle-tools/src)
 
-DO NOT use space in a command line packet description. CAN use space in the txt file packet description. Command line of above example:
+DO NOT use space character " " in a command line packet descriptor. You CAN use space in the txt file packet descriptor like above. Command line of above example:
 
     btle_tx 37-DISCOVERY-TxAdd-1-RxAdd-0-AdvA-010203040506-LOCAL_NAME09-CA1308/11950/22.626/113.823/8 r40
     
-    "btle_tx 37-DISCOVERY-TxAdd-1-RxAdd-0-AdvA-010203040506-LOCAL_NAME09-CA1308 11950 22.626 113.823 8 r40" in command line will get ERROR! You can only use space in txt file packet description.
+    "btle_tx 37-DISCOVERY-TxAdd-1-RxAdd-0-AdvA-010203040506-LOCAL_NAME09-CA1308 11950 22.626 113.823 8 r40" in command line will get ERROR!
 
-You will see some info like aircraft broadcasted.
 
 11 Aug. 2014: Fix packet loss bug. And, add <a href="https://github.com/Nuand/bladeRF">bladeRF</a> support:
 
