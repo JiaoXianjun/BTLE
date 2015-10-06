@@ -87,7 +87,7 @@ Space -- How many millisecond will be waited after this packet sent. (Here it is
 
 ----Connection establishment example: (See "Connection establishment" part of http://processors.wiki.ti.com/index.php/BLE_sniffer_guide )
 
-    btle_tx     37-ADV_IND-TxAdd-0-RxAdd-0-AdvA-90D7EBB19299-AdvData-0201050702031802180418-Space-1000      37-CONNECT_REQ-TxAdd-0-RxAdd-0-InitA-001830EA965F-AdvA-90D7EBB19299-AA-60850A1B-CRCInit-A77B22-WinSize-02-WinOffset-000F-Interval-0050-Latency-0000-Timeout-07D0-ChM-1FFFFFFFFF-Hop-9-SCA-5-Space-1000     9-LL_DATA-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-DATA-X-CRCInit-A77B22-Space-1000
+    btle_tx     37-ADV_IND-TxAdd-0-RxAdd-0-AdvA-90D7EBB19299-AdvData-0201050702031802180418-Space-1000      37-CONNECT_REQ-TxAdd-0-RxAdd-0-InitA-001830EA965F-AdvA-90D7EBB19299-AA-60850A1B-CRCInit-A77B22-WinSize-02-WinOffset-000F-Interval-0050-Latency-0000-Timeout-07D0-ChM-1FFFFFFFFF-Hop-9-SCA-5-Space-1000     9-LL_DATA-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-DATA-XX-CRCInit-A77B22-Space-1000
     
 Above simualtes a Connection establishment procedure between device 1 and device 2.
 
@@ -95,7 +95,7 @@ The 1st packet -- device 1 sends ADV_IND packet in channel 37.
 
 The 2nd packet -- After device 2 (in scanning state) receives the ADV packet from device 1, device 2 sends CONNECT_REQ packet to request connection setup with device 1. In this request packet, there are device 2 MAC address (InitA), target MAC address (device 1 MAC address AdvA), Access address (AA) which will be used by device 1 in following packet sending in data channel, CRC initilization value for following device 1 sending packet, Hopping channel information (ChM and Hop) for data channel used by device 1, etc.
 
-The 3rd packet -- device 1 send an empty Link layer data PDU in channel 9 (decided by hopping scheme) according to those connection request information received from device 2. (One "X" after field "DATA" means there is no data for this field )
+The 3rd packet -- device 1 send an empty Link layer data PDU in channel 9 (decided by hopping scheme) according to those connection request information received from device 2. ("XX" after field "DATA" means there is no data for this field )
 
 Time space between packets are 1s (1000ms). Tune TI's packet sniffer to channel 37, then above establishment procedure will be captured.
 
@@ -118,7 +118,7 @@ ADVERTISING CHANNEL packets:
 
 DATA CHANNEL packets:
 
-    9-LL_DATA-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-DATA-X-CRCInit-A77B22
+    9-LL_DATA-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-DATA-XX-CRCInit-A77B22
     9-LL_CONNECTION_UPDATE_REQ-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-WinSize-02-WinOffset-000F-Interval-0050-Latency-0000-Timeout-07D0-Instant-0000-CRCInit-A77B22
     9-LL_CHANNEL_MAP_REQ-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-ChM-1FFFFFFFFF-Instant-0001-CRCInit-A77B22
     9-LL_TERMINATE_IND-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-ErrorCode-00-CRCInit-A77B22
