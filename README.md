@@ -8,7 +8,7 @@ News:
 02 Sep. 2015: Fixed-point version. Add new packet type: discovery. Open LightBlue APP in your iPhone/device, then:
 
     btle_tx packets_discovery.txt
-    (packets_discovery.txt is under host/btle-tools/src)
+    (packets_discovery.txt is under host/btle-tools/src; DO NOT use space in a command line packet description. CAN use space in the txt file packet description)
 
 You will see some info like aircraft broadcasted.
 
