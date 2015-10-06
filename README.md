@@ -61,7 +61,7 @@ Each descriptor string starts with BTLE channel number (0~39), then followed by 
 
 ----iBeacon example: (iBeacon principle: http://www.warski.org/blog/2014/01/how-ibeacons-work/ )
 
-    ./btle_tx     37-iBeacon-AdvA-010203040506-UUID-B9407F30F5F8466EAFF925556B57FE6D-Major-0008-Minor-0009-TxPower-C5-Space-100     r100
+    btle_tx     37-iBeacon-AdvA-010203040506-UUID-B9407F30F5F8466EAFF925556B57FE6D-Major-0008-Minor-0009-TxPower-C5-Space-100     r100
 
 Above command sends iBeacon packet and repeats it 100 times with 100ms time space (If you have "Locate" app in your iPhone/iPad, it will detect the packet and show the iBeacon info.). The packet descriptor string:
 
@@ -85,7 +85,7 @@ Space -- How many millisecond will be waited after this packet sent. (Here it is
 
 ----Connection establishment example: (See "Connection establishment" part of http://processors.wiki.ti.com/index.php/BLE_sniffer_guide )
 
-    ./btle_tx     37-ADV_IND-TxAdd-0-RxAdd-0-AdvA-90D7EBB19299-AdvData-0201050702031802180418-Space-1000      37-CONNECT_REQ-TxAdd-0-RxAdd-0-InitA-001830EA965F-AdvA-90D7EBB19299-AA-60850A1B-CRCInit-A77B22-WinSize-02-WinOffset-000F-Interval-0050-Latency-0000-Timeout-07D0-ChM-1FFFFFFFFF-Hop-9-SCA-5-Space-1000     9-LL_DATA-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-DATA-X-CRCInit-A77B22-Space-1000
+    btle_tx     37-ADV_IND-TxAdd-0-RxAdd-0-AdvA-90D7EBB19299-AdvData-0201050702031802180418-Space-1000      37-CONNECT_REQ-TxAdd-0-RxAdd-0-InitA-001830EA965F-AdvA-90D7EBB19299-AA-60850A1B-CRCInit-A77B22-WinSize-02-WinOffset-000F-Interval-0050-Latency-0000-Timeout-07D0-ChM-1FFFFFFFFF-Hop-9-SCA-5-Space-1000     9-LL_DATA-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-DATA-X-CRCInit-A77B22-Space-1000
     
 Above simualtes a Connection establishment procedure between device 1 and device 2.
 
