@@ -14,7 +14,7 @@ DO NOT use space character " " in a command line packet descriptor. You CAN use 
 
     btle_tx 37-DISCOVERY-TxAdd-1-RxAdd-0-AdvA-010203040506-LOCAL_NAME09-CA1308/11950/22.626/113.823/8 r40
     
-    "btle_tx 37-DISCOVERY-TxAdd-1-RxAdd-0-AdvA-010203040506-LOCAL_NAME09-CA1308 11950 22.626 113.823 8 r40" in command line will get ERROR!
+"btle_tx 37-DISCOVERY-TxAdd-1-RxAdd-0-AdvA-010203040506-LOCAL_NAME09-CA1308 11950 22.626 113.823 8 r40" in command line will get ERROR!
 
 
 11 Aug. 2014: Fix packet loss bug. And, add <a href="https://github.com/Nuand/bladeRF">bladeRF</a> support:
