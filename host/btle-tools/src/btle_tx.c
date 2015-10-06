@@ -1742,6 +1742,20 @@ void disp_hex_in_bit(uint8_t *hex, int num_hex)
 void crc24_and_scramble_to_gen_phy_bit(char *crc_init_hex, PKT_INFO *pkt) {
   crc24(pkt->info_bit+5*8, pkt->num_info_bit-5*8, crc_init_hex, pkt->info_bit+pkt->num_info_bit);
 
+  printf("after crc24\n");
+  disp_bit_in_hex(pkt->info_bit, pkt->num_info_bit + 3*8);
+
+  scramble(pkt->info_bit+5*8, pkt->num_info_bit-5*8+24, pkt->channel_number, pkt->phy_bit+5*8);
+  memcpy(pkt->phy_bit, pkt->info_bit, 5*8);
+  pkt->num_phy_bit = pkt->num_info_bit + 24;
+
+  printf("after scramble %d %d\n", pkt->num_phy_bit , pkt->num_phy_byte);
+  disp_bit_in_hex(pkt->phy_bit, pkt->num_phy_bit);
+}
+
+void crc24_and_scramble_byte_to_gen_phy_bit(char *crc_init_hex, PKT_INFO *pkt) {
+  crc24(pkt->info_bit+5*8, pkt->num_info_bit-5*8, crc_init_hex, pkt->info_bit+pkt->num_info_bit);
+
   int crc24_checksum = crc24_byte(pkt->info_byte+5, pkt->num_info_byte-5, 0xAAAAAA); // 0x555555 --> 0xaaaaaa
   (pkt->info_byte+pkt->num_info_byte)[0] = crc24_checksum & 0xFF;
   (pkt->info_byte+pkt->num_info_byte)[1] = (crc24_checksum>>8) & 0xFF;
@@ -1928,7 +1942,7 @@ int calculate_sample_for_DISCOVERY(char *pkt_str, PKT_INFO*pkt) {
   disp_bit_in_hex(pkt->info_bit, pkt->num_info_bit);
   disp_hex(pkt->info_byte, pkt->num_info_byte);
 
-  crc24_and_scramble_to_gen_phy_bit("555555", pkt);
+  crc24_and_scramble_byte_to_gen_phy_bit("555555", pkt);
   printf("num_phy_bit %d\n", pkt->num_phy_bit);
 
   pkt->num_phy_sample = gen_sample_from_phy_bit(pkt->phy_bit, pkt->phy_sample, pkt->num_phy_bit);
