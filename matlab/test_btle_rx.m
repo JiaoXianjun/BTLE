@@ -1,4 +1,5 @@
 function test_btle_rx
+pdy_type_str = {'ADV_IND', 'ADV_DIRECT_IND', 'ADV_NONCONN_IND', 'SCAN_REQ', 'SCAN_RSP', 'CONNECT_REQ', 'ADV_SCAN_IND', 'Reserved', 'Reserved', 'Reserved', 'Reserved', 'Reserved', 'Reserved', 'Reserved', 'Reserved'};
 
 a = load('sample_iq_4msps.txt');
 a = a';
@@ -22,11 +23,59 @@ while 1
         break;
     end
     sp = sp + sp_new -1 + length(match_bit)*sample_per_symbol;
-    bits = demod_bits(a(sp:end), num_pdu_header_bits, sample_per_symbol);
-    bits = xor(bits, scramble_bits(1:num_pdu_header_bits));
-    [pdu_type, tx_add, rx_add, pdu_len] = parse_adv_pdu_header_bits(bits);
+    disp(['relative sp ' num2str(sp_new) ' absolute sp ' num2str(sp)]);
+    
+    % pdu header
+    pdu_header_bits = demod_bits(a(sp:end), num_pdu_header_bits, sample_per_symbol);
+    pdu_header_bits = xor(pdu_header_bits, scramble_bits(1:num_pdu_header_bits));
+    [pdu_type, tx_add, rx_add, payload_len] = parse_adv_pdu_header_bits(pdu_header_bits);
     sp = sp + num_pdu_header_bits*sample_per_symbol;
+    
+    % pdu payload + 3 crc octets
+    num_pdu_payload_crc_bits = (payload_len+3)*8;
+    pdu_payload_crc_bits = demod_bits(a(sp:end), num_pdu_payload_crc_bits, sample_per_symbol);
+    pdu_payload_crc_bits = xor(pdu_payload_crc_bits, scramble_bits( (num_pdu_header_bits+1) : (num_pdu_header_bits+num_pdu_payload_crc_bits)));
+
+    crc_24bits = ble_crc([pdu_header_bits pdu_payload_crc_bits(1:(end-3*8))], '555555');
+%     disp(num2str(crc_24bits));
+%     disp(num2str(pdu_payload_crc_bits((end-3*8+1):end)));
+    
+    disp(['   PDU Type: ' pdy_type_str{pdu_type+1}]);
+    disp(['     Tx Add: ' num2str(tx_add)]);
+    disp(['     Rx Add: ' num2str(rx_add)]);
+    disp(['Payload Len: ' num2str(payload_len)]);
+    if sum(crc_24bits==pdu_payload_crc_bits((end-3*8+1):end)) == 24
+        disp(' CRC Result: OK');
+    else
+        disp(' CRC Result: Bad');
+    end
+    
+    sp = sp + num_pdu_payload_crc_bits*sample_per_symbol;
 end
+
+function reg_bits = ble_crc(pdu, init_reg_bits)
+
+reg_bits = de2bi(hex2dec(init_reg_bits), 24, 'right-msb');
+for i = 1 : length(pdu)
+    reg_bits = LFSR_crc(reg_bits, pdu(i));
+end
+reg_bits = reg_bits(end:-1:1);
+
+function [seq] = LFSR_crc(old_seq, pdu_bit)
+proc_bit = xor(old_seq(24), pdu_bit);
+
+seq(1) = proc_bit;
+seq(2) = xor(old_seq(1), proc_bit);
+seq(3) = old_seq(2);
+seq(4) = xor(old_seq(3), proc_bit);
+seq(5) = xor(old_seq(4), proc_bit);
+seq(6) = old_seq(5);
+seq(7) = xor(old_seq(6), proc_bit);
+seq(8:9) = old_seq(7:8);
+seq(10) = xor(old_seq(9), proc_bit);
+seq(11) = xor(old_seq(10), proc_bit);
+seq(12:24) = old_seq(11:23);
+
 
 function scramble_bits = scramble_gen(channel_number, num_bit)
 
@@ -70,18 +119,18 @@ scramble_bits = bit_seq;
 
   
 function [pdu_type, tx_add, rx_add, payload_len] = parse_adv_pdu_header_bits(bits)
-pdy_type_str = {'ADV_IND', 'ADV_DIRECT_IND', 'ADV_NONCONN_IND', 'SCAN_REQ', 'SCAN_RSP', 'CONNECT_REQ', 'ADV_SCAN_IND', 'Reserved', 'Reserved', 'Reserved', 'Reserved', 'Reserved', 'Reserved', 'Reserved', 'Reserved'};
+% pdy_type_str = {'ADV_IND', 'ADV_DIRECT_IND', 'ADV_NONCONN_IND', 'SCAN_REQ', 'SCAN_RSP', 'CONNECT_REQ', 'ADV_SCAN_IND', 'Reserved', 'Reserved', 'Reserved', 'Reserved', 'Reserved', 'Reserved', 'Reserved', 'Reserved'};
 pdu_type = bi2de(bits(1:4), 'right-msb');
-disp(['PDU Type: ' pdy_type_str{pdu_type+1}]);
+% disp(['   PDU Type: ' pdy_type_str{pdu_type+1}]);
 
 tx_add = bits(7);
-disp(['  Tx Add: ' num2str(tx_add)]);
+% disp(['     Tx Add: ' num2str(tx_add)]);
 
 rx_add = bits(8);
-disp(['  Rx Add: ' num2str(rx_add)]);
+% disp(['     Rx Add: ' num2str(rx_add)]);
 
 payload_len = bi2de(bits(9:15), 'right-msb');
-disp([' PDU Len: ' num2str(payload_len)]);
+% disp(['Payload Len: ' num2str(payload_len)]);
 
 
 function bits = demod_bits(a, num_bits, sample_per_symbol)
@@ -143,7 +192,7 @@ while 1
     
     if unequal_flag==0
         sp = i+j-1-(demod_buf_len-1)*sample_per_symbol;
-        disp(num2str(sp));
+%         disp(num2str(sp));
         return;
     end 
     

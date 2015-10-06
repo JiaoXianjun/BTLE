@@ -796,6 +796,15 @@ void octet_hex_to_bit(char *hex, char *bit) {
   bit[7] = 0x01&(n>>7);
 }
 
+int bit_to_int(char *bit) {
+  int n = 0;
+  int i;
+  for(i=0; i<8; i++) {
+    n = ( (n<<1) | bit[7-i] );
+  }
+  return(n);
+}
+
 void int_to_bit(int n, char *bit) {
   bit[0] = 0x01&(n>>0);
   bit[1] = 0x01&(n>>1);
@@ -1767,7 +1776,7 @@ int calculate_sample_for_DISCOVERY(char *pkt_str, PKT_INFO*pkt) {
 // 0x06 128-bit Service UUIDs More 128-bit UUIDs available
 // 0x07 128-bit Service UUIDs Complete list of 128-bit UUIDs available
   char *current_p;
-  int ret, num_bit_tmp, num_octet_tmp, i;
+  int ret, num_bit_tmp, num_octet_tmp, i, j;
 
   pkt->num_info_bit = 0;
   pkt->num_info_byte = 0;
@@ -1864,10 +1873,18 @@ int calculate_sample_for_DISCOVERY(char *pkt_str, PKT_INFO*pkt) {
       current_p = get_next_field_name_char(current_p, AD_TYPE_STR[i], pkt->info_bit+ 2*8 + pkt->num_info_bit, &num_bit_tmp, 0, octets_left_room, &ret);
 
       num_octet_tmp = num_bit_tmp/8;
-      sprintf((char*)(pkt->info_byte + 2 + pkt->num_info_byte), "CA1308 11950 22.626 113.823 8");
+      
+      //sprintf((char*)(pkt->info_byte + 2 + pkt->num_info_byte), "CA1308 11950 22.626 113.823 8"); // this is fake. let us use real.
+      for(j=0; j<num_octet_tmp; j++) {
+        pkt->info_byte[2+pkt->num_info_byte+j] = bit_to_int(pkt->info_bit+ 2*8 + pkt->num_info_bit + j*8);
+      }
+      pkt->info_byte[2+pkt->num_info_byte+j] = 0;
+      
       printf("display buffer begin from %d\n",  2 + pkt->num_info_byte);
 
-      printf("CA1308 11950 22.626 113.823 8 %d\n", num_bit_tmp);
+      //printf("CA1308 11950 22.626 113.823 8 %d\n", num_bit_tmp); // this is fake. let us use real.
+      printf("%s %d\n", (char *)(pkt->info_byte + 2+ pkt->num_info_byte), num_bit_tmp);
+      
       disp_bit(pkt->info_bit + 2*8 + pkt->num_info_bit, num_bit_tmp);
       disp_hex_in_bit(pkt->info_byte + 2+ pkt->num_info_byte, num_octet_tmp);
 
