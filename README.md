@@ -3,7 +3,7 @@ A BTLE (Bluetooth Low energy)/BT4.0 radio packet sender ( build based on <a href
 
 ==========================================================================
 
-News:
+News (See complete introduction section after news section):
 
 02 Sep. 2015: Fixed-point version. Add new packet type: discovery. Open LightBlue APP in your iPhone/device, then:
 
@@ -15,6 +15,8 @@ DO NOT use space character " " in a command line packet descriptor. You CAN use 
     btle_tx 37-DISCOVERY-TxAdd-1-RxAdd-0-AdvA-010203040506-LOCAL_NAME09-CA1308/11950/22.626/113.823/8 r40
     
 "btle_tx 37-DISCOVERY-TxAdd-1-RxAdd-0-AdvA-010203040506-LOCAL_NAME09-CA1308 11950 22.626 113.823 8 r40" in command line will get ERROR!
+
+"-" is magic character which is used to separate different fields in packet descriptor. DO NOT use "-" inside each field.
 
 
 11 Aug. 2014: Fix packet loss bug. And, add <a href="https://github.com/Nuand/bladeRF">bladeRF</a> support:
