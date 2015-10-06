@@ -8,7 +8,13 @@ News:
 02 Sep. 2015: Fixed-point version. Add new packet type: discovery. Open LightBlue APP in your iPhone/device, then:
 
     btle_tx packets_discovery.txt
-    (packets_discovery.txt is under host/btle-tools/src; DO NOT use space in a command line packet description. CAN use space in the txt file packet description)
+    (packets_discovery.txt is under host/btle-tools/src)
+
+DO NOT use space in a command line packet description. CAN use space in the txt file packet description. Command line of above example:
+
+    btle_tx 37-DISCOVERY-TxAdd-1-RxAdd-0-AdvA-010203040506-LOCAL_NAME09-CA1308/11950/22.626/113.823/8 r40
+    
+    "btle_tx 37-DISCOVERY-TxAdd-1-RxAdd-0-AdvA-010203040506-LOCAL_NAME09-CA1308 11950 22.626 113.823 8 r40" in command line will get ERROR! You can only use space in txt file packet description.
 
 You will see some info like aircraft broadcasted.
 
