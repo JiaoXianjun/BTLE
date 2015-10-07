@@ -93,10 +93,10 @@ int gettimeofday(struct timeval *tv, void* ignored)
 	#define sleep(a) Sleep( (a*1000) )
 #endif
 
-static inline float
+static inline int
 TimevalDiff(const struct timeval *a, const struct timeval *b)
 {
-   return (a->tv_sec - b->tv_sec) + 1e-6f * (a->tv_usec - b->tv_usec);
+   return( (a->tv_sec - b->tv_sec)*1000000 + (a->tv_usec - b->tv_usec) );
 }
 
 #ifdef USE_BLADERF
@@ -4012,21 +4012,23 @@ int main(int argc, char** argv) {
   if ( init_board() == -1 )
       return(-1);
 
-  struct timeval time_now, time_old;
+  struct timeval time_tmp, time_current_pkt, time_pre_pkt;
+  gettimeofday(&time_current_pkt, NULL);
   for (j=0; j<num_repeat; j++ ) {
     for (i=0; i<num_packet; i++) {
-      gettimeofday(&time_old, NULL);
+      time_pre_pkt = time_current_pkt;
+      gettimeofday(&time_current_pkt, NULL);
 
       if ( tx_one_buf(packets[i].phy_sample, 2*packets[i].num_phy_sample, packets[i].channel_number) == -1 ){
         close_board();
         return(-1);
       }
 
-      printf("r%d p%d\n", j, i);
+      printf("r%d p%d at %dus\n", j, i,  TimevalDiff(&time_current_pkt, &time_pre_pkt) );
 
-      gettimeofday(&time_now, NULL);
-      while(TimevalDiff(&time_now, &time_old)<( (float)packets[i].space/(float)1000 ) ) {
-        gettimeofday(&time_now, NULL);
+      gettimeofday(&time_tmp, NULL);
+      while(TimevalDiff(&time_tmp, &time_current_pkt)<( packets[i].space*1000 ) ) {
+        gettimeofday(&time_tmp, NULL);
       }
     }
   }
