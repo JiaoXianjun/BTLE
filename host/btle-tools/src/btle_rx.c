@@ -144,7 +144,7 @@ static void print_usage() {
 
 volatile int rx_buf_offset; // remember to initialize it!
 
-#define LEN_BUF_IN_SAMPLE (512*4096) //4096 samples = ~1ms for 4Msps; ATTENTION each rx callback get 32*4096 samples!!!
+#define LEN_BUF_IN_SAMPLE (8*4096) //4096 samples = ~1ms for 4Msps; ATTENTION each rx callback get hackrf.c:lib_device->buffer_size samples!!!
 #define LEN_BUF (LEN_BUF_IN_SAMPLE*2)
 #define LEN_BUF_IN_SYMBOL (LEN_BUF_IN_SAMPLE/SAMPLE_PER_SYMBOL)
 //----------------------------------some basic signal definition----------------------------------
@@ -353,7 +353,7 @@ int rx_callback(hackrf_transfer* transfer) {
     rx_buf[rx_buf_offset] = p[i];
     rx_buf_offset = (rx_buf_offset+1)&( LEN_BUF-1 ); //cyclic buffer
   }
-  //printf("%d\n", transfer->valid_length); // !!!!it is 262144 always!!!!
+  //printf("%d\n", transfer->valid_length); // !!!!it is 262144 always!!!! Now it is 4096. Defined in hackrf.c lib_device->buffer_size
   return(0);
 }
 
@@ -529,15 +529,6 @@ void octet_hex_to_bit(char *hex, char *bit) {
   bit[7] = 0x01&(n>>7);
 }
 
-void byte_array_to_bit_array(uint8_t *bytes_in, int num_byte, uint8_t *bit) {
-  int i, j;
-  j=0;
-  for(i=0; i<num_byte*8; i=i+8) {
-    int_to_bit(bytes_in[j], bit+i);
-    j++;
-  }
-}
-
 void int_to_bit(int n, uint8_t *bit) {
   bit[0] = 0x01&(n>>0);
   bit[1] = 0x01&(n>>1);
@@ -547,6 +538,15 @@ void int_to_bit(int n, uint8_t *bit) {
   bit[5] = 0x01&(n>>5);
   bit[6] = 0x01&(n>>6);
   bit[7] = 0x01&(n>>7);
+}
+
+void byte_array_to_bit_array(uint8_t *bytes_in, int num_byte, uint8_t *bit) {
+  int i, j;
+  j=0;
+  for(i=0; i<num_byte*8; i=i+8) {
+    int_to_bit(bytes_in[j], bit+i);
+    j++;
+  }
 }
 
 int convert_hex_to_bit(char *hex, char *bit){
@@ -653,7 +653,7 @@ void save_phy_sample(IQ_TYPE *IQ_sample, int num_IQ_sample, char *filename)
 
 void load_phy_sample(IQ_TYPE *IQ_sample, int num_IQ_sample, char *filename)
 {
-  int i;
+  int i, tmp_val;
 
   FILE *fp = fopen(filename, "r");
   if (fp == NULL) {
@@ -663,7 +663,8 @@ void load_phy_sample(IQ_TYPE *IQ_sample, int num_IQ_sample, char *filename)
 
   i = 0;
   while( ~feof(fp) ) {
-    if ( fscanf(fp, "%d,", IQ_sample+i) ) {
+    if ( fscanf(fp, "%d,", &tmp_val) ) {
+      IQ_sample[i] = tmp_val;
       i++;
     }
     if (num_IQ_sample != -1) {
@@ -1270,10 +1271,11 @@ void demod_bytes(IQ_TYPE* rxp, uint8_t *out_bytes, int num_bytes) {
   }
 }
 
-#define LEN_DEMOD_BUF_PREAMBLE_ACCESS ( (NUM_PREAMBLE_ACCESS_BYTE*8)-8 )
+//#define LEN_DEMOD_BUF_PREAMBLE_ACCESS ( (NUM_PREAMBLE_ACCESS_BYTE*8)-8 ) // to get 2^x integer
+#define LEN_DEMOD_BUF_PREAMBLE_ACCESS 32
 static uint8_t demod_buf_preamble_access[SAMPLE_PER_SYMBOL][LEN_DEMOD_BUF_PREAMBLE_ACCESS];
 
-int search_unique_bits(IQ_TYPE* rxp, int search_len, uint8_t *unique_bits, const int num_bits, int *phase) {
+inline int search_unique_bits(IQ_TYPE* rxp, int search_len, uint8_t *unique_bits, const int num_bits) {
   int i, sp, j, i0, q0, i1, q1, k, p, phase_idx;
   bool unequal_flag;
   const int demod_buf_len = num_bits;
@@ -1302,7 +1304,6 @@ int search_unique_bits(IQ_TYPE* rxp, int search_len, uint8_t *unique_bits, const
       }
       
       if(unequal_flag==false) {
-        (*phase) = j;
         return(i - demod_buf_len*SAMPLE_PER_SYMBOL*2);
       }
       
@@ -1311,8 +1312,7 @@ int search_unique_bits(IQ_TYPE* rxp, int search_len, uint8_t *unique_bits, const
     demod_buf_offset  = ( (demod_buf_offset+1)&(demod_buf_len-1) );
     
   }
-  
-  (*phase) = -1;
+
   return(-1);
 }
 
@@ -1357,27 +1357,25 @@ inline void receiver_init(void) {
   byte_array_to_bit_array(preamble_access_bytes, 5, preamble_access_bits);
 }
 
-inline void receiver(int phase, int buf_sp){
-  IQ_TYPE *rxp = (IQ_TYPE *)(rx_buf + buf_sp);
+void receiver(IQ_TYPE *rxp_in, int buf_len){
   static uint8_t tmp_bytes[MAX_NUM_BODY_BYTE];
-  int num_demod_bytes, phase_idx, i;
-  const int num_symbol = (LEN_BUF_IN_SYMBOL/2) + (NUM_PREAMBLE_ACCESS_BYTE*8)-1;
   static int pkt_count = 0;
-  
-  if (phase==0) {
-    memcpy((void *)(rx_buf+LEN_BUF), (void *)rx_buf, LEN_BUF_MAX_NUM_PHY_SAMPLE*sizeof(IQ_TYPE));
-  }
+  static int start_offset = 0;
+  IQ_TYPE *rxp = rxp_in + start_offset;
+  int num_demod_bytes, i;
+  int num_symbol = buf_len/(SAMPLE_PER_SYMBOL*2);
 
   //printf("phase %d rx_buf_offset %d buf_sp %d LEN_BUF/2 %d mem scale %d\n", phase, rx_buf_offset, buf_sp, LEN_BUF/2, sizeof(IQ_TYPE));
 
   //while( 1 ) 
-    {
-    if ( -1 == (i=search_unique_bits(rxp, num_symbol, preamble_access_bits, LEN_DEMOD_BUF_PREAMBLE_ACCESS, &phase_idx)) ) {
+  {
+    i = search_unique_bits(rxp, num_symbol, preamble_access_bits, LEN_DEMOD_BUF_PREAMBLE_ACCESS);
+    if ( -1 == i ) {
       //break;
     }
     
-    printf("%d %d\n", i, phase_idx);
-    rxp = rxp + i + phase_idx + 2;
+    printf("%d\n", i);
+    rxp = rxp + i + 2;
     
     //num_demod_bytes = MAX_NUM_BODY_BYTE;
     //demod_bytes(rxp, tmp_bytes, num_demod_bytes);
@@ -1391,11 +1389,15 @@ inline void receiver(int phase, int buf_sp){
 }
 //----------------------------------receiver----------------------------------
 
+//---------------------------for offline test--------------------------------------
+IQ_TYPE tmp_buf[2097152];
+//---------------------------for offline test--------------------------------------
 int main(int argc, char** argv) {
   uint64_t freq_hz;
-  int gain, chan, phase, rx_buf_offset_tmp, buf_sp;
+  int gain, chan, phase, rx_buf_offset_tmp;
   bool run_flag = false;
   void* rf_dev;
+  IQ_TYPE *rxp;
 
   parse_commandline(argc, argv, &chan, &gain);
   freq_hz = get_freq_by_channel_number(chan);
@@ -1426,7 +1428,7 @@ int main(int argc, char** argv) {
       rx_buf_offset_old = rx_buf_offset;
     }
      * */
-    // total buf len LEN_BUF = (4*4096)*2 =  (~ 4ms); tail length MAX_NUM_PHY_SAMPLE*2=LEN_BUF_MAX_NUM_PHY_SAMPLE
+    // total buf len LEN_BUF = (8*4096)*2 =  (~ 8ms); tail length MAX_NUM_PHY_SAMPLE*2=LEN_BUF_MAX_NUM_PHY_SAMPLE
     
     rx_buf_offset_tmp = rx_buf_offset - LEN_BUF_MAX_NUM_PHY_SAMPLE;
     // cross point 0
@@ -1434,7 +1436,8 @@ int main(int argc, char** argv) {
       //printf("rx_buf_offset cross 0: %d %d %d\n", rx_buf_offset, (LEN_BUF/2), LEN_BUF_MAX_NUM_PHY_SAMPLE);
       phase = 0;
       
-      buf_sp = (LEN_BUF/2);
+      memcpy((void *)(rx_buf+LEN_BUF), (void *)rx_buf, LEN_BUF_MAX_NUM_PHY_SAMPLE*sizeof(IQ_TYPE));
+      rxp = (IQ_TYPE*)(rx_buf + (LEN_BUF/2));
       run_flag = true;
     }
 
@@ -1443,15 +1446,22 @@ int main(int argc, char** argv) {
       //printf("rx_buf_offset cross 1: %d %d %d\n", rx_buf_offset, (LEN_BUF/2), LEN_BUF_MAX_NUM_PHY_SAMPLE);
       phase = 1;
 
-      buf_sp = 0;
+      rxp = (IQ_TYPE*)rx_buf;
       run_flag = true;
     }
     
     if (run_flag) {
+      // ------------------------for offline test -------------------------------------
       //save_phy_sample(rx_buf+buf_sp, LEN_BUF/2, "/home/jxj/git/BTLE/matlab/sample_iq_4msps.txt");
-      load_phy_sample(rx_buf+buf_sp, LEN_BUF/2, "/home/jxj/git/BTLE/matlab/sample_iq_4msps.txt");
-      receiver(phase, buf_sp);
+      load_phy_sample(tmp_buf, 2097152, "/home/jxj/git/BTLE/matlab/sample_iq_4msps.txt");
+      receiver(tmp_buf, 2097152);
       break;
+      // ------------------------for offline test -------------------------------------
+      
+      // -----------------------------real online run--------------------------------
+      receiver(rxp, LEN_BUF_MAX_NUM_PHY_SAMPLE+(LEN_BUF/2) );
+      // -----------------------------real online run--------------------------------
+      
       run_flag = false;
     }
   }
