@@ -133,9 +133,10 @@ uint64_t freq_hz;
 volatile bool do_exit = false;
 
 volatile int stop_tx = 1;
-volatile int tx_len;
+volatile int tx_len, tx_buffer_length, tx_valid_length;
+volatile int tx_count = 0;
 
-#define NUM_PRE_SEND_DATA (1024)
+#define NUM_PRE_SEND_DATA (256)
 
 #ifdef USE_BLADERF
 #define NUM_BLADERF_BUF_SAMPLE 4096
@@ -143,10 +144,21 @@ volatile int16_t tx_buf[NUM_BLADERF_BUF_SAMPLE*2];
 struct bladerf_devinfo *devices = NULL;
 struct bladerf *dev;
 #else
-volatile char tx_buf[MAX_NUM_PHY_SAMPLE*2];
+//volatile char tx_buf[MAX_NUM_PHY_SAMPLE*2];
+#define HACKRF_ONBOARD_BUF_SIZE (32768) // in usb_bulk_buffer.h
+#define HACKRF_USB_BUF_SIZE (4096) // in hackrf.c lib_device->buffer_size
+char tx_zeros[HACKRF_USB_BUF_SIZE-NUM_PRE_SEND_DATA] = {0};
+volatile char *tx_buf;
 static hackrf_device* device = NULL;
 
 int tx_callback(hackrf_transfer* transfer) {
+  #if 0
+  tx_buffer_length = transfer->buffer_length; //always is 262144 in old driver, now it is 4096. (3008 for maximum BTLE packet)
+  tx_valid_length = transfer->valid_length; //always is 262144 in old driver, now it is 4096. (3008 for maximum BTLE packet)
+  tx_count++;
+  #endif
+  
+  #if 0
   if (~stop_tx) {
     if ( (tx_len+NUM_PRE_SEND_DATA) <= transfer->valid_length ) {
 // don't feed data to the beginning of transfer->buffer, because tx needs warming up
@@ -161,6 +173,18 @@ int tx_callback(hackrf_transfer* transfer) {
   } else {
     memset(transfer->buffer, 0, transfer->valid_length);
   }
+  #endif
+  
+  #if 1 // ----------------- simple one   ----------------
+  if (~stop_tx) {
+    memset(transfer->buffer, 0, NUM_PRE_SEND_DATA);
+    memcpy(transfer->buffer+NUM_PRE_SEND_DATA, (char *)(tx_buf), tx_len);
+    stop_tx = 1;
+  } else {
+    memset(transfer->buffer, 0, transfer->valid_length);
+  }
+  #endif
+  
   return(0);
 }
 #endif
@@ -503,7 +527,9 @@ inline int tx_one_buf(char *buf, int length, int channel_number) {
 
   set_freq_by_channel_number(channel_number);
 
-  memcpy((char *)(tx_buf), buf, length);
+  //tx_buf = tx_zeros;
+  //tx_len = HACKRF_USB_BUF_SIZE-NUM_PRE_SEND_DATA;
+  tx_buf = buf;
   tx_len = length;
 
   // open the board-----------------------------------------
@@ -542,8 +568,11 @@ inline int tx_one_buf(char *buf, int length, int channel_number) {
   }
 
   do_exit = false;
-
+  
   // second round actual TX-----------------------------------
+  tx_buf = buf;
+  tx_len = length;
+
   stop_tx = 0;
 
   result = hackrf_start_tx(device, tx_callback, NULL);
@@ -4012,6 +4041,60 @@ int main(int argc, char** argv) {
   if ( init_board() == -1 )
       return(-1);
 
+#if 0
+//-----------------------------------test tx buf---------------------------------
+  set_freq_by_channel_number(37);
+
+  // open the board-----------------------------------------
+  if (open_board() == -1) {
+    printf("main: open_board() failed\n");
+    goto main_out;
+  }
+
+  do_exit = false;
+
+  int tx_buffer_length_old, tx_valid_length_old, tx_count_old;
+  int result = hackrf_start_tx(device, tx_callback, NULL);
+  if( result != HACKRF_SUCCESS ) {
+    printf("main: hackrf_start_tx() failed: %s (%d)\n", hackrf_error_name(result), result);
+    goto main_out;
+  }
+
+  tx_buffer_length_old = tx_buffer_length;
+  tx_valid_length_old = tx_valid_length;
+  tx_count_old = tx_count;
+  while( (hackrf_is_streaming(device) == HACKRF_TRUE) &&
+      (do_exit == false) )
+  {
+    if ( (tx_count-tx_count_old)>32 || (tx_buffer_length-tx_buffer_length_old)>512 || (tx_buffer_length-tx_buffer_length_old)<0 || (tx_valid_length-tx_valid_length_old)>512 || (tx_valid_length-tx_valid_length_old)<0 ) {
+      printf("%d %d %d(old %d %d %d)\n", tx_buffer_length, tx_valid_length, tx_count, tx_buffer_length_old, tx_valid_length_old, tx_count_old);
+      tx_buffer_length_old = tx_buffer_length;
+      tx_valid_length_old = tx_valid_length;
+      tx_count_old = tx_count;
+    }
+  }
+
+  if (do_exit)
+  {
+    printf("\nmain: Exiting...\n");
+  }
+
+  result = hackrf_stop_tx(device);
+  if( result != HACKRF_SUCCESS ) {
+    printf("main: hackrf_stop_tx() failed: %s (%d)\n", hackrf_error_name(result), result);
+  }
+//----------------------------test tx buf-------------------------------
+#endif
+
+#if 1
+  //flush hackrf onboard buf
+  for(i=0; i<(HACKRF_ONBOARD_BUF_SIZE/HACKRF_USB_BUF_SIZE)+5; i++) {
+    if ( tx_one_buf(tx_zeros, HACKRF_USB_BUF_SIZE-NUM_PRE_SEND_DATA, packets[0].channel_number) == -1 ){
+        close_board();
+        goto main_out;
+      }
+  }
+  
   struct timeval time_tmp, time_current_pkt, time_pre_pkt;
   gettimeofday(&time_current_pkt, NULL);
   for (j=0; j<num_repeat; j++ ) {
@@ -4021,7 +4104,7 @@ int main(int argc, char** argv) {
 
       if ( tx_one_buf(packets[i].phy_sample, 2*packets[i].num_phy_sample, packets[i].channel_number) == -1 ){
         close_board();
-        return(-1);
+        goto main_out;
       }
 
       printf("r%d p%d at %dus\n", j, i,  TimevalDiff(&time_current_pkt, &time_pre_pkt) );
@@ -4033,7 +4116,9 @@ int main(int argc, char** argv) {
     }
   }
   printf("\n");
+#endif 
 
+main_out:
   exit_board();
 	printf("exit\n");
 
