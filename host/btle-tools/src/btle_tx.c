@@ -4087,6 +4087,7 @@ int main(int argc, char** argv) {
 #endif
 
 #if 1
+  #ifndef USE_BLADERF
   //flush hackrf onboard buf
   for(i=0; i<(HACKRF_ONBOARD_BUF_SIZE/HACKRF_USB_BUF_SIZE)+5; i++) {
     if ( tx_one_buf(tx_zeros, HACKRF_USB_BUF_SIZE-NUM_PRE_SEND_DATA, packets[0].channel_number) == -1 ){
@@ -4094,6 +4095,7 @@ int main(int argc, char** argv) {
         goto main_out;
       }
   }
+  #endif
   
   struct timeval time_tmp, time_current_pkt, time_pre_pkt;
   gettimeofday(&time_current_pkt, NULL);
