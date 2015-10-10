@@ -1304,7 +1304,7 @@ inline int search_unique_bits(IQ_TYPE* rxp, int search_len, uint8_t *unique_bits
       }
       
       if(unequal_flag==false) {
-        return(i - demod_buf_len*SAMPLE_PER_SYMBOL*2);
+        return( i + j - (demod_buf_len-1)*SAMPLE_PER_SYMBOL*2 );
       }
       
     }
@@ -1360,23 +1360,25 @@ inline void receiver_init(void) {
 void receiver(IQ_TYPE *rxp_in, int buf_len){
   static uint8_t tmp_bytes[MAX_NUM_BODY_BYTE];
   static int pkt_count = 0;
-  static int start_offset = 0;
+  static int start_offset = 0; // indicate if previous buffer processing has over process some data of this buffer
   IQ_TYPE *rxp = rxp_in + start_offset;
-  int num_demod_bytes, i;
-  int num_symbol = buf_len/(SAMPLE_PER_SYMBOL*2);
+  int num_demod_bytes, i, sp;
+  int num_symbol = buf_len/(SAMPLE_PER_SYMBOL*2); //2 for IQ
 
   //printf("phase %d rx_buf_offset %d buf_sp %d LEN_BUF/2 %d mem scale %d\n", phase, rx_buf_offset, buf_sp, LEN_BUF/2, sizeof(IQ_TYPE));
 
-  //while( 1 ) 
+  sp = 0;
+  while( 1 ) 
   {
     i = search_unique_bits(rxp, num_symbol, preamble_access_bits, LEN_DEMOD_BUF_PREAMBLE_ACCESS);
-    if ( -1 == i ) {
-      //break;
+    if ( i == -1 ) {
+      break;
     }
     
-    printf("%d\n", i);
-    rxp = rxp + i + 2;
-    
+    printf("%d\n", sp+i);
+    rxp = rxp + i + LEN_DEMOD_BUF_PREAMBLE_ACCESS*2*SAMPLE_PER_SYMBOL;
+    sp = sp + i + LEN_DEMOD_BUF_PREAMBLE_ACCESS*2*SAMPLE_PER_SYMBOL;
+    num_symbol = (buf_len-sp)/(SAMPLE_PER_SYMBOL*2);
     //num_demod_bytes = MAX_NUM_BODY_BYTE;
     //demod_bytes(rxp, tmp_bytes, num_demod_bytes);
     
@@ -1413,7 +1415,6 @@ int main(int argc, char** argv) {
       return(1);
     }
   }
-  
   // init receiver
   receiver_init();
   

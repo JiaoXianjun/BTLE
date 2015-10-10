@@ -7,6 +7,7 @@ if nargin<=0 || nargin >2
 end
 
 if nargin == 2
+% 'sample_iq_4msps.txt'
     filename = varargin{1};
     a = load(filename);
     a = a';
@@ -70,6 +71,7 @@ while 1
     if sp_new == -1
         break;
     end
+    disp(num2str(sp + sp_new -1));
     sp = sp + sp_new -1 + length(match_bit)*sample_per_symbol;
     pkt_idx = pkt_idx + 1;
 %     disp(['relative sp ' num2str(sp_new) ' absolute sp ' num2str(sp)]);
