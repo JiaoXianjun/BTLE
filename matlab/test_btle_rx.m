@@ -49,7 +49,7 @@ else
     end
 end
 
-pdy_type_str = {'ADV_IND', 'ADV_DIRECT_IND', 'ADV_NONCONN_IND', 'SCAN_REQ', 'SCAN_RSP', 'CONNECT_REQ', 'ADV_SCAN_IND', 'Reserved', 'Reserved', 'Reserved', 'Reserved', 'Reserved', 'Reserved', 'Reserved', 'Reserved'};
+pdu_type_str = {'ADV_IND', 'ADV_DIRECT_IND', 'ADV_NONCONN_IND', 'SCAN_REQ', 'SCAN_RSP', 'CONNECT_REQ', 'ADV_SCAN_IND', 'Reserved', 'Reserved', 'Reserved', 'Reserved', 'Reserved', 'Reserved', 'Reserved', 'Reserved', 'Reserved'};
 
 
 % subplot(3,1,1); plot(abs(a));
@@ -64,26 +64,28 @@ num_pdu_header_bits = 16;
 sp = 1;
 disp('Start demodulation ...');
 plot(abs(a)); drawnow;
-pkt_idx = 0;
+pkt_count = 0;
 while 1
 %     disp(' ');
     sp_new = search_unique_bits(a(sp:end), match_bit, sample_per_symbol);
     if sp_new == -1
         break;
     end
+    disp(num2str(a(sp_new:(sp_new+7))));
     disp(num2str(sp + sp_new -1));
     sp = sp + sp_new -1 + length(match_bit)*sample_per_symbol;
-    pkt_idx = pkt_idx + 1;
+    pkt_count = pkt_count + 1;
 %     disp(['relative sp ' num2str(sp_new) ' absolute sp ' num2str(sp)]);
     
     % pdu header
     pdu_header_bits = demod_bits(a(sp:end), num_pdu_header_bits, sample_per_symbol);
+    disp(num2str(a(sp:(sp+7))));
     pdu_header_bits = xor(pdu_header_bits, scramble_bits(1:num_pdu_header_bits));
     [pdu_type, tx_add, rx_add, payload_len] = parse_adv_pdu_header_bits(pdu_header_bits);
     sp = sp + num_pdu_header_bits*sample_per_symbol;
     
     if payload_len<6 || payload_len>37
-        disp(['Pkt' num2str(pkt_idx) ' Ch' num2str(channel_number) ' AccessAddr8E89BED6 ADV_PDU_Type' num2str(pdu_type) '(' pdy_type_str{pdu_type+1} ') TxAdd' num2str(tx_add) ' RxAdd' num2str(rx_add) ' PayloadLen' num2str(payload_len)]);
+        disp(['Pkt' num2str(pkt_count) ' Ch' num2str(channel_number) ' AccessAddr8E89BED6 ADV_PDU_Type' num2str(pdu_type) '(' pdu_type_str{pdu_type+1} ') TxAdd' num2str(tx_add) ' RxAdd' num2str(rx_add) ' PayloadLen' num2str(payload_len)]);
         continue;
     end
     
@@ -102,7 +104,7 @@ while 1
     else
         crc_str = 'CRC:Bad';
     end
-    disp(['Pkt' num2str(pkt_idx) ' Ch' num2str(channel_number) ' AccessAddr8E89BED6 ADV_PDU_Type' num2str(pdu_type) '(' pdy_type_str{pdu_type+1} ') TxAdd' num2str(tx_add) ' RxAdd' num2str(rx_add) ' PayloadLen' num2str(payload_len) ' ' payload_parse_result_str ' ' crc_str]);
+    disp(['Pkt' num2str(pkt_count) ' Ch' num2str(channel_number) ' AccessAddr8E89BED6 ADV_PDU_Type' num2str(pdu_type) '(' pdu_type_str{pdu_type+1} ') TxAdd' num2str(tx_add) ' RxAdd' num2str(rx_add) ' PayloadLen' num2str(payload_len) ' ' payload_parse_result_str ' ' crc_str]);
     
     sp = sp + num_pdu_payload_crc_bits*sample_per_symbol;
 end
@@ -240,9 +242,9 @@ scramble_bits = bit_seq;
 
   
 function [pdu_type, tx_add, rx_add, payload_len] = parse_adv_pdu_header_bits(bits)
-% pdy_type_str = {'ADV_IND', 'ADV_DIRECT_IND', 'ADV_NONCONN_IND', 'SCAN_REQ', 'SCAN_RSP', 'CONNECT_REQ', 'ADV_SCAN_IND', 'Reserved', 'Reserved', 'Reserved', 'Reserved', 'Reserved', 'Reserved', 'Reserved', 'Reserved'};
+% pdu_type_str = {'ADV_IND', 'ADV_DIRECT_IND', 'ADV_NONCONN_IND', 'SCAN_REQ', 'SCAN_RSP', 'CONNECT_REQ', 'ADV_SCAN_IND', 'Reserved', 'Reserved', 'Reserved', 'Reserved', 'Reserved', 'Reserved', 'Reserved', 'Reserved'};
 pdu_type = bi2de(bits(1:4), 'right-msb');
-% disp(['   PDU Type: ' pdy_type_str{pdu_type+1}]);
+% disp(['   PDU Type: ' pdu_type_str{pdu_type+1}]);
 
 tx_add = bits(7);
 % disp(['     Tx Add: ' num2str(tx_add)]);
@@ -250,7 +252,7 @@ tx_add = bits(7);
 rx_add = bits(8);
 % disp(['     Rx Add: ' num2str(rx_add)]);
 
-payload_len = bi2de(bits(9:15), 'right-msb');
+payload_len = bi2de(bits(9:14), 'right-msb');
 % disp(['Payload Len: ' num2str(payload_len)]);
 
 

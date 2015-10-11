@@ -150,7 +150,7 @@ volatile int rx_buf_offset; // remember to initialize it!
 //----------------------------------some basic signal definition----------------------------------
 
 //----------------------------------BTLE SPEC related--------------------------------
-#include "scramble_table_ch37.h"
+#include "scramble_table.h"
 #define MAX_NUM_CHAR_CMD (256)
 #define DEFAULT_CHANNEL 37
 #define MAX_CHANNEL_NUMBER 39
@@ -163,12 +163,6 @@ volatile int rx_buf_offset; // remember to initialize it!
 #define NUM_PREAMBLE_BYTE (1)
 #define NUM_ACCESS_ADDR_BYTE (4)
 #define NUM_PREAMBLE_ACCESS_BYTE (NUM_PREAMBLE_BYTE+NUM_ACCESS_ADDR_BYTE)
-#define NUM_PRE_SAMPLE (NUM_PREAMBLE_ACCESS_BYTE*8*SAMPLE_PER_SYMBOL)
-#define LEN_BUF_NUM_PRE (NUM_PRE_SAMPLE*2)
-
-#define MAX_NUM_BODY_BYTE (MAX_NUM_PHY_BYTE-NUM_PREAMBLE_ACCESS_BYTE)
-#define MAX_NUM_BODY_SAMPLE (MAX_NUM_BODY_BYTE*8*SAMPLE_PER_SYMBOL)
-#define LEN_BUF_MAX_NUM_BODY (MAX_NUM_BODY_SAMPLE*2)
 //----------------------------------BTLE SPEC related--------------------------------
 
 //----------------------------------board specific operation----------------------------------
@@ -540,11 +534,11 @@ void int_to_bit(int n, uint8_t *bit) {
   bit[7] = 0x01&(n>>7);
 }
 
-void byte_array_to_bit_array(uint8_t *bytes_in, int num_byte, uint8_t *bit) {
+void byte_array_to_bit_array(uint8_t *byte_in, int num_byte, uint8_t *bit) {
   int i, j;
   j=0;
   for(i=0; i<num_byte*8; i=i+8) {
-    int_to_bit(bytes_in[j], bit+i);
+    int_to_bit(byte_in[j], bit+i);
     j++;
   }
 }
@@ -762,19 +756,59 @@ return(freq_hz);
   
 }
 
+
+typedef enum
+{
+    ADV_IND,
+    ADV_DIRECT_IND,
+    ADV_NONCONN_IND,
+    SCAN_REQ,
+    SCAN_RSP,
+    CONNECT_REQ,
+    ADV_SCAN_IND,
+    RESERVED0,
+    RESERVED1,
+    RESERVED2,
+    RESERVED3,
+    RESERVED4,
+    RESERVED5,
+    RESERVED6,
+    RESERVED7,
+    RESERVED8
+} PDU_TYPE;
+
+char *PDU_TYPE_STR[] = {
+    "ADV_IND",
+    "ADV_DIRECT_IND",
+    "ADV_NONCONN_IND",
+    "ADV_SCAN_IND",
+    "SCAN_REQ",
+    "SCAN_RSP",
+    "CONNECT_REQ",
+    "ADV_SCAN_IND",
+    "RESERVED",
+    "RESERVED",
+    "RESERVED",
+    "RESERVED",
+    "RESERVED",
+    "RESERVED",
+    "RESERVED",
+    "RESERVED"
+};
+
 typedef enum
 {
     INVALID_TYPE,
     RAW,
     DISCOVERY,
     IBEACON,
-    ADV_IND,
-    ADV_DIRECT_IND,
-    ADV_NONCONN_IND,
-    ADV_SCAN_IND,
-    SCAN_REQ,
-    SCAN_RSP,
-    CONNECT_REQ,
+//    ADV_IND,
+//    ADV_DIRECT_IND,
+//    ADV_NONCONN_IND,
+//    ADV_SCAN_IND,
+//    SCAN_REQ,
+//    SCAN_RSP,
+//    CONNECT_REQ,
     LL_DATA,
     LL_CONNECTION_UPDATE_REQ,
     LL_CHANNEL_MAP_REQ,
@@ -938,10 +972,10 @@ void crc24(char *bit_in, int num_bit, char *init_hex, char *crc_result) {
   }
 }
 
-void scramble_byte(uint8_t *byte_in, int num_byte, int channel_number, uint8_t *byte_out) {
+void scramble_byte(uint8_t *byte_in, int num_byte, uint8_t *scramble_table_byte, uint8_t *byte_out) {
   int i;
   for(i=0; i<num_byte; i++){
-    byte_out[i] = byte_in[i]^scramble_table_ch37[i];
+    byte_out[i] = byte_in[i]^scramble_table_byte[i];
   }
 }
 
@@ -1148,7 +1182,7 @@ void crc24_and_scramble_to_gen_phy_bit(char *crc_init_hex, PKT_INFO *pkt) {
   memcpy(pkt->phy_bit, pkt->info_bit, 5*8);
   pkt->num_phy_bit = pkt->num_info_bit + 24;
 
-  scramble_byte(pkt->info_byte+5, pkt->num_info_byte-5+3, pkt->channel_number, pkt->phy_byte+5);
+  //scramble_byte(pkt->info_byte+5, pkt->num_info_byte-5+3, pkt->channel_number, pkt->phy_byte+5);
   memcpy(pkt->phy_byte, pkt->info_byte, 5);
   pkt->num_phy_byte = pkt->num_info_byte + 3;
 
@@ -1250,30 +1284,66 @@ abnormal_quit:
 
 //----------------------------------receiver----------------------------------
 
-void demod_bytes(IQ_TYPE* rxp, uint8_t *out_bytes, int num_bytes) {
+//#define LEN_DEMOD_BUF_PREAMBLE_ACCESS ( (NUM_PREAMBLE_ACCESS_BYTE*8)-8 ) // to get 2^x integer
+#define LEN_DEMOD_BUF_PREAMBLE_ACCESS 32
+typedef enum {
+  RISE_EDGE,
+  FALL_EDGE
+} EDGE_TYPE;
+static uint8_t demod_buf_preamble_access[SAMPLE_PER_SYMBOL][LEN_DEMOD_BUF_PREAMBLE_ACCESS];
+uint8_t preamble_access_byte[NUM_PREAMBLE_ACCESS_BYTE] = {0xAA, 0xD6, 0xBE, 0x89, 0x8E};
+uint8_t preamble_access_bit[NUM_PREAMBLE_ACCESS_BYTE*8];
+uint8_t tmp_byte[37+3]; // maximum payload length 37 + 3 octets CRC
+
+bool edge_detect(IQ_TYPE *rxp, EDGE_TYPE edge_target, int avg_len, int th) {
+  int fake_power[2] = {0, 0};
+  int i, j, sample_idx;
+  
+  sample_idx = 0;
+  for (i=0; i<2; i++) {
+    for (j=0; j<avg_len; j++) {
+      fake_power[i] = fake_power[i] + rxp[sample_idx]*rxp[sample_idx] + rxp[sample_idx+1]*rxp[sample_idx+1];
+      sample_idx = sample_idx + 2;
+    }
+  }
+  
+  if (edge_target == RISE_EDGE) {
+    if (fake_power[1] > fake_power[0]*th) {
+      return(true);
+    } else {
+      return(false);
+    }
+  } else {
+    if (fake_power[0] > fake_power[1]*th) {
+      return(true);
+    } else {
+      return(false);
+    }
+  }
+  
+  return(false);
+}
+
+void demod_byte(IQ_TYPE* rxp, int num_byte, uint8_t *out_byte) {
   int i, j;
   int I0, Q0, I1, Q1;
   uint8_t bit_decision;
   int sample_idx = 0;
   
-  for (i=0; i<num_bytes; i++) {
-    out_bytes[i] = 0;
+  for (i=0; i<num_byte; i++) {
+    out_byte[i] = 0;
     for (j=0; j<8; j++) {
       I0 = rxp[sample_idx];
       Q0 = rxp[sample_idx+1];
       I1 = rxp[sample_idx+2];
       Q1 = rxp[sample_idx+3];
       bit_decision = (I0*Q1 - I1*Q0)>0? 1 : 0;
-      out_bytes[i] = out_bytes[i] | (bit_decision<<j);
+      out_byte[i] = out_byte[i] | (bit_decision<<j);
 
       sample_idx = sample_idx + SAMPLE_PER_SYMBOL*2;
     }
   }
 }
-
-//#define LEN_DEMOD_BUF_PREAMBLE_ACCESS ( (NUM_PREAMBLE_ACCESS_BYTE*8)-8 ) // to get 2^x integer
-#define LEN_DEMOD_BUF_PREAMBLE_ACCESS 32
-static uint8_t demod_buf_preamble_access[SAMPLE_PER_SYMBOL][LEN_DEMOD_BUF_PREAMBLE_ACCESS];
 
 inline int search_unique_bits(IQ_TYPE* rxp, int search_len, uint8_t *unique_bits, const int num_bits) {
   int i, sp, j, i0, q0, i1, q1, k, p, phase_idx;
@@ -1316,76 +1386,67 @@ inline int search_unique_bits(IQ_TYPE* rxp, int search_len, uint8_t *unique_bits
   return(-1);
 }
 
-typedef enum {
-  RISE_EDGE,
-  FALL_EDGE
-} EDGE_TYPE;
+void parse_adv_pdu_header_byte(uint8_t *byte_in, int *pdu_type, int *tx_add, int *rx_add, int *payload_len) {
+//% pdy_type_str = {'ADV_IND', 'ADV_DIRECT_IND', 'ADV_NONCONN_IND', 'SCAN_REQ', 'SCAN_RSP', 'CONNECT_REQ', 'ADV_SCAN_IND', 'Reserved', 'Reserved', 'Reserved', 'Reserved', 'Reserved', 'Reserved', 'Reserved', 'Reserved'};
+//pdu_type = bi2de(bits(1:4), 'right-msb');
+(*pdu_type) = (byte_in[0]&0x0F);
+//% disp(['   PDU Type: ' pdy_type_str{pdu_type+1}]);
 
-bool edge_detect(IQ_TYPE *rxp, EDGE_TYPE edge_target, int avg_len, int th) {
-  int fake_power[2] = {0, 0};
-  int i, j, sample_idx;
-  
-  sample_idx = 0;
-  for (i=0; i<2; i++) {
-    for (j=0; j<avg_len; j++) {
-      fake_power[i] = fake_power[i] + rxp[sample_idx]*rxp[sample_idx] + rxp[sample_idx+1]*rxp[sample_idx+1];
-      sample_idx = sample_idx + 2;
-    }
-  }
-  
-  if (edge_target == RISE_EDGE) {
-    if (fake_power[1] > fake_power[0]*th) {
-      return(true);
-    } else {
-      return(false);
-    }
-  } else {
-    if (fake_power[0] > fake_power[1]*th) {
-      return(true);
-    } else {
-      return(false);
-    }
-  }
-  
-  return(false);
+//tx_add = bits(7);
+//% disp(['     Tx Add: ' num2str(tx_add)]);
+(*tx_add) = ( (byte_in[0]&0x40) != 0 );
+
+//rx_add = bits(8);
+//% disp(['     Rx Add: ' num2str(rx_add)]);
+(*rx_add) = ( (byte_in[0]&0x80) != 0 );
+
+//payload_len = bi2de(bits(9:14), 'right-msb');
+(*payload_len) = (byte_in[1]&0x3F);
 }
-
-uint8_t preamble_access_bytes[NUM_PREAMBLE_ACCESS_BYTE] = {0xAA, 0xD6, 0xBE, 0x89, 0x8E};
-uint8_t preamble_access_bits[NUM_PREAMBLE_ACCESS_BYTE*8];
 
 inline void receiver_init(void) {
-  byte_array_to_bit_array(preamble_access_bytes, 5, preamble_access_bits);
+  byte_array_to_bit_array(preamble_access_byte, 5, preamble_access_bit);
 }
 
-void receiver(IQ_TYPE *rxp_in, int buf_len){
-  static uint8_t tmp_bytes[MAX_NUM_BODY_BYTE];
+void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number){
   static int pkt_count = 0;
   static int start_offset = 0; // indicate if previous buffer processing has over process some data of this buffer
   IQ_TYPE *rxp = rxp_in + start_offset;
-  int num_demod_bytes, i, sp;
-  int num_symbol = buf_len/(SAMPLE_PER_SYMBOL*2); //2 for IQ
+  int num_demod_byte, hit_idx, buf_len_eaten, pdu_type, tx_add, rx_add, payload_len;
+  int num_symbol_left = buf_len/(SAMPLE_PER_SYMBOL*2); //2 for IQ
 
   //printf("phase %d rx_buf_offset %d buf_sp %d LEN_BUF/2 %d mem scale %d\n", phase, rx_buf_offset, buf_sp, LEN_BUF/2, sizeof(IQ_TYPE));
 
-  sp = 0;
+  buf_len_eaten = 0;
   while( 1 ) 
   {
-    i = search_unique_bits(rxp, num_symbol, preamble_access_bits, LEN_DEMOD_BUF_PREAMBLE_ACCESS);
-    if ( i == -1 ) {
+    hit_idx = search_unique_bits(rxp, num_symbol_left, preamble_access_bit, LEN_DEMOD_BUF_PREAMBLE_ACCESS);
+    if ( hit_idx == -1 ) {
       break;
     }
+    printf("%d %d %d %d %d %d %d %d\n", rxp[hit_idx+0], rxp[hit_idx+1], rxp[hit_idx+2], rxp[hit_idx+3], rxp[hit_idx+4], rxp[hit_idx+5], rxp[hit_idx+6], rxp[hit_idx+7]);
+
+    buf_len_eaten = buf_len_eaten + hit_idx;
+    printf("%d\n", buf_len_eaten);
     
-    printf("%d\n", sp+i);
-    rxp = rxp + i + LEN_DEMOD_BUF_PREAMBLE_ACCESS*2*SAMPLE_PER_SYMBOL;
-    sp = sp + i + LEN_DEMOD_BUF_PREAMBLE_ACCESS*2*SAMPLE_PER_SYMBOL;
-    num_symbol = (buf_len-sp)/(SAMPLE_PER_SYMBOL*2);
-    //num_demod_bytes = MAX_NUM_BODY_BYTE;
-    //demod_bytes(rxp, tmp_bytes, num_demod_bytes);
+    buf_len_eaten = buf_len_eaten + 8*NUM_PREAMBLE_ACCESS_BYTE*2*SAMPLE_PER_SYMBOL;// move to beginning of PDU header
+    rxp = rxp_in + buf_len_eaten;
     
-    //rxp = rxp + 8*num_demod_bytes*2*SAMPLE_PER_SYMBOL;
+    num_demod_byte = 2; // PDU header has 2 octets
+    buf_len_eaten = buf_len_eaten + 8*num_demod_byte*2*SAMPLE_PER_SYMBOL;
+    if ( buf_len_eaten >= buf_len ) {
+      break;
+    }
+
+    demod_byte(rxp, num_demod_byte, tmp_byte);
+    printf("%d %d %d %d %d %d %d %d\n", rxp[0], rxp[1], rxp[2], rxp[3], rxp[4], rxp[5], rxp[6], rxp[7]);
+    printf("%d %d %d %d %d %d %d %d\n", rxp[8+0], rxp[8+1], rxp[8+2], rxp[8+3], rxp[8+4], rxp[8+5], rxp[8+6], rxp[8+7]);
+    scramble_byte(tmp_byte, num_demod_byte, scramble_table[channel_number], tmp_byte);
+    parse_adv_pdu_header_byte(tmp_byte, &pdu_type, &tx_add, &rx_add, &payload_len);
+    printf("ADV_PDU_Type%d(%s) TxAdd%d RxAdd%d PayloadLen%d\n", pdu_type, PDU_TYPE_STR[pdu_type], tx_add, rx_add, payload_len);
     
-    pkt_count++;
-    printf("%d\n", pkt_count);
+    rxp = rxp_in + buf_len_eaten;
+    num_symbol_left = (buf_len-buf_len_eaten)/(SAMPLE_PER_SYMBOL*2);
   }
 
 }
@@ -1455,12 +1516,12 @@ int main(int argc, char** argv) {
       // ------------------------for offline test -------------------------------------
       //save_phy_sample(rx_buf+buf_sp, LEN_BUF/2, "/home/jxj/git/BTLE/matlab/sample_iq_4msps.txt");
       load_phy_sample(tmp_buf, 2097152, "/home/jxj/git/BTLE/matlab/sample_iq_4msps.txt");
-      receiver(tmp_buf, 2097152);
+      receiver(tmp_buf, 2097152, 37);
       break;
       // ------------------------for offline test -------------------------------------
       
       // -----------------------------real online run--------------------------------
-      receiver(rxp, LEN_BUF_MAX_NUM_PHY_SAMPLE+(LEN_BUF/2) );
+      receiver(rxp, LEN_BUF_MAX_NUM_PHY_SAMPLE+(LEN_BUF/2), 37 );
       // -----------------------------real online run--------------------------------
       
       run_flag = false;

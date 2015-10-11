@@ -1,4 +1,4 @@
-function scramble_gen(channel_number, num_bit, filename)
+function a = scramble_gen(channel_number, num_bit, filename, varargin)
 
   bit_store = zeros(1, 7);
   bit_store_update = zeros(1, 7);
@@ -38,5 +38,8 @@ function scramble_gen(channel_number, num_bit, filename)
     a(idx) = bit_seq(i+1) + bit_seq(i+2)*2 + bit_seq(i+3)*4 + bit_seq(i+4)*8 + bit_seq(i+5)*16 + bit_seq(i+6)*32 + bit_seq(i+7)*64 + bit_seq(i+8)*128;
   end
   
-  save_int_var_for_c(a, ['const uint8_t const scramble_table_ch' num2str(channel_number)], filename, 'w');
+  if nargin == 3
+    save_int_var_for_c(a, ['const uint8_t const scramble_table_ch' num2str(channel_number)], filename, 'w');
+  end
+  
   
