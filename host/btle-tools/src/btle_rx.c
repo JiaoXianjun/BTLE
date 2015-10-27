@@ -736,23 +736,23 @@ static const uint_fast32_t crc_table[256] = {
 
 uint64_t get_freq_by_channel_number(int channel_number) {
 
-uint64_t freq_hz;
+  uint64_t freq_hz;
 
-if ( channel_number == 37 ) {
-  freq_hz = 2402000000ull;
-} else if (channel_number == 38) {
-  freq_hz = 2426000000ull;
-} else if (channel_number == 39) {
-  freq_hz = 2480000000ull;
-} else if (channel_number >=0 && channel_number <= 10 ) {
-  freq_hz = 2404000000ull + channel_number*2000000ull;
-} else if (channel_number >=11 && channel_number <= 36 ) {
-  freq_hz = 2428000000ull + (channel_number-11)*2000000ull;
-} else {
-  freq_hz = 0xffffffffffffffff;
-}
-  
-return(freq_hz);
+  if ( channel_number == 37 ) {
+    freq_hz = 2402000000ull;
+  } else if (channel_number == 38) {
+    freq_hz = 2426000000ull;
+  } else if (channel_number == 39) {
+    freq_hz = 2480000000ull;
+  } else if (channel_number >=0 && channel_number <= 10 ) {
+    freq_hz = 2404000000ull + channel_number*2000000ull;
+  } else if (channel_number >=11 && channel_number <= 36 ) {
+    freq_hz = 2428000000ull + (channel_number-11)*2000000ull;
+  } else {
+    freq_hz = 0xffffffffffffffff;
+  }
+    
+  return(freq_hz);
   
 }
 
@@ -776,6 +776,31 @@ typedef enum
     RESERVED7,
     RESERVED8
 } PDU_TYPE;
+
+typedef struct {
+  uint8_t AdvA[6];
+  uint8_t Data[31];
+} ADV_PDU_PAYLOAD_TYPE0246;
+
+typedef struct {
+  uint8_t A1[6];
+  uint8_t A2[6];
+} ADV_PDU_PAYLOAD_TYPE13;
+
+typedef struct {
+  uint8_t InitA[6];
+  uint8_t AdvA[6];
+  uint8_t AA[4];
+  uint32_t CRCInit;
+  uint8_t WinSize;
+  uint16_t WinOffset;
+  uint16_t Interval;
+  uint16_t Latency;
+  uint16_t Timeout;
+  uint8_t ChM[5];
+  uint8_t Hop;
+  uint8_t SCA;
+} ADV_PDU_PAYLOAD_TYPE5;
 
 char *PDU_TYPE_STR[] = {
     "ADV_IND",
@@ -1386,6 +1411,135 @@ inline int search_unique_bits(IQ_TYPE* rxp, int search_len, uint8_t *unique_bits
   return(-1);
 }
 
+int parse_adv_pdu_payload_byte(uint8_t *payload_byte, int num_payload_byte, int pdu_type, void *adv_pdu_payload) {
+  int i;
+  ADV_PDU_PAYLOAD_TYPE0246 *payload_type0246 = NULL;
+  ADV_PDU_PAYLOAD_TYPE13 *payload_type13 = NULL;
+  ADV_PDU_PAYLOAD_TYPE5 *payload_type5 = NULL;
+  if (num_payload_byte<6) {
+      //payload_parse_result_str = ['Payload Too Short (only ' num2str(length(payload_bits)) ' bits)'];
+      printf("Payload Too Short (only %d bytes)", num_payload_byte);
+      return(-1);
+  }
+
+  if (pdu_type == 0 || pdu_type == 2 || pdu_type == 4 || pdu_type == 6) {
+      payload_type0246 = (ADV_PDU_PAYLOAD_TYPE0246 *)adv_pdu_payload;
+      
+      //AdvA = reorder_bytes_str( payload_bytes(1 : (2*6)) );
+      payload_type0246->AdvA[0] = payload_byte[5];
+      payload_type0246->AdvA[1] = payload_byte[4];
+      payload_type0246->AdvA[2] = payload_byte[3];
+      payload_type0246->AdvA[3] = payload_byte[2];
+      payload_type0246->AdvA[4] = payload_byte[1];
+      payload_type0246->AdvA[5] = payload_byte[0];
+      
+      //AdvData = payload_bytes((2*6+1):end);
+      for(i=0; i<(num_payload_byte-6); i++) {
+        payload_type0246->Data[i] = payload_byte[6+i];
+      }
+      
+      //payload_parse_result_str = ['AdvA:' AdvA ' AdvData:' AdvData];
+  } else if (pdu_type == 1 || pdu_type == 3) {
+      if (num_payload_byte!=12) {
+          printf("Payload Too Short (only %d bytes, needs to be 12 for PDU Type %d)\n", num_payload_byte, pdu_type);
+          return(-1);
+      }
+      payload_type13 = (ADV_PDU_PAYLOAD_TYPE13 *)adv_pdu_payload;
+      
+      //AdvA = reorder_bytes_str( payload_bytes(1 : (2*6)) );
+      payload_type13->A1[0] = payload_byte[5];
+      payload_type13->A1[1] = payload_byte[4];
+      payload_type13->A1[2] = payload_byte[3];
+      payload_type13->A1[3] = payload_byte[2];
+      payload_type13->A1[4] = payload_byte[1];
+      payload_type13->A1[5] = payload_byte[0];
+      
+      //InitA = reorder_bytes_str( payload_bytes((2*6+1):end) );
+      payload_type13->A2[0] = payload_byte[11];
+      payload_type13->A2[1] = payload_byte[10];
+      payload_type13->A2[2] = payload_byte[9];
+      payload_type13->A2[3] = payload_byte[8];
+      payload_type13->A2[4] = payload_byte[7];
+      payload_type13->A2[5] = payload_byte[6];
+      
+      //payload_parse_result_str = ['AdvA:' AdvA ' InitA:' InitA];
+  } else if (pdu_type == 5) {
+      if (num_payload_byte!=34) {
+          printf("Payload Too Short (only %d bytes, needs to be 34 for PDU Type %d)\n", num_payload_byte, pdu_type);
+          return(-1);
+      }
+      payload_type5 = (ADV_PDU_PAYLOAD_TYPE5 *)adv_pdu_payload;
+      
+      //InitA = reorder_bytes_str( payload_bytes(1 : (2*6)) );
+      payload_type5->InitA[0] = payload_byte[5];
+      payload_type5->InitA[1] = payload_byte[4];
+      payload_type5->InitA[2] = payload_byte[3];
+      payload_type5->InitA[3] = payload_byte[2];
+      payload_type5->InitA[4] = payload_byte[1];
+      payload_type5->InitA[5] = payload_byte[0];
+      
+      //AdvA = reorder_bytes_str( payload_bytes((2*6+1):(2*6+2*6)) );
+      payload_type5->AdvA[0] = payload_byte[11];
+      payload_type5->AdvA[1] = payload_byte[10];
+      payload_type5->AdvA[2] = payload_byte[9];
+      payload_type5->AdvA[3] = payload_byte[8];
+      payload_type5->AdvA[4] = payload_byte[7];
+      payload_type5->AdvA[5] = payload_byte[6];
+      
+      //AA = reorder_bytes_str( payload_bytes((2*6+2*6+1):(2*6+2*6+2*4)) );
+      payload_type5->AA[0] = payload_byte[15];
+      payload_type5->AA[1] = payload_byte[14];
+      payload_type5->AA[2] = payload_byte[13];
+      payload_type5->AA[3] = payload_byte[12];
+      
+      //CRCInit = payload_bytes((2*6+2*6+2*4+1):(2*6+2*6+2*4+2*3));
+      payload_type5->CRCInit = 0;
+      payload_type5->CRCInit = ( (payload_type5->CRCInit << 8) | payload_byte[16] );
+      payload_type5->CRCInit = ( (payload_type5->CRCInit << 8) | payload_byte[17] );
+      payload_type5->CRCInit = ( (payload_type5->CRCInit << 8) | payload_byte[18] );
+      
+      //WinSize = payload_bytes((2*6+2*6+2*4+2*3+1):(2*6+2*6+2*4+2*3+2*1));
+      payload_type5->WinSize = payload_byte[19];
+      
+      //WinOffset = reorder_bytes_str( payload_bytes((2*6+2*6+2*4+2*3+2*1+1):(2*6+2*6+2*4+2*3+2*1+2*2)) );
+      payload_type5->WinOffset = 0;
+      payload_type5->WinOffset = ( (payload_type5->WinOffset << 8) | payload_byte[21] );
+      payload_type5->WinOffset = ( (payload_type5->WinOffset << 8) | payload_byte[20] );
+      
+      //Interval = reorder_bytes_str( payload_bytes((2*6+2*6+2*4+2*3+2*1+2*2+1):(2*6+2*6+2*4+2*3+2*1+2*2+2*2)) );
+      payload_type5->Interval = 0;
+      payload_type5->Interval = ( (payload_type5->Interval << 8) | payload_byte[23] );
+      payload_type5->Interval = ( (payload_type5->Interval << 8) | payload_byte[22] );
+      
+      //Latency = reorder_bytes_str( payload_bytes((2*6+2*6+2*4+2*3+2*1+2*2+2*2+1):(2*6+2*6+2*4+2*3+2*1+2*2+2*2+2*2)) );
+      payload_type5->Latency = 0;
+      payload_type5->Latency = ( (payload_type5->Latency << 8) | payload_byte[25] );
+      payload_type5->Latency = ( (payload_type5->Latency << 8) | payload_byte[24] );
+      
+      //Timeout = reorder_bytes_str( payload_bytes((2*6+2*6+2*4+2*3+2*1+2*2+2*2+2*2+1):(2*6+2*6+2*4+2*3+2*1+2*2+2*2+2*2+2*2)) );
+      payload_type5->Timeout = 0;
+      payload_type5->Timeout = ( (payload_type5->Timeout << 8) | payload_byte[27] );
+      payload_type5->Timeout = ( (payload_type5->Timeout << 8) | payload_byte[26] );
+      
+      //ChM = reorder_bytes_str( payload_bytes((2*6+2*6+2*4+2*3+2*1+2*2+2*2+2*2+2*2+1):(2*6+2*6+2*4+2*3+2*1+2*2+2*2+2*2+2*2+2*5)) );
+      payload_type5->ChM[0] = payload_byte[32];
+      payload_type5->ChM[1] = payload_byte[31];
+      payload_type5->ChM[2] = payload_byte[30];
+      payload_type5->ChM[3] = payload_byte[29];
+      payload_type5->ChM[4] = payload_byte[28];
+      
+      //tmp_bits = payload_bits((end-7) : end);
+      //Hop = num2str( bi2de(tmp_bits(1:5), 'right-msb') );
+      //SCA = num2str( bi2de(tmp_bits(6:end), 'right-msb') );
+      payload_type5->Hop = (payload_byte[33]&0x1F);
+      payload_type5->SCA = ((payload_byte[33]>>5)&0x07);
+  } else {
+      printf("Reserved PDU type %d\n", pdu_type);
+      return(-1);
+  }
+  
+  return(0);
+}
 void parse_adv_pdu_header_byte(uint8_t *byte_in, int *pdu_type, int *tx_add, int *rx_add, int *payload_len) {
 //% pdy_type_str = {'ADV_IND', 'ADV_DIRECT_IND', 'ADV_NONCONN_IND', 'SCAN_REQ', 'SCAN_RSP', 'CONNECT_REQ', 'ADV_SCAN_IND', 'Reserved', 'Reserved', 'Reserved', 'Reserved', 'Reserved', 'Reserved', 'Reserved', 'Reserved'};
 //pdu_type = bi2de(bits(1:4), 'right-msb');
@@ -1411,8 +1565,9 @@ inline void receiver_init(void) {
 void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number){
   static int pkt_count = 0;
   static int start_offset = 0; // indicate if previous buffer processing has over process some data of this buffer
+  static ADV_PDU_PAYLOAD_TYPE5 adv_pdu_payload;
   IQ_TYPE *rxp = rxp_in + start_offset;
-  int num_demod_byte, hit_idx, buf_len_eaten, pdu_type, tx_add, rx_add, payload_len;
+  int num_demod_byte, hit_idx, buf_len_eaten, pdu_type, tx_add, rx_add, payload_len, num_pdu_payload_crc_bits;
   int num_symbol_left = buf_len/(SAMPLE_PER_SYMBOL*2); //2 for IQ
 
   //printf("phase %d rx_buf_offset %d buf_sp %d LEN_BUF/2 %d mem scale %d\n", phase, rx_buf_offset, buf_sp, LEN_BUF/2, sizeof(IQ_TYPE));
@@ -1450,6 +1605,15 @@ void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number){
     
     if( payload_len<6 || payload_len>37 ) {
       printf("Pkt%d Ch%d AccessAddr8E89BED6 ADV_PDU_Type%d(%s) TxAdd%d RxAdd%d PayloadLen%d)\n", pkt_count, channel_number, pdu_type, PDU_TYPE_STR[pdu_type], tx_add, rx_add, payload_len);
+      continue;
+    }
+    
+    //num_pdu_payload_crc_bits = (payload_len+3)*8;
+    num_demod_byte = (payload_len+3);
+    demod_byte(rxp, num_demod_byte, tmp_byte);
+    scramble_byte(tmp_byte, num_demod_byte, scramble_table[channel_number]+2, tmp_byte);
+    
+    if (parse_adv_pdu_payload_byte(tmp_byte, payload_len, pdu_type, (void *)(&adv_pdu_payload) ) != 0 ) {
       continue;
     }
   }
