@@ -1424,6 +1424,7 @@ void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number){
     if ( hit_idx == -1 ) {
       break;
     }
+    pkt_count++;
     printf("%d %d %d %d %d %d %d %d\n", rxp[hit_idx+0], rxp[hit_idx+1], rxp[hit_idx+2], rxp[hit_idx+3], rxp[hit_idx+4], rxp[hit_idx+5], rxp[hit_idx+6], rxp[hit_idx+7]);
 
     buf_len_eaten = buf_len_eaten + hit_idx;
@@ -1443,10 +1444,14 @@ void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number){
     printf("%d %d %d %d %d %d %d %d\n", rxp[8+0], rxp[8+1], rxp[8+2], rxp[8+3], rxp[8+4], rxp[8+5], rxp[8+6], rxp[8+7]);
     scramble_byte(tmp_byte, num_demod_byte, scramble_table[channel_number], tmp_byte);
     parse_adv_pdu_header_byte(tmp_byte, &pdu_type, &tx_add, &rx_add, &payload_len);
-    printf("ADV_PDU_Type%d(%s) TxAdd%d RxAdd%d PayloadLen%d\n", pdu_type, PDU_TYPE_STR[pdu_type], tx_add, rx_add, payload_len);
     
     rxp = rxp_in + buf_len_eaten;
     num_symbol_left = (buf_len-buf_len_eaten)/(SAMPLE_PER_SYMBOL*2);
+    
+    if( payload_len<6 || payload_len>37 ) {
+      printf("Pkt%d Ch%d AccessAddr8E89BED6 ADV_PDU_Type%d(%s) TxAdd%d RxAdd%d PayloadLen%d)\n", pkt_count, channel_number, pdu_type, PDU_TYPE_STR[pdu_type], tx_add, rx_add, payload_len);
+      continue;
+    }
   }
 
 }

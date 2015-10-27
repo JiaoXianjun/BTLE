@@ -63,7 +63,7 @@ match_bit = de2bi(hex2dec('8E89BED6AA'), 40, 'right-msb');
 num_pdu_header_bits = 16;
 sp = 1;
 disp('Start demodulation ...');
-plot(abs(a)); drawnow;
+%plot(abs(a)); drawnow;
 pkt_count = 0;
 while 1
 %     disp(' ');
