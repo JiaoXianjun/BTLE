@@ -783,8 +783,8 @@ typedef struct {
 } ADV_PDU_PAYLOAD_TYPE0246;
 
 typedef struct {
+  uint8_t A0[6];
   uint8_t A1[6];
-  uint8_t A2[6];
 } ADV_PDU_PAYLOAD_TYPE13;
 
 typedef struct {
@@ -1318,7 +1318,7 @@ typedef enum {
 static uint8_t demod_buf_preamble_access[SAMPLE_PER_SYMBOL][LEN_DEMOD_BUF_PREAMBLE_ACCESS];
 uint8_t preamble_access_byte[NUM_PREAMBLE_ACCESS_BYTE] = {0xAA, 0xD6, 0xBE, 0x89, 0x8E};
 uint8_t preamble_access_bit[NUM_PREAMBLE_ACCESS_BYTE*8];
-uint8_t tmp_byte[37+3]; // maximum payload length 37 + 3 octets CRC
+uint8_t tmp_byte[2+37+3]; // header length + maximum payload length 37 + 3 octets CRC
 
 bool edge_detect(IQ_TYPE *rxp, EDGE_TYPE edge_target, int avg_len, int th) {
   int fake_power[2] = {0, 0};
@@ -1447,20 +1447,20 @@ int parse_adv_pdu_payload_byte(uint8_t *payload_byte, int num_payload_byte, int 
       payload_type13 = (ADV_PDU_PAYLOAD_TYPE13 *)adv_pdu_payload;
       
       //AdvA = reorder_bytes_str( payload_bytes(1 : (2*6)) );
-      payload_type13->A1[0] = payload_byte[5];
-      payload_type13->A1[1] = payload_byte[4];
-      payload_type13->A1[2] = payload_byte[3];
-      payload_type13->A1[3] = payload_byte[2];
-      payload_type13->A1[4] = payload_byte[1];
-      payload_type13->A1[5] = payload_byte[0];
+      payload_type13->A0[0] = payload_byte[5];
+      payload_type13->A0[1] = payload_byte[4];
+      payload_type13->A0[2] = payload_byte[3];
+      payload_type13->A0[3] = payload_byte[2];
+      payload_type13->A0[4] = payload_byte[1];
+      payload_type13->A0[5] = payload_byte[0];
       
       //InitA = reorder_bytes_str( payload_bytes((2*6+1):end) );
-      payload_type13->A2[0] = payload_byte[11];
-      payload_type13->A2[1] = payload_byte[10];
-      payload_type13->A2[2] = payload_byte[9];
-      payload_type13->A2[3] = payload_byte[8];
-      payload_type13->A2[4] = payload_byte[7];
-      payload_type13->A2[5] = payload_byte[6];
+      payload_type13->A1[0] = payload_byte[11];
+      payload_type13->A1[1] = payload_byte[10];
+      payload_type13->A1[2] = payload_byte[9];
+      payload_type13->A1[3] = payload_byte[8];
+      payload_type13->A1[4] = payload_byte[7];
+      payload_type13->A1[5] = payload_byte[6];
       
       //payload_parse_result_str = ['AdvA:' AdvA ' InitA:' InitA];
   } else if (pdu_type == 5) {
@@ -1566,8 +1566,11 @@ void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number){
   static int pkt_count = 0;
   static int start_offset = 0; // indicate if previous buffer processing has over process some data of this buffer
   static ADV_PDU_PAYLOAD_TYPE5 adv_pdu_payload;
+  ADV_PDU_PAYLOAD_TYPE5 *adv_pdu_payload5;
+  ADV_PDU_PAYLOAD_TYPE13 *adv_pdu_payload13;
+  ADV_PDU_PAYLOAD_TYPE0246 *adv_pdu_payload0246;
   IQ_TYPE *rxp = rxp_in + start_offset;
-  int num_demod_byte, hit_idx, buf_len_eaten, pdu_type, tx_add, rx_add, payload_len, num_pdu_payload_crc_bits;
+  int i, num_demod_byte, hit_idx, buf_len_eaten, pdu_type, tx_add, rx_add, payload_len, num_pdu_payload_crc_bits, crc24_checksum, crc_flag, crc24_received;
   int num_symbol_left = buf_len/(SAMPLE_PER_SYMBOL*2); //2 for IQ
 
   //printf("phase %d rx_buf_offset %d buf_sp %d LEN_BUF/2 %d mem scale %d\n", phase, rx_buf_offset, buf_sp, LEN_BUF/2, sizeof(IQ_TYPE));
@@ -1598,24 +1601,83 @@ void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number){
     printf("%d %d %d %d %d %d %d %d\n", rxp[0], rxp[1], rxp[2], rxp[3], rxp[4], rxp[5], rxp[6], rxp[7]);
     printf("%d %d %d %d %d %d %d %d\n", rxp[8+0], rxp[8+1], rxp[8+2], rxp[8+3], rxp[8+4], rxp[8+5], rxp[8+6], rxp[8+7]);
     scramble_byte(tmp_byte, num_demod_byte, scramble_table[channel_number], tmp_byte);
-    parse_adv_pdu_header_byte(tmp_byte, &pdu_type, &tx_add, &rx_add, &payload_len);
-    
     rxp = rxp_in + buf_len_eaten;
     num_symbol_left = (buf_len-buf_len_eaten)/(SAMPLE_PER_SYMBOL*2);
     
+    parse_adv_pdu_header_byte(tmp_byte, &pdu_type, &tx_add, &rx_add, &payload_len);
+    
+    printf("Pkt%d Ch%d AccessAddr8E89BED6 ADV_PDU_Type%d(%s) TxAdd%d RxAdd%d PayloadLen%d) ", pkt_count, channel_number, pdu_type, PDU_TYPE_STR[pdu_type], tx_add, rx_add, payload_len);
     if( payload_len<6 || payload_len>37 ) {
-      printf("Pkt%d Ch%d AccessAddr8E89BED6 ADV_PDU_Type%d(%s) TxAdd%d RxAdd%d PayloadLen%d)\n", pkt_count, channel_number, pdu_type, PDU_TYPE_STR[pdu_type], tx_add, rx_add, payload_len);
+      printf("\n");
       continue;
     }
     
     //num_pdu_payload_crc_bits = (payload_len+3)*8;
     num_demod_byte = (payload_len+3);
-    demod_byte(rxp, num_demod_byte, tmp_byte);
-    scramble_byte(tmp_byte, num_demod_byte, scramble_table[channel_number]+2, tmp_byte);
+    buf_len_eaten = buf_len_eaten + 8*num_demod_byte*2*SAMPLE_PER_SYMBOL;
+    if ( buf_len_eaten >= buf_len ) {
+      break;
+    }
     
-    if (parse_adv_pdu_payload_byte(tmp_byte, payload_len, pdu_type, (void *)(&adv_pdu_payload) ) != 0 ) {
+    demod_byte(rxp, num_demod_byte, tmp_byte+2);
+    scramble_byte(tmp_byte+2, num_demod_byte, scramble_table[channel_number]+2, tmp_byte+2);
+    rxp = rxp_in + buf_len_eaten;
+    num_symbol_left = (buf_len-buf_len_eaten)/(SAMPLE_PER_SYMBOL*2);
+    
+    if (parse_adv_pdu_payload_byte(tmp_byte+2, payload_len, pdu_type, (void *)(&adv_pdu_payload) ) != 0 ) {
       continue;
     }
+    
+    crc24_checksum = crc24_byte(tmp_byte, payload_len+2, 0xAAAAAA); // 0x555555 --> 0xaaaaaa
+    crc24_received = 0;
+    crc24_received = ( (crc24_received << 8) | tmp_byte[2+payload_len+0] );
+    crc24_received = ( (crc24_received << 8) | tmp_byte[2+payload_len+1] );
+    crc24_received = ( (crc24_received << 8) | tmp_byte[2+payload_len+2] );
+    crc_flag = crc24_checksum==crc24_received? 0:1;
+    
+    // print payload out
+    if (pdu_type==0 || pdu_type==2 || pdu_type==4 || pdu_type==6) {
+      adv_pdu_payload0246 = (ADV_PDU_PAYLOAD_TYPE0246 *)(&adv_pdu_payload);
+      printf("AdvA:");
+      for(i=0; i<6; i++) {
+        printf("%02x", adv_pdu_payload0246->AdvA[i]);
+      }
+      printf(" Data:");
+      for(i=0; i<(payload_len-6); i++) {
+        printf("%02x", adv_pdu_payload0246->Data[i]);
+      }
+    } else if (pdu_type==1 || pdu_type==3) {
+      adv_pdu_payload13 = (ADV_PDU_PAYLOAD_TYPE13 *)(&adv_pdu_payload);
+      printf("A0:");
+      for(i=0; i<6; i++) {
+        printf("%02x", adv_pdu_payload13->A0[i]);
+      }
+      printf(" A1:");
+      for(i=0; i<6; i++) {
+        printf("%02x", adv_pdu_payload13->A1[i]);
+      }
+    } else if (pdu_type==5) {
+      adv_pdu_payload5 = (ADV_PDU_PAYLOAD_TYPE5 *)(&adv_pdu_payload);
+      printf("InitA:");
+      for(i=0; i<6; i++) {
+        printf("%02x", adv_pdu_payload5->InitA[i]);
+      }
+      printf(" AdvA:");
+      for(i=0; i<6; i++) {
+        printf("%02x", adv_pdu_payload5->AdvA[i]);
+      }
+      printf(" AA:");
+      for(i=0; i<4; i++) {
+        printf("%02x", adv_pdu_payload5->AA[i]);
+      }
+      printf(" CRCInit:%06x WinSize:%02x WinOffset:%04x Interval:%04x Latency:%04x Timeout:%04x", adv_pdu_payload5->CRCInit, adv_pdu_payload5->WinSize, adv_pdu_payload5->WinOffset, adv_pdu_payload5->Interval, adv_pdu_payload5->Latency, adv_pdu_payload5->Timeout);
+      printf(" ChM:");
+      for(i=0; i<5; i++) {
+        printf("%02x", adv_pdu_payload5->ChM[i]);
+      }
+      printf(" Hop:%d SCA:%d", adv_pdu_payload5->Hop, adv_pdu_payload5->SCA);
+    }
+    printf(" CRC%d\n", crc_flag);
   }
 
 }
