@@ -139,19 +139,15 @@ static void print_usage() {
 //----------------------------------some basic signal definition----------------------------------
 #define SAMPLE_PER_SYMBOL 4 // 4M sampling rate
 
-#define MOD_IDX (0.5)
-#define LEN_GAUSS_FILTER (4) // pre 2, post 2
-
 volatile int rx_buf_offset; // remember to initialize it!
 
-#define LEN_BUF_IN_SAMPLE (8*4096) //4096 samples = ~1ms for 4Msps; ATTENTION each rx callback get hackrf.c:lib_device->buffer_size samples!!!
+#define LEN_BUF_IN_SAMPLE (16*4096) //4096 samples = ~1ms for 4Msps; ATTENTION each rx callback get hackrf.c:lib_device->buffer_size samples!!!
 #define LEN_BUF (LEN_BUF_IN_SAMPLE*2)
 #define LEN_BUF_IN_SYMBOL (LEN_BUF_IN_SAMPLE/SAMPLE_PER_SYMBOL)
 //----------------------------------some basic signal definition----------------------------------
 
 //----------------------------------BTLE SPEC related--------------------------------
 #include "scramble_table.h"
-#define MAX_NUM_CHAR_CMD (256)
 #define DEFAULT_CHANNEL 37
 #define MAX_CHANNEL_NUMBER 39
 #define MAX_NUM_INFO_BYTE (43)
@@ -566,7 +562,6 @@ int convert_hex_to_bit(char *hex, char *bit){
   return(num_bit);
 }
 
-
 void disp_bit(char *bit, int num_bit)
 {
   int i, bit_val;
@@ -735,9 +730,7 @@ static const uint_fast32_t crc_table[256] = {
 };
 
 uint64_t get_freq_by_channel_number(int channel_number) {
-
   uint64_t freq_hz;
-
   if ( channel_number == 37 ) {
     freq_hz = 2402000000ull;
   } else if (channel_number == 38) {
@@ -751,11 +744,8 @@ uint64_t get_freq_by_channel_number(int channel_number) {
   } else {
     freq_hz = 0xffffffffffffffff;
   }
-    
   return(freq_hz);
-  
 }
-
 
 typedef enum
 {
@@ -780,12 +770,12 @@ typedef enum
 typedef struct {
   uint8_t AdvA[6];
   uint8_t Data[31];
-} ADV_PDU_PAYLOAD_TYPE0246;
+} ADV_PDU_PAYLOAD_TYPE_0_2_4_6;
 
 typedef struct {
   uint8_t A0[6];
   uint8_t A1[6];
-} ADV_PDU_PAYLOAD_TYPE13;
+} ADV_PDU_PAYLOAD_TYPE_1_3;
 
 typedef struct {
   uint8_t InitA[6];
@@ -800,7 +790,11 @@ typedef struct {
   uint8_t ChM[5];
   uint8_t Hop;
   uint8_t SCA;
-} ADV_PDU_PAYLOAD_TYPE5;
+} ADV_PDU_PAYLOAD_TYPE_5;
+
+typedef struct {
+  uint8_t payload_byte[37];
+} ADV_PDU_PAYLOAD_TYPE_R;
 
 char *PDU_TYPE_STR[] = {
     "ADV_IND",
@@ -821,121 +815,6 @@ char *PDU_TYPE_STR[] = {
     "RESERVED"
 };
 
-typedef enum
-{
-    INVALID_TYPE,
-    RAW,
-    DISCOVERY,
-    IBEACON,
-//    ADV_IND,
-//    ADV_DIRECT_IND,
-//    ADV_NONCONN_IND,
-//    ADV_SCAN_IND,
-//    SCAN_REQ,
-//    SCAN_RSP,
-//    CONNECT_REQ,
-    LL_DATA,
-    LL_CONNECTION_UPDATE_REQ,
-    LL_CHANNEL_MAP_REQ,
-    LL_TERMINATE_IND,
-    LL_ENC_REQ,
-    LL_ENC_RSP,
-    LL_START_ENC_REQ,
-    LL_START_ENC_RSP,
-    LL_UNKNOWN_RSP,
-    LL_FEATURE_REQ,
-    LL_FEATURE_RSP,
-    LL_PAUSE_ENC_REQ,
-    LL_PAUSE_ENC_RSP,
-    LL_VERSION_IND,
-    LL_REJECT_IND,
-    NUM_PKT_TYPE
-} PKT_TYPE;
-
-typedef enum
-{
-    FLAGS,
-    LOCAL_NAME08,
-    LOCAL_NAME09,
-    TXPOWER,
-    SERVICE02,
-    SERVICE03,
-    SERVICE04,
-    SERVICE05,
-    SERVICE06,
-    SERVICE07,
-    SERVICE_SOLI14,
-    SERVICE_SOLI15,
-    SERVICE_DATA,
-    MANUF_DATA,
-    CONN_INTERVAL,
-    SPACE,
-    NUM_AD_TYPE
-} AD_TYPE;
-
-char *AD_TYPE_STR[] = {
-    "FLAGS",
-    "LOCAL_NAME08",
-    "LOCAL_NAME09",
-    "TXPOWER",
-    "SERVICE02",
-    "SERVICE03",
-    "SERVICE04",
-    "SERVICE05",
-    "SERVICE06",
-    "SERVICE07",
-    "SERVICE_SOLI14",
-    "SERVICE_SOLI15",
-    "SERVICE_DATA",
-    "MANUF_DATA",
-    "CONN_INTERVAL",
-    "SPACE"
-};
-
-const int AD_TYPE_VAL[] = {
-    0x01,  //"FLAGS",
-    0x08,  //"LOCAL_NAME08",
-    0x09,  //"LOCAL_NAME09",
-    0x0A,  //"TXPOWER",
-    0x02,  //"SERVICE02",
-    0x03,  //"SERVICE03",
-    0x04,  //"SERVICE04",
-    0x05,  //"SERVICE05",
-    0x06,  //"SERVICE06",
-    0x07,  //"SERVICE07",
-    0x14,  //"SERVICE_SOLI14",
-    0x15,  //"SERVICE_SOLI15",
-    0x16,  //"SERVICE_DATA",
-    0xFF,  //"MANUF_DATA",
-    0x12   //"CONN_INTERVAL",
-};
-
-typedef struct
-{
-    int channel_number;
-    PKT_TYPE pkt_type;
-
-    char cmd_str[MAX_NUM_CHAR_CMD]; // hex string format command input
-
-    int num_info_bit;
-    char info_bit[MAX_NUM_PHY_BYTE*8]; // without CRC and whitening
-
-    int num_info_byte;
-    uint8_t info_byte[MAX_NUM_PHY_BYTE];
-
-    int num_phy_bit;
-    char phy_bit[MAX_NUM_PHY_BYTE*8]; // all bits which will be fed to GFSK modulator
-
-    int num_phy_byte;
-    uint8_t phy_byte[MAX_NUM_PHY_BYTE];
-
-    int num_phy_sample;
-    char phy_sample[2*MAX_NUM_PHY_SAMPLE]; // GFSK output to D/A (hackrf board)
-    int8_t phy_sample1[2*MAX_NUM_PHY_SAMPLE]; // GFSK output to D/A (hackrf board)
-
-    int space; // how many millisecond null signal shouwl be padded after this packet
-} PKT_INFO;
-
 /**
  * Update the crc value with new data.
  *
@@ -944,8 +823,7 @@ typedef struct
  * \param data_len Number of bytes in the \a data buffer.
  * \return         The updated crc value.
  *****************************************************************************/
-uint_fast32_t crc_update(uint_fast32_t crc, const void *data, size_t data_len)
-{
+uint_fast32_t crc_update(uint_fast32_t crc, const void *data, size_t data_len) {
     const unsigned char *d = (const unsigned char *)data;
     unsigned int tbl_idx;
 
@@ -966,254 +844,11 @@ uint_fast32_t crc24_byte(uint8_t *byte_in, int num_byte, int init_hex) {
   return(crc);
 }
 
-void crc24(char *bit_in, int num_bit, char *init_hex, char *crc_result) {
-  char bit_store[24], bit_store_update[24];
-  int i;
-  convert_hex_to_bit(init_hex, bit_store);
-
-  for (i=0; i<num_bit; i++) {
-    char new_bit = (bit_store[23]+bit_in[i])%2;
-    bit_store_update[0] = new_bit;
-    bit_store_update[1] = (bit_store[0]+new_bit)%2;
-    bit_store_update[2] = bit_store[1];
-    bit_store_update[3] = (bit_store[2]+new_bit)%2;
-    bit_store_update[4] = (bit_store[3]+new_bit)%2;
-    bit_store_update[5] = bit_store[4];
-    bit_store_update[6] = (bit_store[5]+new_bit)%2;
-
-    bit_store_update[7] = bit_store[6];
-    bit_store_update[8] = bit_store[7];
-
-    bit_store_update[9] = (bit_store[8]+new_bit)%2;
-    bit_store_update[10] = (bit_store[9]+new_bit)%2;
-
-    memcpy(bit_store_update+11, bit_store+10, 13);
-
-    memcpy(bit_store, bit_store_update, 24);
-  }
-
-  for (i=0; i<24; i++) {
-    crc_result[i] = bit_store[23-i];
-  }
-}
-
-void scramble_byte(uint8_t *byte_in, int num_byte, uint8_t *scramble_table_byte, uint8_t *byte_out) {
+void scramble_byte(uint8_t *byte_in, int num_byte, const uint8_t *scramble_table_byte, uint8_t *byte_out) {
   int i;
   for(i=0; i<num_byte; i++){
     byte_out[i] = byte_in[i]^scramble_table_byte[i];
   }
-}
-
-void scramble(char *bit_in, int num_bit, int channel_number, char *bit_out) {
-  char bit_store[7], bit_store_update[7];
-  int i;
-
-  bit_store[0] = 1;
-  bit_store[1] = 0x01&(channel_number>>5);
-  bit_store[2] = 0x01&(channel_number>>4);
-  bit_store[3] = 0x01&(channel_number>>3);
-  bit_store[4] = 0x01&(channel_number>>2);
-  bit_store[5] = 0x01&(channel_number>>1);
-  bit_store[6] = 0x01&(channel_number>>0);
-
-  for (i=0; i<num_bit; i++) {
-    bit_out[i] = ( bit_store[6] + bit_in[i] )%2;
-
-    bit_store_update[0] = bit_store[6];
-
-    bit_store_update[1] = bit_store[0];
-    bit_store_update[2] = bit_store[1];
-    bit_store_update[3] = bit_store[2];
-
-    bit_store_update[4] = (bit_store[3]+bit_store[6])%2;
-
-    bit_store_update[5] = bit_store[4];
-    bit_store_update[6] = bit_store[5];
-
-    memcpy(bit_store, bit_store_update, 7);
-  }
-}
-
-void fill_hop_sca(int hop, int sca, char *bit_out) {
-  bit_out[0] = 0x01&(hop>>0);
-  bit_out[1] = 0x01&(hop>>1);
-  bit_out[2] = 0x01&(hop>>2);
-  bit_out[3] = 0x01&(hop>>3);
-  bit_out[4] = 0x01&(hop>>4);
-
-  bit_out[5] = 0x01&(sca>>0);
-  bit_out[6] = 0x01&(sca>>1);
-  bit_out[7] = 0x01&(sca>>2);
-}
-
-void fill_data_pdu_header(int llid, int nesn, int sn, int md, int length, char *bit_out) {
-  bit_out[0] = 0x01&(llid>>0);
-  bit_out[1] = 0x01&(llid>>1);
-
-  bit_out[2] = nesn;
-
-  bit_out[3] = sn;
-
-  bit_out[4] = md;
-
-  bit_out[5] = 0;
-  bit_out[6] = 0;
-  bit_out[7] = 0;
-
-  bit_out[8] = 0x01&(length>>0);
-  bit_out[9] = 0x01&(length>>1);
-  bit_out[10] = 0x01&(length>>2);
-  bit_out[11] = 0x01&(length>>3);
-  bit_out[12] = 0x01&(length>>4);
-
-  bit_out[13] = 0;
-  bit_out[14] = 0;
-  bit_out[15] = 0;
-}
-
-void get_opcode(PKT_TYPE pkt_type, char *bit_out) {
-  if (pkt_type == LL_CONNECTION_UPDATE_REQ) {
-    convert_hex_to_bit("00", bit_out);
-  } else if (pkt_type == LL_CHANNEL_MAP_REQ) {
-    convert_hex_to_bit("01", bit_out);
-  } else if (pkt_type == LL_TERMINATE_IND) {
-    convert_hex_to_bit("02", bit_out);
-  } else if (pkt_type == LL_ENC_REQ) {
-    convert_hex_to_bit("03", bit_out);
-  } else if (pkt_type == LL_ENC_RSP) {
-    convert_hex_to_bit("04", bit_out);
-  } else if (pkt_type == LL_START_ENC_REQ) {
-    convert_hex_to_bit("05", bit_out);
-  } else if (pkt_type == LL_START_ENC_RSP) {
-    convert_hex_to_bit("06", bit_out);
-  } else if (pkt_type == LL_UNKNOWN_RSP) {
-    convert_hex_to_bit("07", bit_out);
-  } else if (pkt_type == LL_FEATURE_REQ) {
-    convert_hex_to_bit("08", bit_out);
-  } else if (pkt_type == LL_FEATURE_RSP) {
-    convert_hex_to_bit("09", bit_out);
-  } else if (pkt_type == LL_PAUSE_ENC_REQ) {
-    convert_hex_to_bit("0A", bit_out);
-  } else if (pkt_type == LL_PAUSE_ENC_RSP) {
-    convert_hex_to_bit("0B", bit_out);
-  } else if (pkt_type == LL_VERSION_IND) {
-    convert_hex_to_bit("0C", bit_out);
-  } else if (pkt_type == LL_REJECT_IND) {
-    convert_hex_to_bit("0D", bit_out);
-  } else {
-    convert_hex_to_bit("FF", bit_out);
-    printf("Warning! Reserved TYPE!\n");
-  }
-}
-
-void fill_adv_pdu_header_byte(PKT_TYPE pkt_type, int txadd, int rxadd, int payload_len, uint8_t *byte_out) {
-  if (pkt_type == ADV_IND || pkt_type == IBEACON) {
-    //bit_out[3] = 0; bit_out[2] = 0; bit_out[1] = 0; bit_out[0] = 0;
-    byte_out[0] = 0;
-  } else if (pkt_type == ADV_DIRECT_IND) {
-    //bit_out[3] = 0; bit_out[2] = 0; bit_out[1] = 0; bit_out[0] = 1;
-    byte_out[0] = 1;
-  } else if (pkt_type == ADV_NONCONN_IND || pkt_type == DISCOVERY) {
-    //bit_out[3] = 0; bit_out[2] = 0; bit_out[1] = 1; bit_out[0] = 0;
-    byte_out[0] = 2;
-  } else if (pkt_type == SCAN_REQ) {
-    //bit_out[3] = 0; bit_out[2] = 0; bit_out[1] = 1; bit_out[0] = 1;
-    byte_out[0] = 3;
-  } else if (pkt_type == SCAN_RSP) {
-    //bit_out[3] = 0; bit_out[2] = 1; bit_out[1] = 0; bit_out[0] = 0;
-    byte_out[0] = 4;
-  } else if (pkt_type == CONNECT_REQ) {
-    //bit_out[3] = 0; bit_out[2] = 1; bit_out[1] = 0; bit_out[0] = 1;
-    byte_out[0] = 5;
-  } else if (pkt_type == ADV_SCAN_IND) {
-    //bit_out[3] = 0; bit_out[2] = 1; bit_out[1] = 1; bit_out[0] = 0;
-    byte_out[0] = 6;
-  } else {
-    //bit_out[3] = 1; bit_out[2] = 1; bit_out[1] = 1; bit_out[0] = 1;
-    byte_out[0] = 0xF;
-    printf("Warning! Reserved TYPE!\n");
-  }
-
-  /*bit_out[4] = 0;
-  bit_out[5] = 0;
-
-  bit_out[6] = txadd;
-  bit_out[7] = rxadd;*/
-  byte_out[0] =  byte_out[0] | (txadd << 6);
-  byte_out[0] =  byte_out[0] | (rxadd << 7);
-
-  /*bit_out[8] = 0x01&(payload_len>>0);
-  bit_out[9] = 0x01&(payload_len>>1);
-  bit_out[10] = 0x01&(payload_len>>2);
-  bit_out[11] = 0x01&(payload_len>>3);
-  bit_out[12] = 0x01&(payload_len>>4);
-  bit_out[13] = 0x01&(payload_len>>5);
-
-  bit_out[14] = 0;
-  bit_out[15] = 0;*/
-  byte_out[1] = payload_len;
-}
-
-void fill_adv_pdu_header(PKT_TYPE pkt_type, int txadd, int rxadd, int payload_len, char *bit_out) {
-  if (pkt_type == ADV_IND || pkt_type == IBEACON) {
-    bit_out[3] = 0; bit_out[2] = 0; bit_out[1] = 0; bit_out[0] = 0;
-  } else if (pkt_type == ADV_DIRECT_IND) {
-    bit_out[3] = 0; bit_out[2] = 0; bit_out[1] = 0; bit_out[0] = 1;
-  } else if (pkt_type == ADV_NONCONN_IND || pkt_type == DISCOVERY) {
-    bit_out[3] = 0; bit_out[2] = 0; bit_out[1] = 1; bit_out[0] = 0;
-  } else if (pkt_type == SCAN_REQ) {
-    bit_out[3] = 0; bit_out[2] = 0; bit_out[1] = 1; bit_out[0] = 1;
-  } else if (pkt_type == SCAN_RSP) {
-    bit_out[3] = 0; bit_out[2] = 1; bit_out[1] = 0; bit_out[0] = 0;
-  } else if (pkt_type == CONNECT_REQ) {
-    bit_out[3] = 0; bit_out[2] = 1; bit_out[1] = 0; bit_out[0] = 1;
-  } else if (pkt_type == ADV_SCAN_IND) {
-    bit_out[3] = 0; bit_out[2] = 1; bit_out[1] = 1; bit_out[0] = 0;
-  } else {
-    bit_out[3] = 1; bit_out[2] = 1; bit_out[1] = 1; bit_out[0] = 1;
-    printf("Warning! Reserved TYPE!\n");
-  }
-
-  bit_out[4] = 0;
-  bit_out[5] = 0;
-
-  bit_out[6] = txadd;
-  bit_out[7] = rxadd;
-
-  bit_out[8] = 0x01&(payload_len>>0);
-  bit_out[9] = 0x01&(payload_len>>1);
-  bit_out[10] = 0x01&(payload_len>>2);
-  bit_out[11] = 0x01&(payload_len>>3);
-  bit_out[12] = 0x01&(payload_len>>4);
-  bit_out[13] = 0x01&(payload_len>>5);
-
-  bit_out[14] = 0;
-  bit_out[15] = 0;
-}
-
-void crc24_and_scramble_to_gen_phy_bit(char *crc_init_hex, PKT_INFO *pkt) {
-  crc24(pkt->info_bit+5*8, pkt->num_info_bit-5*8, crc_init_hex, pkt->info_bit+pkt->num_info_bit);
-
-  int crc24_checksum = crc24_byte(pkt->info_byte+5, pkt->num_info_byte-5, 0xAAAAAA); // 0x555555 --> 0xaaaaaa
-  (pkt->info_byte+pkt->num_info_byte)[0] = crc24_checksum & 0xFF;
-  (pkt->info_byte+pkt->num_info_byte)[1] = (crc24_checksum>>8) & 0xFF;
-  (pkt->info_byte+pkt->num_info_byte)[2] = (crc24_checksum>>16) & 0xFF;
-
-  printf("after crc24\n");
-  disp_bit_in_hex(pkt->info_bit, pkt->num_info_bit + 3*8);
-  disp_hex(pkt->info_byte, pkt->num_info_byte + 3);
-
-  scramble(pkt->info_bit+5*8, pkt->num_info_bit-5*8+24, pkt->channel_number, pkt->phy_bit+5*8);
-  memcpy(pkt->phy_bit, pkt->info_bit, 5*8);
-  pkt->num_phy_bit = pkt->num_info_bit + 24;
-
-  //scramble_byte(pkt->info_byte+5, pkt->num_info_byte-5+3, pkt->channel_number, pkt->phy_byte+5);
-  memcpy(pkt->phy_byte, pkt->info_byte, 5);
-  pkt->num_phy_byte = pkt->num_info_byte + 3;
-
-  printf("after scramble %d %d\n", pkt->num_phy_bit , pkt->num_phy_byte);
-  disp_bit_in_hex(pkt->phy_bit, pkt->num_phy_bit);
-  disp_hex(pkt->phy_byte, pkt->num_phy_byte);
 }
 //----------------------------------BTLE SPEC related----------------------------------
 
@@ -1229,7 +864,7 @@ void parse_commandline(
   int* chan,
   int* gain
 ) {
-  printf("BTLE/BT4.0 Scanner(NOT support bladeRF so far). Xianjun Jiao. putaoshu@gmail.com\n\n");
+  printf("BTLE/BT4.0 Scanner(NO bladeRF support so far). Xianjun Jiao. putaoshu@gmail.com\n\n");
   
   // Default values
   (*chan) = DEFAULT_CHANNEL;
@@ -1311,6 +946,7 @@ abnormal_quit:
 
 //#define LEN_DEMOD_BUF_PREAMBLE_ACCESS ( (NUM_PREAMBLE_ACCESS_BYTE*8)-8 ) // to get 2^x integer
 #define LEN_DEMOD_BUF_PREAMBLE_ACCESS 32
+//#define LEN_DEMOD_BUF_PREAMBLE_ACCESS (NUM_PREAMBLE_ACCESS_BYTE*8)
 typedef enum {
   RISE_EDGE,
   FALL_EDGE
@@ -1376,8 +1012,13 @@ inline int search_unique_bits(IQ_TYPE* rxp, int search_len, uint8_t *unique_bits
   const int demod_buf_len = num_bits;
   int demod_buf_offset = 0;
   
+  //demod_buf_preamble_access[SAMPLE_PER_SYMBOL][LEN_DEMOD_BUF_PREAMBLE_ACCESS]
+  memset(demod_buf_preamble_access, 0, SAMPLE_PER_SYMBOL*LEN_DEMOD_BUF_PREAMBLE_ACCESS);
   for(i=0; i<search_len*SAMPLE_PER_SYMBOL*2; i=i+(SAMPLE_PER_SYMBOL*2)) {
     sp = ( (demod_buf_offset-demod_buf_len+1)&(demod_buf_len-1) );
+    //sp = (demod_buf_offset-demod_buf_len+1);
+    //if (sp>=demod_buf_len)
+    //  sp = sp - demod_buf_len;
     
     for(j=0; j<(SAMPLE_PER_SYMBOL*2); j=j+2) {
       i0 = rxp[i+j];
@@ -1396,6 +1037,9 @@ inline int search_unique_bits(IQ_TYPE* rxp, int search_len, uint8_t *unique_bits
           break;
         }
         k = ( (k + 1)&(demod_buf_len-1) );
+        //k = (k + 1);
+        //if (k>=demod_buf_len)
+        //  k = k - demod_buf_len;
       }
       
       if(unequal_flag==false) {
@@ -1405,7 +1049,9 @@ inline int search_unique_bits(IQ_TYPE* rxp, int search_len, uint8_t *unique_bits
     }
 
     demod_buf_offset  = ( (demod_buf_offset+1)&(demod_buf_len-1) );
-    
+    //demod_buf_offset  = (demod_buf_offset+1);
+    //if (demod_buf_offset>=demod_buf_len)
+    //  demod_buf_offset = demod_buf_offset - demod_buf_len;
   }
 
   return(-1);
@@ -1413,129 +1059,135 @@ inline int search_unique_bits(IQ_TYPE* rxp, int search_len, uint8_t *unique_bits
 
 int parse_adv_pdu_payload_byte(uint8_t *payload_byte, int num_payload_byte, int pdu_type, void *adv_pdu_payload) {
   int i;
-  ADV_PDU_PAYLOAD_TYPE0246 *payload_type0246 = NULL;
-  ADV_PDU_PAYLOAD_TYPE13 *payload_type13 = NULL;
-  ADV_PDU_PAYLOAD_TYPE5 *payload_type5 = NULL;
+  ADV_PDU_PAYLOAD_TYPE_0_2_4_6 *payload_type_0_2_4_6 = NULL;
+  ADV_PDU_PAYLOAD_TYPE_1_3 *payload_type_1_3 = NULL;
+  ADV_PDU_PAYLOAD_TYPE_5 *payload_type_5 = NULL;
+  ADV_PDU_PAYLOAD_TYPE_R *payload_type_R = NULL;
   if (num_payload_byte<6) {
       //payload_parse_result_str = ['Payload Too Short (only ' num2str(length(payload_bits)) ' bits)'];
-      printf("Payload Too Short (only %d bytes)", num_payload_byte);
+      printf("Error: Payload Too Short (only %d bytes)\n", num_payload_byte);
       return(-1);
   }
 
   if (pdu_type == 0 || pdu_type == 2 || pdu_type == 4 || pdu_type == 6) {
-      payload_type0246 = (ADV_PDU_PAYLOAD_TYPE0246 *)adv_pdu_payload;
+      payload_type_0_2_4_6 = (ADV_PDU_PAYLOAD_TYPE_0_2_4_6 *)adv_pdu_payload;
       
       //AdvA = reorder_bytes_str( payload_bytes(1 : (2*6)) );
-      payload_type0246->AdvA[0] = payload_byte[5];
-      payload_type0246->AdvA[1] = payload_byte[4];
-      payload_type0246->AdvA[2] = payload_byte[3];
-      payload_type0246->AdvA[3] = payload_byte[2];
-      payload_type0246->AdvA[4] = payload_byte[1];
-      payload_type0246->AdvA[5] = payload_byte[0];
+      payload_type_0_2_4_6->AdvA[0] = payload_byte[5];
+      payload_type_0_2_4_6->AdvA[1] = payload_byte[4];
+      payload_type_0_2_4_6->AdvA[2] = payload_byte[3];
+      payload_type_0_2_4_6->AdvA[3] = payload_byte[2];
+      payload_type_0_2_4_6->AdvA[4] = payload_byte[1];
+      payload_type_0_2_4_6->AdvA[5] = payload_byte[0];
       
       //AdvData = payload_bytes((2*6+1):end);
       for(i=0; i<(num_payload_byte-6); i++) {
-        payload_type0246->Data[i] = payload_byte[6+i];
+        payload_type_0_2_4_6->Data[i] = payload_byte[6+i];
       }
       
       //payload_parse_result_str = ['AdvA:' AdvA ' AdvData:' AdvData];
   } else if (pdu_type == 1 || pdu_type == 3) {
       if (num_payload_byte!=12) {
-          printf("Payload Too Short (only %d bytes, needs to be 12 for PDU Type %d)\n", num_payload_byte, pdu_type);
+          printf("Error: Payload length %d bytes. Need to be 12 for PDU Type %d\n", num_payload_byte, pdu_type);
           return(-1);
       }
-      payload_type13 = (ADV_PDU_PAYLOAD_TYPE13 *)adv_pdu_payload;
+      payload_type_1_3 = (ADV_PDU_PAYLOAD_TYPE_1_3 *)adv_pdu_payload;
       
       //AdvA = reorder_bytes_str( payload_bytes(1 : (2*6)) );
-      payload_type13->A0[0] = payload_byte[5];
-      payload_type13->A0[1] = payload_byte[4];
-      payload_type13->A0[2] = payload_byte[3];
-      payload_type13->A0[3] = payload_byte[2];
-      payload_type13->A0[4] = payload_byte[1];
-      payload_type13->A0[5] = payload_byte[0];
+      payload_type_1_3->A0[0] = payload_byte[5];
+      payload_type_1_3->A0[1] = payload_byte[4];
+      payload_type_1_3->A0[2] = payload_byte[3];
+      payload_type_1_3->A0[3] = payload_byte[2];
+      payload_type_1_3->A0[4] = payload_byte[1];
+      payload_type_1_3->A0[5] = payload_byte[0];
       
       //InitA = reorder_bytes_str( payload_bytes((2*6+1):end) );
-      payload_type13->A1[0] = payload_byte[11];
-      payload_type13->A1[1] = payload_byte[10];
-      payload_type13->A1[2] = payload_byte[9];
-      payload_type13->A1[3] = payload_byte[8];
-      payload_type13->A1[4] = payload_byte[7];
-      payload_type13->A1[5] = payload_byte[6];
+      payload_type_1_3->A1[0] = payload_byte[11];
+      payload_type_1_3->A1[1] = payload_byte[10];
+      payload_type_1_3->A1[2] = payload_byte[9];
+      payload_type_1_3->A1[3] = payload_byte[8];
+      payload_type_1_3->A1[4] = payload_byte[7];
+      payload_type_1_3->A1[5] = payload_byte[6];
       
       //payload_parse_result_str = ['AdvA:' AdvA ' InitA:' InitA];
   } else if (pdu_type == 5) {
       if (num_payload_byte!=34) {
-          printf("Payload Too Short (only %d bytes, needs to be 34 for PDU Type %d)\n", num_payload_byte, pdu_type);
+          printf("Error: Payload length %d bytes. Need to be 34 for PDU Type %d)\n", num_payload_byte, pdu_type);
           return(-1);
       }
-      payload_type5 = (ADV_PDU_PAYLOAD_TYPE5 *)adv_pdu_payload;
+      payload_type_5 = (ADV_PDU_PAYLOAD_TYPE_5 *)adv_pdu_payload;
       
       //InitA = reorder_bytes_str( payload_bytes(1 : (2*6)) );
-      payload_type5->InitA[0] = payload_byte[5];
-      payload_type5->InitA[1] = payload_byte[4];
-      payload_type5->InitA[2] = payload_byte[3];
-      payload_type5->InitA[3] = payload_byte[2];
-      payload_type5->InitA[4] = payload_byte[1];
-      payload_type5->InitA[5] = payload_byte[0];
+      payload_type_5->InitA[0] = payload_byte[5];
+      payload_type_5->InitA[1] = payload_byte[4];
+      payload_type_5->InitA[2] = payload_byte[3];
+      payload_type_5->InitA[3] = payload_byte[2];
+      payload_type_5->InitA[4] = payload_byte[1];
+      payload_type_5->InitA[5] = payload_byte[0];
       
       //AdvA = reorder_bytes_str( payload_bytes((2*6+1):(2*6+2*6)) );
-      payload_type5->AdvA[0] = payload_byte[11];
-      payload_type5->AdvA[1] = payload_byte[10];
-      payload_type5->AdvA[2] = payload_byte[9];
-      payload_type5->AdvA[3] = payload_byte[8];
-      payload_type5->AdvA[4] = payload_byte[7];
-      payload_type5->AdvA[5] = payload_byte[6];
+      payload_type_5->AdvA[0] = payload_byte[11];
+      payload_type_5->AdvA[1] = payload_byte[10];
+      payload_type_5->AdvA[2] = payload_byte[9];
+      payload_type_5->AdvA[3] = payload_byte[8];
+      payload_type_5->AdvA[4] = payload_byte[7];
+      payload_type_5->AdvA[5] = payload_byte[6];
       
       //AA = reorder_bytes_str( payload_bytes((2*6+2*6+1):(2*6+2*6+2*4)) );
-      payload_type5->AA[0] = payload_byte[15];
-      payload_type5->AA[1] = payload_byte[14];
-      payload_type5->AA[2] = payload_byte[13];
-      payload_type5->AA[3] = payload_byte[12];
+      payload_type_5->AA[0] = payload_byte[15];
+      payload_type_5->AA[1] = payload_byte[14];
+      payload_type_5->AA[2] = payload_byte[13];
+      payload_type_5->AA[3] = payload_byte[12];
       
       //CRCInit = payload_bytes((2*6+2*6+2*4+1):(2*6+2*6+2*4+2*3));
-      payload_type5->CRCInit = 0;
-      payload_type5->CRCInit = ( (payload_type5->CRCInit << 8) | payload_byte[16] );
-      payload_type5->CRCInit = ( (payload_type5->CRCInit << 8) | payload_byte[17] );
-      payload_type5->CRCInit = ( (payload_type5->CRCInit << 8) | payload_byte[18] );
+      payload_type_5->CRCInit = 0;
+      payload_type_5->CRCInit = ( (payload_type_5->CRCInit << 8) | payload_byte[16] );
+      payload_type_5->CRCInit = ( (payload_type_5->CRCInit << 8) | payload_byte[17] );
+      payload_type_5->CRCInit = ( (payload_type_5->CRCInit << 8) | payload_byte[18] );
       
       //WinSize = payload_bytes((2*6+2*6+2*4+2*3+1):(2*6+2*6+2*4+2*3+2*1));
-      payload_type5->WinSize = payload_byte[19];
+      payload_type_5->WinSize = payload_byte[19];
       
       //WinOffset = reorder_bytes_str( payload_bytes((2*6+2*6+2*4+2*3+2*1+1):(2*6+2*6+2*4+2*3+2*1+2*2)) );
-      payload_type5->WinOffset = 0;
-      payload_type5->WinOffset = ( (payload_type5->WinOffset << 8) | payload_byte[21] );
-      payload_type5->WinOffset = ( (payload_type5->WinOffset << 8) | payload_byte[20] );
+      payload_type_5->WinOffset = 0;
+      payload_type_5->WinOffset = ( (payload_type_5->WinOffset << 8) | payload_byte[21] );
+      payload_type_5->WinOffset = ( (payload_type_5->WinOffset << 8) | payload_byte[20] );
       
       //Interval = reorder_bytes_str( payload_bytes((2*6+2*6+2*4+2*3+2*1+2*2+1):(2*6+2*6+2*4+2*3+2*1+2*2+2*2)) );
-      payload_type5->Interval = 0;
-      payload_type5->Interval = ( (payload_type5->Interval << 8) | payload_byte[23] );
-      payload_type5->Interval = ( (payload_type5->Interval << 8) | payload_byte[22] );
+      payload_type_5->Interval = 0;
+      payload_type_5->Interval = ( (payload_type_5->Interval << 8) | payload_byte[23] );
+      payload_type_5->Interval = ( (payload_type_5->Interval << 8) | payload_byte[22] );
       
       //Latency = reorder_bytes_str( payload_bytes((2*6+2*6+2*4+2*3+2*1+2*2+2*2+1):(2*6+2*6+2*4+2*3+2*1+2*2+2*2+2*2)) );
-      payload_type5->Latency = 0;
-      payload_type5->Latency = ( (payload_type5->Latency << 8) | payload_byte[25] );
-      payload_type5->Latency = ( (payload_type5->Latency << 8) | payload_byte[24] );
+      payload_type_5->Latency = 0;
+      payload_type_5->Latency = ( (payload_type_5->Latency << 8) | payload_byte[25] );
+      payload_type_5->Latency = ( (payload_type_5->Latency << 8) | payload_byte[24] );
       
       //Timeout = reorder_bytes_str( payload_bytes((2*6+2*6+2*4+2*3+2*1+2*2+2*2+2*2+1):(2*6+2*6+2*4+2*3+2*1+2*2+2*2+2*2+2*2)) );
-      payload_type5->Timeout = 0;
-      payload_type5->Timeout = ( (payload_type5->Timeout << 8) | payload_byte[27] );
-      payload_type5->Timeout = ( (payload_type5->Timeout << 8) | payload_byte[26] );
+      payload_type_5->Timeout = 0;
+      payload_type_5->Timeout = ( (payload_type_5->Timeout << 8) | payload_byte[27] );
+      payload_type_5->Timeout = ( (payload_type_5->Timeout << 8) | payload_byte[26] );
       
       //ChM = reorder_bytes_str( payload_bytes((2*6+2*6+2*4+2*3+2*1+2*2+2*2+2*2+2*2+1):(2*6+2*6+2*4+2*3+2*1+2*2+2*2+2*2+2*2+2*5)) );
-      payload_type5->ChM[0] = payload_byte[32];
-      payload_type5->ChM[1] = payload_byte[31];
-      payload_type5->ChM[2] = payload_byte[30];
-      payload_type5->ChM[3] = payload_byte[29];
-      payload_type5->ChM[4] = payload_byte[28];
+      payload_type_5->ChM[0] = payload_byte[32];
+      payload_type_5->ChM[1] = payload_byte[31];
+      payload_type_5->ChM[2] = payload_byte[30];
+      payload_type_5->ChM[3] = payload_byte[29];
+      payload_type_5->ChM[4] = payload_byte[28];
       
       //tmp_bits = payload_bits((end-7) : end);
       //Hop = num2str( bi2de(tmp_bits(1:5), 'right-msb') );
       //SCA = num2str( bi2de(tmp_bits(6:end), 'right-msb') );
-      payload_type5->Hop = (payload_byte[33]&0x1F);
-      payload_type5->SCA = ((payload_byte[33]>>5)&0x07);
+      payload_type_5->Hop = (payload_byte[33]&0x1F);
+      payload_type_5->SCA = ((payload_byte[33]>>5)&0x07);
   } else {
-      printf("Reserved PDU type %d\n", pdu_type);
-      return(-1);
+      payload_type_R = (ADV_PDU_PAYLOAD_TYPE_R *)adv_pdu_payload;
+
+      for(i=0; i<(num_payload_byte); i++) {
+        payload_type_R->payload_byte[i] = payload_byte[i];
+      }
+      //printf("Warning: Reserved PDU type %d\n", pdu_type);
+      //return(-1);
   }
   
   return(0);
@@ -1562,60 +1214,137 @@ inline void receiver_init(void) {
   byte_array_to_bit_array(preamble_access_byte, 5, preamble_access_bit);
 }
 
-void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number){
+bool crc_check(uint8_t *tmp_byte, int body_len) {
+    int crc24_checksum, crc24_received;
+    crc24_checksum = crc24_byte(tmp_byte, body_len, 0xAAAAAA); // 0x555555 --> 0xaaaaaa. maybe because byte order
+    crc24_received = 0;
+    crc24_received = ( (crc24_received << 8) | tmp_byte[body_len+2] );
+    crc24_received = ( (crc24_received << 8) | tmp_byte[body_len+1] );
+    crc24_received = ( (crc24_received << 8) | tmp_byte[body_len+0] );
+    return(crc24_checksum!=crc24_received);
+}
+
+void print_pdu_payload(void *adv_pdu_payload, int pdu_type, int payload_len, bool crc_flag) {
+    int i;
+    ADV_PDU_PAYLOAD_TYPE_5 *adv_pdu_payload_5;
+    ADV_PDU_PAYLOAD_TYPE_1_3 *adv_pdu_payload_1_3;
+    ADV_PDU_PAYLOAD_TYPE_0_2_4_6 *adv_pdu_payload_0_2_4_6;
+    ADV_PDU_PAYLOAD_TYPE_R *adv_pdu_payload_R;
+    // print payload out
+    if (pdu_type==0 || pdu_type==2 || pdu_type==4 || pdu_type==6) {
+      adv_pdu_payload_0_2_4_6 = (ADV_PDU_PAYLOAD_TYPE_0_2_4_6 *)(adv_pdu_payload);
+      printf("AdvA:");
+      for(i=0; i<6; i++) {
+        printf("%02x", adv_pdu_payload_0_2_4_6->AdvA[i]);
+      }
+      printf(" Data:");
+      for(i=0; i<(payload_len-6); i++) {
+        printf("%02x", adv_pdu_payload_0_2_4_6->Data[i]);
+      }
+    } else if (pdu_type==1 || pdu_type==3) {
+      adv_pdu_payload_1_3 = (ADV_PDU_PAYLOAD_TYPE_1_3 *)(adv_pdu_payload);
+      printf("A0:");
+      for(i=0; i<6; i++) {
+        printf("%02x", adv_pdu_payload_1_3->A0[i]);
+      }
+      printf(" A1:");
+      for(i=0; i<6; i++) {
+        printf("%02x", adv_pdu_payload_1_3->A1[i]);
+      }
+    } else if (pdu_type==5) {
+      adv_pdu_payload_5 = (ADV_PDU_PAYLOAD_TYPE_5 *)(adv_pdu_payload);
+      printf("InitA:");
+      for(i=0; i<6; i++) {
+        printf("%02x", adv_pdu_payload_5->InitA[i]);
+      }
+      printf(" AdvA:");
+      for(i=0; i<6; i++) {
+        printf("%02x", adv_pdu_payload_5->AdvA[i]);
+      }
+      printf(" AA:");
+      for(i=0; i<4; i++) {
+        printf("%02x", adv_pdu_payload_5->AA[i]);
+      }
+      printf(" CRCInit:%06x WSize:%d WOffset:%d Interval:%d Latency:%d Timeout:%d", adv_pdu_payload_5->CRCInit, adv_pdu_payload_5->WinSize, adv_pdu_payload_5->WinOffset, adv_pdu_payload_5->Interval, adv_pdu_payload_5->Latency, adv_pdu_payload_5->Timeout);
+      printf(" ChM:");
+      for(i=0; i<5; i++) {
+        printf("%02x", adv_pdu_payload_5->ChM[i]);
+      }
+      printf(" Hop:%d SCA:%d", adv_pdu_payload_5->Hop, adv_pdu_payload_5->SCA);
+    } else {
+      adv_pdu_payload_R = (ADV_PDU_PAYLOAD_TYPE_R *)(adv_pdu_payload);
+      printf("Byte:");
+      for(i=0; i<(payload_len); i++) {
+        printf("%02x", adv_pdu_payload_R->payload_byte[i]);
+      }
+    }
+    printf(" CRC%d\n", crc_flag);
+}
+
+void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number) {
   static int pkt_count = 0;
-  static int start_offset = 0; // indicate if previous buffer processing has over process some data of this buffer
-  static ADV_PDU_PAYLOAD_TYPE5 adv_pdu_payload;
-  ADV_PDU_PAYLOAD_TYPE5 *adv_pdu_payload5;
-  ADV_PDU_PAYLOAD_TYPE13 *adv_pdu_payload13;
-  ADV_PDU_PAYLOAD_TYPE0246 *adv_pdu_payload0246;
+  int start_offset = 0; // indicate if previous buffer processing has over process some data of this buffer/
+                                          // because each time we feed extra LEN_BUF_MAX_NUM_PHY_SAMPLE data in besides (LEN_BUF/2)
+  static ADV_PDU_PAYLOAD_TYPE_5 adv_pdu_payload;
   IQ_TYPE *rxp = rxp_in + start_offset;
-  int i, num_demod_byte, hit_idx, buf_len_eaten, pdu_type, tx_add, rx_add, payload_len, num_pdu_payload_crc_bits, crc24_checksum, crc_flag, crc24_received;
-  int num_symbol_left = buf_len/(SAMPLE_PER_SYMBOL*2); //2 for IQ
+  int num_demod_byte, hit_idx, buf_len_eaten, pdu_type, tx_add, rx_add, payload_len, pkt_count_old;
+  int num_symbol_left = (buf_len-start_offset)/(SAMPLE_PER_SYMBOL*2); //2 for IQ
+  bool crc_flag;
 
   //printf("phase %d rx_buf_offset %d buf_sp %d LEN_BUF/2 %d mem scale %d\n", phase, rx_buf_offset, buf_sp, LEN_BUF/2, sizeof(IQ_TYPE));
 
+  pkt_count_old = pkt_count;
   buf_len_eaten = 0;
   while( 1 ) 
   {
     hit_idx = search_unique_bits(rxp, num_symbol_left, preamble_access_bit, LEN_DEMOD_BUF_PREAMBLE_ACCESS);
     if ( hit_idx == -1 ) {
+      start_offset = num_symbol_left<LEN_DEMOD_BUF_PREAMBLE_ACCESS?num_symbol_left:LEN_DEMOD_BUF_PREAMBLE_ACCESS;
+      start_offset = LEN_BUF_MAX_NUM_PHY_SAMPLE - start_offset*2*SAMPLE_PER_SYMBOL + 2; // what if the I Q components are switched? Should be careful on this!
       break;
     }
     pkt_count++;
-    printf("%d %d %d %d %d %d %d %d\n", rxp[hit_idx+0], rxp[hit_idx+1], rxp[hit_idx+2], rxp[hit_idx+3], rxp[hit_idx+4], rxp[hit_idx+5], rxp[hit_idx+6], rxp[hit_idx+7]);
+    printf("hit %d\n", hit_idx);
+    //printf("%d %d %d %d %d %d %d %d\n", rxp[hit_idx+0], rxp[hit_idx+1], rxp[hit_idx+2], rxp[hit_idx+3], rxp[hit_idx+4], rxp[hit_idx+5], rxp[hit_idx+6], rxp[hit_idx+7]);
 
     buf_len_eaten = buf_len_eaten + hit_idx;
-    printf("%d\n", buf_len_eaten);
+    //printf("%d\n", buf_len_eaten);
     
     buf_len_eaten = buf_len_eaten + 8*NUM_PREAMBLE_ACCESS_BYTE*2*SAMPLE_PER_SYMBOL;// move to beginning of PDU header
     rxp = rxp_in + buf_len_eaten;
     
     num_demod_byte = 2; // PDU header has 2 octets
     buf_len_eaten = buf_len_eaten + 8*num_demod_byte*2*SAMPLE_PER_SYMBOL;
-    if ( buf_len_eaten >= buf_len ) {
+    if ( buf_len_eaten > buf_len ) {
+      start_offset = (NUM_PREAMBLE_ACCESS_BYTE+num_demod_byte)*8*2*SAMPLE_PER_SYMBOL;
+      start_offset = start_offset - (buf_len_eaten-buf_len);
+      start_offset = LEN_BUF_MAX_NUM_PHY_SAMPLE - start_offset;
       break;
     }
 
     demod_byte(rxp, num_demod_byte, tmp_byte);
-    printf("%d %d %d %d %d %d %d %d\n", rxp[0], rxp[1], rxp[2], rxp[3], rxp[4], rxp[5], rxp[6], rxp[7]);
-    printf("%d %d %d %d %d %d %d %d\n", rxp[8+0], rxp[8+1], rxp[8+2], rxp[8+3], rxp[8+4], rxp[8+5], rxp[8+6], rxp[8+7]);
+    //printf("%d %d %d %d %d %d %d %d\n", rxp[0], rxp[1], rxp[2], rxp[3], rxp[4], rxp[5], rxp[6], rxp[7]);
+    //printf("%d %d %d %d %d %d %d %d\n", rxp[8+0], rxp[8+1], rxp[8+2], rxp[8+3], rxp[8+4], rxp[8+5], rxp[8+6], rxp[8+7]);
     scramble_byte(tmp_byte, num_demod_byte, scramble_table[channel_number], tmp_byte);
     rxp = rxp_in + buf_len_eaten;
     num_symbol_left = (buf_len-buf_len_eaten)/(SAMPLE_PER_SYMBOL*2);
     
     parse_adv_pdu_header_byte(tmp_byte, &pdu_type, &tx_add, &rx_add, &payload_len);
     
-    printf("Pkt%d Ch%d AccessAddr8E89BED6 ADV_PDU_Type%d(%s) TxAdd%d RxAdd%d PayloadLen%d) ", pkt_count, channel_number, pdu_type, PDU_TYPE_STR[pdu_type], tx_add, rx_add, payload_len);
+    printf("Pkt%dCh%dAA:8E89BED6 PDU_t%d:%s T%d R%d PloadL%d ", pkt_count, channel_number, pdu_type, PDU_TYPE_STR[pdu_type], tx_add, rx_add, payload_len);
     if( payload_len<6 || payload_len>37 ) {
-      printf("\n");
+      printf(" (should be 6~37, quit!)\n");
       continue;
     }
     
     //num_pdu_payload_crc_bits = (payload_len+3)*8;
     num_demod_byte = (payload_len+3);
     buf_len_eaten = buf_len_eaten + 8*num_demod_byte*2*SAMPLE_PER_SYMBOL;
-    if ( buf_len_eaten >= buf_len ) {
+    if ( buf_len_eaten > buf_len ) {
+      start_offset = (NUM_PREAMBLE_ACCESS_BYTE+2+num_demod_byte)*8*2*SAMPLE_PER_SYMBOL;
+      start_offset = start_offset - (buf_len_eaten-buf_len);
+      start_offset = LEN_BUF_MAX_NUM_PHY_SAMPLE - start_offset;
+      printf("\n");
       break;
     }
     
@@ -1628,58 +1357,12 @@ void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number){
       continue;
     }
     
-    crc24_checksum = crc24_byte(tmp_byte, payload_len+2, 0xAAAAAA); // 0x555555 --> 0xaaaaaa
-    crc24_received = 0;
-    crc24_received = ( (crc24_received << 8) | tmp_byte[2+payload_len+0] );
-    crc24_received = ( (crc24_received << 8) | tmp_byte[2+payload_len+1] );
-    crc24_received = ( (crc24_received << 8) | tmp_byte[2+payload_len+2] );
-    crc_flag = crc24_checksum==crc24_received? 0:1;
+    crc_flag = crc_check(tmp_byte, payload_len+2);
     
-    // print payload out
-    if (pdu_type==0 || pdu_type==2 || pdu_type==4 || pdu_type==6) {
-      adv_pdu_payload0246 = (ADV_PDU_PAYLOAD_TYPE0246 *)(&adv_pdu_payload);
-      printf("AdvA:");
-      for(i=0; i<6; i++) {
-        printf("%02x", adv_pdu_payload0246->AdvA[i]);
-      }
-      printf(" Data:");
-      for(i=0; i<(payload_len-6); i++) {
-        printf("%02x", adv_pdu_payload0246->Data[i]);
-      }
-    } else if (pdu_type==1 || pdu_type==3) {
-      adv_pdu_payload13 = (ADV_PDU_PAYLOAD_TYPE13 *)(&adv_pdu_payload);
-      printf("A0:");
-      for(i=0; i<6; i++) {
-        printf("%02x", adv_pdu_payload13->A0[i]);
-      }
-      printf(" A1:");
-      for(i=0; i<6; i++) {
-        printf("%02x", adv_pdu_payload13->A1[i]);
-      }
-    } else if (pdu_type==5) {
-      adv_pdu_payload5 = (ADV_PDU_PAYLOAD_TYPE5 *)(&adv_pdu_payload);
-      printf("InitA:");
-      for(i=0; i<6; i++) {
-        printf("%02x", adv_pdu_payload5->InitA[i]);
-      }
-      printf(" AdvA:");
-      for(i=0; i<6; i++) {
-        printf("%02x", adv_pdu_payload5->AdvA[i]);
-      }
-      printf(" AA:");
-      for(i=0; i<4; i++) {
-        printf("%02x", adv_pdu_payload5->AA[i]);
-      }
-      printf(" CRCInit:%06x WinSize:%02x WinOffset:%04x Interval:%04x Latency:%04x Timeout:%04x", adv_pdu_payload5->CRCInit, adv_pdu_payload5->WinSize, adv_pdu_payload5->WinOffset, adv_pdu_payload5->Interval, adv_pdu_payload5->Latency, adv_pdu_payload5->Timeout);
-      printf(" ChM:");
-      for(i=0; i<5; i++) {
-        printf("%02x", adv_pdu_payload5->ChM[i]);
-      }
-      printf(" Hop:%d SCA:%d", adv_pdu_payload5->Hop, adv_pdu_payload5->SCA);
-    }
-    printf(" CRC%d\n", crc_flag);
+    print_pdu_payload((void *)(&adv_pdu_payload), pdu_type, payload_len, crc_flag);
   }
-
+  if (pkt_count>pkt_count_old)
+    printf("%d\n\n", start_offset);
 }
 //----------------------------------receiver----------------------------------
 
@@ -1744,12 +1427,14 @@ int main(int argc, char** argv) {
     }
     
     if (run_flag) {
+      #if 0
       // ------------------------for offline test -------------------------------------
       //save_phy_sample(rx_buf+buf_sp, LEN_BUF/2, "/home/jxj/git/BTLE/matlab/sample_iq_4msps.txt");
       load_phy_sample(tmp_buf, 2097152, "/home/jxj/git/BTLE/matlab/sample_iq_4msps.txt");
       receiver(tmp_buf, 2097152, 37);
       break;
       // ------------------------for offline test -------------------------------------
+      #endif
       
       // -----------------------------real online run--------------------------------
       receiver(rxp, LEN_BUF_MAX_NUM_PHY_SAMPLE+(LEN_BUF/2), 37 );

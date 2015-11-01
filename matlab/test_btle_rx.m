@@ -12,6 +12,7 @@ if nargin == 2
     a = load(filename);
     a = a';
     a = a(:)';
+%     a = a(2:end-1);
     a = a(1:2:end) + 1i.*a(2:2:end);
 else
     symbol_rate = 1e6;
