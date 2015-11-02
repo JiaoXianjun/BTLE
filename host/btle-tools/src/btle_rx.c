@@ -95,10 +95,10 @@ int gettimeofday(struct timeval *tv, void* ignored)
 	#define sleep(a) Sleep( (a*1000) )
 #endif
 
-static inline float
+static inline int
 TimevalDiff(const struct timeval *a, const struct timeval *b)
 {
-   return (a->tv_sec - b->tv_sec) + 1e-6f * (a->tv_usec - b->tv_usec);
+   return( (a->tv_sec - b->tv_sec)*1000000 + (a->tv_usec - b->tv_usec) );
 }
 
 volatile bool do_exit = false;
@@ -141,7 +141,7 @@ static void print_usage() {
 
 volatile int rx_buf_offset; // remember to initialize it!
 
-#define LEN_BUF_IN_SAMPLE (16*4096) //4096 samples = ~1ms for 4Msps; ATTENTION each rx callback get hackrf.c:lib_device->buffer_size samples!!!
+#define LEN_BUF_IN_SAMPLE (8*4096) //4096 samples = ~1ms for 4Msps; ATTENTION each rx callback get hackrf.c:lib_device->buffer_size samples!!!
 #define LEN_BUF (LEN_BUF_IN_SAMPLE*2)
 #define LEN_BUF_IN_SYMBOL (LEN_BUF_IN_SAMPLE/SAMPLE_PER_SYMBOL)
 //----------------------------------some basic signal definition----------------------------------
@@ -330,7 +330,7 @@ void stop_close_board(bladerf_device* rf_dev){
 #else //-----------------------------the board is HACKRF-----------------------------
 char *board_name = "HACKRF";
 #define MAX_GAIN 62
-#define DEFAULT_GAIN 20
+#define DEFAULT_GAIN 10
 #define MAX_LNA_GAIN 40
 
 typedef int8_t IQ_TYPE;
@@ -800,19 +800,19 @@ char *PDU_TYPE_STR[] = {
     "ADV_IND",
     "ADV_DIRECT_IND",
     "ADV_NONCONN_IND",
-    "ADV_SCAN_IND",
     "SCAN_REQ",
     "SCAN_RSP",
     "CONNECT_REQ",
     "ADV_SCAN_IND",
-    "RESERVED",
-    "RESERVED",
-    "RESERVED",
-    "RESERVED",
-    "RESERVED",
-    "RESERVED",
-    "RESERVED",
-    "RESERVED"
+    "RESERVED0",
+    "RESERVED1",
+    "RESERVED2",
+    "RESERVED3",
+    "RESERVED4",
+    "RESERVED5",
+    "RESERVED6",
+    "RESERVED7",
+    "RESERVED8"
 };
 
 /**
@@ -1283,28 +1283,29 @@ void print_pdu_payload(void *adv_pdu_payload, int pdu_type, int payload_len, boo
 
 void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number) {
   static int pkt_count = 0;
-  int start_offset = 0; // indicate if previous buffer processing has over process some data of this buffer/
-                                          // because each time we feed extra LEN_BUF_MAX_NUM_PHY_SAMPLE data in besides (LEN_BUF/2)
   static ADV_PDU_PAYLOAD_TYPE_5 adv_pdu_payload;
-  IQ_TYPE *rxp = rxp_in + start_offset;
-  int num_demod_byte, hit_idx, buf_len_eaten, pdu_type, tx_add, rx_add, payload_len, pkt_count_old;
-  int num_symbol_left = (buf_len-start_offset)/(SAMPLE_PER_SYMBOL*2); //2 for IQ
+  static struct timeval time_current_pkt, time_pre_pkt;
+  const int demod_buf_len = LEN_BUF_MAX_NUM_PHY_SAMPLE+(LEN_BUF/2);
+  IQ_TYPE *rxp = rxp_in;
+  int num_demod_byte, hit_idx, buf_len_eaten, pdu_type, tx_add, rx_add, payload_len, time_diff;
+  int num_symbol_left = buf_len/(SAMPLE_PER_SYMBOL*2); //2 for IQ
   bool crc_flag;
+  
+  if (pkt_count == 0) { // the 1st time run
+    gettimeofday(&time_current_pkt, NULL);
+    time_pre_pkt = time_current_pkt;
+  }
 
-  //printf("phase %d rx_buf_offset %d buf_sp %d LEN_BUF/2 %d mem scale %d\n", phase, rx_buf_offset, buf_sp, LEN_BUF/2, sizeof(IQ_TYPE));
-
-  pkt_count_old = pkt_count;
   buf_len_eaten = 0;
   while( 1 ) 
   {
     hit_idx = search_unique_bits(rxp, num_symbol_left, preamble_access_bit, LEN_DEMOD_BUF_PREAMBLE_ACCESS);
     if ( hit_idx == -1 ) {
-      start_offset = num_symbol_left<LEN_DEMOD_BUF_PREAMBLE_ACCESS?num_symbol_left:LEN_DEMOD_BUF_PREAMBLE_ACCESS;
-      start_offset = LEN_BUF_MAX_NUM_PHY_SAMPLE - start_offset*2*SAMPLE_PER_SYMBOL + 2; // what if the I Q components are switched? Should be careful on this!
       break;
     }
-    pkt_count++;
-    printf("hit %d\n", hit_idx);
+    //pkt_count++;
+    //printf("hit %d\n", hit_idx);
+    
     //printf("%d %d %d %d %d %d %d %d\n", rxp[hit_idx+0], rxp[hit_idx+1], rxp[hit_idx+2], rxp[hit_idx+3], rxp[hit_idx+4], rxp[hit_idx+5], rxp[hit_idx+6], rxp[hit_idx+7]);
 
     buf_len_eaten = buf_len_eaten + hit_idx;
@@ -1315,10 +1316,8 @@ void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number) {
     
     num_demod_byte = 2; // PDU header has 2 octets
     buf_len_eaten = buf_len_eaten + 8*num_demod_byte*2*SAMPLE_PER_SYMBOL;
-    if ( buf_len_eaten > buf_len ) {
-      start_offset = (NUM_PREAMBLE_ACCESS_BYTE+num_demod_byte)*8*2*SAMPLE_PER_SYMBOL;
-      start_offset = start_offset - (buf_len_eaten-buf_len);
-      start_offset = LEN_BUF_MAX_NUM_PHY_SAMPLE - start_offset;
+    //if ( buf_len_eaten > buf_len ) {
+    if ( buf_len_eaten > demod_buf_len ) {
       break;
     }
 
@@ -1331,20 +1330,17 @@ void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number) {
     
     parse_adv_pdu_header_byte(tmp_byte, &pdu_type, &tx_add, &rx_add, &payload_len);
     
-    printf("Pkt%dCh%dAA:8E89BED6 PDU_t%d:%s T%d R%d PloadL%d ", pkt_count, channel_number, pdu_type, PDU_TYPE_STR[pdu_type], tx_add, rx_add, payload_len);
     if( payload_len<6 || payload_len>37 ) {
-      printf(" (should be 6~37, quit!)\n");
+      //printf(" (should be 6~37, quit!)\n");
       continue;
     }
     
     //num_pdu_payload_crc_bits = (payload_len+3)*8;
     num_demod_byte = (payload_len+3);
     buf_len_eaten = buf_len_eaten + 8*num_demod_byte*2*SAMPLE_PER_SYMBOL;
-    if ( buf_len_eaten > buf_len ) {
-      start_offset = (NUM_PREAMBLE_ACCESS_BYTE+2+num_demod_byte)*8*2*SAMPLE_PER_SYMBOL;
-      start_offset = start_offset - (buf_len_eaten-buf_len);
-      start_offset = LEN_BUF_MAX_NUM_PHY_SAMPLE - start_offset;
-      printf("\n");
+    //if ( buf_len_eaten > buf_len ) {
+    if ( buf_len_eaten > demod_buf_len ) {
+      //printf("\n");
       break;
     }
     
@@ -1358,11 +1354,15 @@ void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number) {
     }
     
     crc_flag = crc_check(tmp_byte, payload_len+2);
+    pkt_count++;
+    
+    gettimeofday(&time_current_pkt, NULL);
+    time_diff = TimevalDiff(&time_current_pkt, &time_pre_pkt);
+    time_pre_pkt = time_current_pkt;
+    printf("%dus Pkt%d Ch%d AA:8E89BED6 PDU_t%d:%s T%d R%d PloadL%d ", time_diff, pkt_count, channel_number, pdu_type, PDU_TYPE_STR[pdu_type], tx_add, rx_add, payload_len);
     
     print_pdu_payload((void *)(&adv_pdu_payload), pdu_type, payload_len, crc_flag);
   }
-  if (pkt_count>pkt_count_old)
-    printf("%d\n\n", start_offset);
 }
 //----------------------------------receiver----------------------------------
 
@@ -1437,7 +1437,8 @@ int main(int argc, char** argv) {
       #endif
       
       // -----------------------------real online run--------------------------------
-      receiver(rxp, LEN_BUF_MAX_NUM_PHY_SAMPLE+(LEN_BUF/2), 37 );
+      //receiver(rxp, LEN_BUF_MAX_NUM_PHY_SAMPLE+(LEN_BUF/2), chan);
+      receiver(rxp, (LEN_DEMOD_BUF_PREAMBLE_ACCESS-1)*2*SAMPLE_PER_SYMBOL+(LEN_BUF)/2, chan);
       // -----------------------------real online run--------------------------------
       
       run_flag = false;
