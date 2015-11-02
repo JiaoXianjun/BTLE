@@ -1112,7 +1112,7 @@ int parse_adv_pdu_payload_byte(uint8_t *payload_byte, int num_payload_byte, int 
       //payload_parse_result_str = ['AdvA:' AdvA ' InitA:' InitA];
   } else if (pdu_type == 5) {
       if (num_payload_byte!=34) {
-          printf("Error: Payload length %d bytes. Need to be 34 for PDU Type %d)\n", num_payload_byte, pdu_type);
+          printf("Error: Payload length %d bytes. Need to be 34 for PDU Type %d\n", num_payload_byte, pdu_type);
           return(-1);
       }
       payload_type_5 = (ADV_PDU_PAYLOAD_TYPE_5 *)adv_pdu_payload;
@@ -1349,18 +1349,18 @@ void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number) {
     rxp = rxp_in + buf_len_eaten;
     num_symbol_left = (buf_len-buf_len_eaten)/(SAMPLE_PER_SYMBOL*2);
     
-    if (parse_adv_pdu_payload_byte(tmp_byte+2, payload_len, pdu_type, (void *)(&adv_pdu_payload) ) != 0 ) {
-      continue;
-    }
-    
     crc_flag = crc_check(tmp_byte, payload_len+2);
     pkt_count++;
     
     gettimeofday(&time_current_pkt, NULL);
     time_diff = TimevalDiff(&time_current_pkt, &time_pre_pkt);
     time_pre_pkt = time_current_pkt;
+    
     printf("%dus Pkt%d Ch%d AA:8E89BED6 PDU_t%d:%s T%d R%d PloadL%d ", time_diff, pkt_count, channel_number, pdu_type, PDU_TYPE_STR[pdu_type], tx_add, rx_add, payload_len);
     
+    if (parse_adv_pdu_payload_byte(tmp_byte+2, payload_len, pdu_type, (void *)(&adv_pdu_payload) ) != 0 ) {
+      continue;
+    }
     print_pdu_payload((void *)(&adv_pdu_payload), pdu_type, payload_len, crc_flag);
   }
 }
