@@ -1,14 +1,26 @@
 
-A BTLE (Bluetooth Low energy)/BT4.0 radio packet sender ( build based on <a href="https://github.com/mossmann/hackrf">hackrf</a> and <a href="https://github.com/Nuand/bladeRF">bladeRF</a> ) . Also see my tech blog: http://sdr-x.github.io
+A BTLE (Bluetooth Low energy)/BT4.0 radio packet sniffer/scanner and sender ( build based on <a href="https://github.com/mossmann/hackrf">hackrf</a> and <a href="https://github.com/Nuand/bladeRF">bladeRF</a> ) . Also see my tech blog: http://sdr-x.github.io
 
 ==========================================================================
 
 News (See complete introduction section after news section):
 
+03 Nov. 2015: BTLE packet sniffer/scanner btle_rx works! Support HACKRF currently. Usage:
+    
+    btle_rx -c chan -g gain
+
+chan: Channel number. Default value 37. Valid value 37, 38, 39 currently (Advertising channel). Will support all channels 0~39 and flexible Access Address like TI's BTLE packet sniffer.
+
+gain: VGA gain. default value 10. valid value 0~62. LNA has been set to maximum 40dB internally. Gain should be tuned very carefully to ensure best performance under your circumstance. Suggest test from low gain, because high gain always causes severe distortion and get you nothing.
+
+ATTENTION: To support fast/realtime sender and scanner/sniffer, I have changed lib_device->transfer_count to 4 and lib_device->buffer_size to 4096 in hackrf driver: hackrf.c. If you want to use this tool, you'd better also do that change to your driver source code and re-compile, re-install as instructed in <a href="https://github.com/mossmann/hackrf">hackrf</a>
+
 02 Sep. 2015: Fixed-point version. Add new packet type: discovery. Open LightBlue APP in your iPhone/device, then:
 
     btle_tx packets_discovery.txt
     (packets_discovery.txt is under host/btle-tools/src)
+
+You will see a device named as "CA1308 11950 22.626 113.823 8" in your LightBlue APP.
 
 DO NOT use space character " " in a command line packet descriptor. You CAN use space in the txt file packet descriptor like above. Command line of above example:
 
@@ -30,7 +42,13 @@ DO NOT use space character " " in a command line packet descriptor. You CAN use 
 All link layer packet formats are supported. (Chapter 2&3, PartB, Volume 6, 
 <a href="https://www.google.fi/url?sa=t&rct=j&q=&esrc=s&source=web&cd=1&cad=rja&uact=8&ved=0CCAQFjAA&url=https%3A%2F%2Fwww.bluetooth.org%2Fdocman%2Fhandlers%2Fdownloaddoc.ashx%3Fdoc_id%3D229737&ei=ui3gU4GkC-up0AW4q4GwBw&usg=AFQjCNFY1IFeFAAWwimnoaWMsIRZQvPDSw&sig2=wTgMMxNPJ52NHclpsQ4XhQ&bvm=bv.72197243,d.d2k">Core_V4.0.pdf</a>   )
 
-It can be used to transmit arbitrary pre-defined BTLE signal/packet sequence, such as raw bits to GFSK modulator, iBeacon packet, <a href="http://processors.wiki.ti.com/index.php/BLE_sniffer_guide">Connection establishment procedure packet</a> in TI's website, or any other packets you want. Together with TI's packet sniffer, you will have full TX and RX abilities. See <a href="http://youtu.be/Y8ttV5AEb-g">video demo 1</a> (outside China) or <a href="http://v.youku.com/v_show/id_XNzUxMDIzNzAw.html">video demo 2</a> (inside China)
+btle_tx can be used to transmit arbitrary pre-defined BTLE signal/packet sequence, such as raw bits to GFSK modulator, iBeacon packet, <a href="http://processors.wiki.ti.com/index.php/BLE_sniffer_guide">Connection establishment procedure packet</a> in TI's website, or any other packets you want. 
+
+btle_rx can be used as a BTLE packet sniffer/scanner, just like TI'S packet sniffer.
+
+ATTENTION: To support fast/realtime sender and scanner/sniffer, I have changed lib_device->transfer_count to 4 and lib_device->buffer_size to 4096 in hackrf driver: hackrf.c. If you want to use this tool, you'd better also do that change to your driver source code and re-compile, re-install as instructed in <a href="https://github.com/mossmann/hackrf">hackrf</a>
+
+See <a href="http://youtu.be/Y8ttV5AEb-g">video demo 1</a> (outside China) or <a href="http://v.youku.com/v_show/id_XNzUxMDIzNzAw.html">video demo 2</a> (inside China)
 
 ----Build:
 
@@ -41,11 +59,11 @@ It can be used to transmit arbitrary pre-defined BTLE signal/packet sequence, su
     make
     sudo make install  (or not install, just use btle_tx in btle-tools/src)
 
-----Usage method 1:
+----btle_tx Usage method 1:
 
     btle_tx packet1 packet2 ... packetX ...  rN
 
-----Usage method 2:
+----btle_tx Usage method 2:
 
     btle_tx packets.txt
 
@@ -99,7 +117,24 @@ The 3rd packet -- device 1 send an empty Link layer data PDU in channel 9 (decid
 
 Time space between packets are 1s (1000ms). Tune TI's packet sniffer to channel 37, then above establishment procedure will be captured.
 
-----Packet descriptor examples for all formats:
+----Discovery packets example: (which can show any name or services in receiver/scanner, such as LightBlue):
+
+Open LightBlue APP in your iPhone/device, then:
+
+    btle_tx packets_discovery.txt
+    (packets_discovery.txt is under host/btle-tools/src)
+
+You will see a device named as "CA1308 11950 22.626 113.823 8" in your LightBlue APP.
+
+----btle_rx Usage:
+    
+    btle_rx -c chan -g gain
+
+chan: Channel number. Default value 37. Valid value 37, 38, 39 currently (Advertising channel). Will support all channels 0~39 and flexible Access Address like TI's BTLE packet sniffer.
+
+gain: VGA gain. default value 10. valid value 0~62. LNA has been set to maximum 40dB internally. Gain should be tuned very carefully to ensure best performance under your circumstance. Suggest test from low gain, because high gain always causes severe distortion and get you nothing.
+
+----Packet descriptor examples of btle_tx for all formats:
 
 RAW packets: (All bits will be sent to GFSK modulator directly)
 
@@ -134,7 +169,19 @@ DATA CHANNEL packets:
     9-LL_VERSION_IND-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-VersNr-01-CompId-0203-SubVersNr-0405-CRCInit-A77B22
     9-LL_REJECT_IND-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-ErrorCode-00-CRCInit-A77B22
 
+Discovery packets: (which can show any name or services in receiver/scanner, such as LightBlue):
 
+    37-DISCOVERY-TxAdd-1-RxAdd-0-AdvA-010203040506-FLAGS-02-LOCAL_NAME09-CA-TXPOWER-03-SERVICE03-180D1810-SERVICE_DATA-180D40-MANUF_DATA-0001FF-CONN_INTERVAL-0006 (-SERVICE_SOLI14-1811)
+   
+    FLAGS: 0x01 LE Limited Discoverable Mode; 0x02 LE General Discoverable Mode
+    SERVICE:
+    0x02 16-bit Service UUIDs More 16-bit UUIDs available
+    0x03 16-bit Service UUIDs Complete list of 16-bit UUIDs available
+    0x04 32-bit Service UUIDs More 32-bit UUIDs available
+    0x05 32-bit Service UUIDs Complete list of 32-bit UUIDs available
+    0x06 128-bit Service UUIDs More 128-bit UUIDs available
+    0x07 128-bit Service UUIDs Complete list of 128-bit UUIDs available
+    
 -------------------------------------original README of hackrf-------------------------------------
 
 This repository contains hardware designs and software for HackRF, a project to
