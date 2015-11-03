@@ -131,7 +131,7 @@ static void print_usage() {
   printf("    -c --chan\n");
   printf("      channel number. default 37. valid range 0~39\n");
   printf("    -g --gain\n");
-  printf("      rx gain in dB. HACKRF rxvga default 40, valid 0~62, lna in max gain. bladeRF default is max rx gain 66dB (valid 0~66)\n");
+  printf("      rx gain in dB. HACKRF rxvga default 10, valid 0~62, lna in max gain. bladeRF default is max rx gain 66dB (valid 0~66)\n");
   printf("\nSee README for detailed information.\n");
 }
 //----------------------------------print_usage----------------------------------
@@ -375,24 +375,28 @@ inline int open_board(uint64_t freq_hz, int gain, hackrf_device** device) {
 	result = hackrf_open(device);
 	if( result != HACKRF_SUCCESS ) {
 		printf("open_board: hackrf_open() failed: %s (%d)\n", hackrf_error_name(result), result);
+    print_usage();
 		return(-1);
 	}
 
   result = hackrf_set_freq(*device, freq_hz);
   if( result != HACKRF_SUCCESS ) {
     printf("open_board: hackrf_set_freq() failed: %s (%d)\n", hackrf_error_name(result), result);
+    print_usage();
     return(-1);
   }
 
   result = hackrf_set_sample_rate(*device, SAMPLE_PER_SYMBOL*1000000ul);
   if( result != HACKRF_SUCCESS ) {
     printf("open_board: hackrf_set_sample_rate() failed: %s (%d)\n", hackrf_error_name(result), result);
+    print_usage();
     return(-1);
   }
   
   result = hackrf_set_baseband_filter_bandwidth(*device, SAMPLE_PER_SYMBOL*1000000ul/2);
   if( result != HACKRF_SUCCESS ) {
     printf("open_board: hackrf_set_baseband_filter_bandwidth() failed: %s (%d)\n", hackrf_error_name(result), result);
+    print_usage();
     return(-1);
   }
   
@@ -400,6 +404,7 @@ inline int open_board(uint64_t freq_hz, int gain, hackrf_device** device) {
 	result |= hackrf_set_lna_gain(*device, MAX_LNA_GAIN);
   if( result != HACKRF_SUCCESS ) {
     printf("open_board: hackrf_set_txvga_gain() failed: %s (%d)\n", hackrf_error_name(result), result);
+    print_usage();
     return(-1);
   }
 
