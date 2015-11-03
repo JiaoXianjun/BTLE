@@ -48,7 +48,7 @@ btle_rx can be used as a BTLE packet sniffer/scanner, just like TI'S packet snif
 
 ATTENTION: To support fast/realtime sender and scanner/sniffer, I have changed lib_device->transfer_count to 4 and lib_device->buffer_size to 4096 in hackrf driver: hackrf.c. If you want to use this tool, you'd better also do that change to your driver source code and re-compile, re-install as instructed in <a href="https://github.com/mossmann/hackrf">hackrf</a>
 
-See <a href="http://youtu.be/Y8ttV5AEb-g">video demo 1</a> (outside China) or <a href="http://v.youku.com/v_show/id_XNzUxMDIzNzAw.html">video demo 2</a> (inside China)
+See <a href="https://youtu.be/9LDPhOF2yyw">btle_rx video demo</a> and <a href="http://youtu.be/Y8ttV5AEb-g">btle_tx video demo 1</a> (outside China) or <a href="http://v.youku.com/v_show/id_XNzUxMDIzNzAw.html">btle_tx video demo 2</a> (inside China)
 
 ----Build:
 
