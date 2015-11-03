@@ -15,6 +15,8 @@ gain: VGA gain. default value 10. valid value 0~62. LNA has been set to maximum 
 
 ATTENTION: To support fast/realtime sender and scanner/sniffer, I have changed lib_device->transfer_count to 4 and lib_device->buffer_size to 4096 in hackrf driver: hackrf.c. If you want to use this tool, you'd better also do that change to your driver source code and re-compile, re-install as instructed in <a href="https://github.com/mossmann/hackrf">hackrf</a>
 
+See a comparison with TI's packet sniffer here: [http://sdr-x.github.io/BTLE-SNIFFER/](http://sdr-x.github.io/BTLE-SNIFFER/)
+
 02 Sep. 2015: Fixed-point version. Add new packet type: discovery. Open LightBlue APP in your iPhone/device, then:
 
     btle_tx packets_discovery.txt
