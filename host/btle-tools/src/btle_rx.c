@@ -123,19 +123,6 @@ void sigint_callback_handler(int signum)
 
 //----------------------------------some sys stuff----------------------------------
 
-//----------------------------------print_usage----------------------------------
-static void print_usage() {
-	printf("Usage:\n");
-  printf("    -h --help\n");
-  printf("      print this help screen\n");
-  printf("    -c --chan\n");
-  printf("      channel number. default 37. valid range 0~39\n");
-  printf("    -g --gain\n");
-  printf("      rx gain in dB. HACKRF rxvga default 10, valid 0~62, lna in max gain. bladeRF default is max rx gain 66dB (valid 0~66)\n");
-  printf("\nSee README for detailed information.\n");
-}
-//----------------------------------print_usage----------------------------------
-
 //----------------------------------some basic signal definition----------------------------------
 #define SAMPLE_PER_SYMBOL 4 // 4M sampling rate
 
@@ -149,6 +136,7 @@ volatile int rx_buf_offset; // remember to initialize it!
 //----------------------------------BTLE SPEC related--------------------------------
 #include "scramble_table.h"
 #define DEFAULT_CHANNEL 37
+#define DEFAULT_ACCESS_ADDR (0x8E89BED6)
 #define MAX_CHANNEL_NUMBER 39
 #define MAX_NUM_INFO_BYTE (43)
 #define MAX_NUM_PHY_BYTE (47)
@@ -160,6 +148,8 @@ volatile int rx_buf_offset; // remember to initialize it!
 #define NUM_ACCESS_ADDR_BYTE (4)
 #define NUM_PREAMBLE_ACCESS_BYTE (NUM_PREAMBLE_BYTE+NUM_ACCESS_ADDR_BYTE)
 //----------------------------------BTLE SPEC related--------------------------------
+
+static void print_usage(void);
 
 //----------------------------------board specific operation----------------------------------
 
@@ -330,7 +320,7 @@ void stop_close_board(bladerf_device* rf_dev){
 #else //-----------------------------the board is HACKRF-----------------------------
 char *board_name = "HACKRF";
 #define MAX_GAIN 62
-#define DEFAULT_GAIN 10
+#define DEFAULT_GAIN 6
 #define MAX_LNA_GAIN 40
 
 typedef int8_t IQ_TYPE;
@@ -493,6 +483,21 @@ void stop_close_board(hackrf_device* device){
 #endif  //#ifdef USE_BLADERF
 //----------------------------------board specific operation----------------------------------
 
+//----------------------------------print_usage----------------------------------
+static void print_usage() {
+	printf("Usage:\n");
+  printf("    -h --help\n");
+  printf("      Print this help screen\n");
+  printf("    -c --chan\n");
+  printf("      Channel number. default 37. valid range 0~39\n");
+  printf("    -g --gain\n");
+  printf("      Rx gain in dB. HACKRF rxvga default %d, valid 0~62, lna in max gain. bladeRF default is max rx gain 66dB (valid 0~66)\n", DEFAULT_GAIN);
+  printf("    -a --access\n");
+  printf("      Access addr. Hex format (like 89ABCDEF). Default %08x for channel 37 38 39. For other channel you should pick correct value according to sniffed link setup procedure\n", DEFAULT_ACCESS_ADDR);
+  printf("\nSee README for detailed information.\n");
+}
+//----------------------------------print_usage----------------------------------
+
 //----------------------------------MISC MISC MISC----------------------------------
 char* toupper_str(char *input_str, char *output_str) {
   int len_str = strlen(input_str);
@@ -533,6 +538,15 @@ void int_to_bit(int n, uint8_t *bit) {
   bit[5] = 0x01&(n>>5);
   bit[6] = 0x01&(n>>6);
   bit[7] = 0x01&(n>>7);
+}
+
+void uint32_to_bit_array(uint32_t uint32_in, uint8_t *bit) {
+  int i;
+  uint32_t uint32_tmp = uint32_in;
+  for(i=0; i<32; i++) {
+    bit[i] = 0x01&uint32_tmp;
+    uint32_tmp = (uint32_tmp>>1);
+  }
 }
 
 void byte_array_to_bit_array(uint8_t *byte_in, int num_byte, uint8_t *bit) {
@@ -867,7 +881,8 @@ void parse_commandline(
   char * const argv[],
   // Outputs
   int* chan,
-  int* gain
+  int* gain,
+  uint32_t* access_addr
 ) {
   printf("BTLE/BT4.0 Scanner(NO bladeRF support so far). Xianjun Jiao. putaoshu@gmail.com\n\n");
   
@@ -875,17 +890,20 @@ void parse_commandline(
   (*chan) = DEFAULT_CHANNEL;
 
   (*gain) = DEFAULT_GAIN;
+  
+  (*access_addr) = DEFAULT_ACCESS_ADDR;
 
   while (1) {
     static struct option long_options[] = {
       {"help",         no_argument,       0, 'h'},
       {"chan",   required_argument, 0, 'c'},
       {"gain",         required_argument, 0, 'g'},
+      {"access",         required_argument, 0, 'a'},
       {0, 0, 0, 0}
     };
     /* getopt_long stores the option index here. */
     int option_index = 0;
-    int c = getopt_long (argc, argv, "hc:g:",
+    int c = getopt_long (argc, argv, "hc:g:a:",
                      long_options, &option_index);
 
     /* Detect the end of the options. */
@@ -911,6 +929,10 @@ void parse_commandline(
         
       case 'g':
         (*gain) = strtol(optarg,&endp,10);
+        break;
+        
+      case 'a':
+        (*access_addr) = strtol(optarg,&endp,16);
         break;
         
       case '?':
@@ -950,45 +972,17 @@ abnormal_quit:
 //----------------------------------receiver----------------------------------
 
 //#define LEN_DEMOD_BUF_PREAMBLE_ACCESS ( (NUM_PREAMBLE_ACCESS_BYTE*8)-8 ) // to get 2^x integer
-#define LEN_DEMOD_BUF_PREAMBLE_ACCESS 32
+//#define LEN_DEMOD_BUF_PREAMBLE_ACCESS 32
 //#define LEN_DEMOD_BUF_PREAMBLE_ACCESS (NUM_PREAMBLE_ACCESS_BYTE*8)
-typedef enum {
-  RISE_EDGE,
-  FALL_EDGE
-} EDGE_TYPE;
-static uint8_t demod_buf_preamble_access[SAMPLE_PER_SYMBOL][LEN_DEMOD_BUF_PREAMBLE_ACCESS];
-uint8_t preamble_access_byte[NUM_PREAMBLE_ACCESS_BYTE] = {0xAA, 0xD6, 0xBE, 0x89, 0x8E};
-uint8_t preamble_access_bit[NUM_PREAMBLE_ACCESS_BYTE*8];
-uint8_t tmp_byte[2+37+3]; // header length + maximum payload length 37 + 3 octets CRC
+#define LEN_DEMOD_BUF_ACCESS (NUM_ACCESS_ADDR_BYTE*8) //32 = 2^5
 
-bool edge_detect(IQ_TYPE *rxp, EDGE_TYPE edge_target, int avg_len, int th) {
-  int fake_power[2] = {0, 0};
-  int i, j, sample_idx;
-  
-  sample_idx = 0;
-  for (i=0; i<2; i++) {
-    for (j=0; j<avg_len; j++) {
-      fake_power[i] = fake_power[i] + rxp[sample_idx]*rxp[sample_idx] + rxp[sample_idx+1]*rxp[sample_idx+1];
-      sample_idx = sample_idx + 2;
-    }
-  }
-  
-  if (edge_target == RISE_EDGE) {
-    if (fake_power[1] > fake_power[0]*th) {
-      return(true);
-    } else {
-      return(false);
-    }
-  } else {
-    if (fake_power[0] > fake_power[1]*th) {
-      return(true);
-    } else {
-      return(false);
-    }
-  }
-  
-  return(false);
-}
+//static uint8_t demod_buf_preamble_access[SAMPLE_PER_SYMBOL][LEN_DEMOD_BUF_PREAMBLE_ACCESS];
+static uint8_t demod_buf_access[SAMPLE_PER_SYMBOL][LEN_DEMOD_BUF_ACCESS];
+//uint8_t preamble_access_byte[NUM_PREAMBLE_ACCESS_BYTE] = {0xAA, 0xD6, 0xBE, 0x89, 0x8E};
+uint8_t access_byte[NUM_ACCESS_ADDR_BYTE] = {0xD6, 0xBE, 0x89, 0x8E};
+//uint8_t preamble_access_bit[NUM_PREAMBLE_ACCESS_BYTE*8];
+uint8_t access_bit[NUM_ACCESS_ADDR_BYTE*8];
+uint8_t tmp_byte[2+37+3]; // header length + maximum payload length 37 + 3 octets CRC
 
 void demod_byte(IQ_TYPE* rxp, int num_byte, uint8_t *out_byte) {
   int i, j;
@@ -1018,7 +1012,8 @@ inline int search_unique_bits(IQ_TYPE* rxp, int search_len, uint8_t *unique_bits
   int demod_buf_offset = 0;
   
   //demod_buf_preamble_access[SAMPLE_PER_SYMBOL][LEN_DEMOD_BUF_PREAMBLE_ACCESS]
-  memset(demod_buf_preamble_access, 0, SAMPLE_PER_SYMBOL*LEN_DEMOD_BUF_PREAMBLE_ACCESS);
+  //memset(demod_buf_preamble_access, 0, SAMPLE_PER_SYMBOL*LEN_DEMOD_BUF_PREAMBLE_ACCESS);
+  memset(demod_buf_access, 0, SAMPLE_PER_SYMBOL*LEN_DEMOD_BUF_ACCESS);
   for(i=0; i<search_len*SAMPLE_PER_SYMBOL*2; i=i+(SAMPLE_PER_SYMBOL*2)) {
     sp = ( (demod_buf_offset-demod_buf_len+1)&(demod_buf_len-1) );
     //sp = (demod_buf_offset-demod_buf_len+1);
@@ -1032,12 +1027,14 @@ inline int search_unique_bits(IQ_TYPE* rxp, int search_len, uint8_t *unique_bits
       q1 = rxp[i+j+3];
       
       phase_idx = j/2;
-      demod_buf_preamble_access[phase_idx][demod_buf_offset] = (i0*q1 - i1*q0) > 0? 1: 0;
+      //demod_buf_preamble_access[phase_idx][demod_buf_offset] = (i0*q1 - i1*q0) > 0? 1: 0;
+      demod_buf_access[phase_idx][demod_buf_offset] = (i0*q1 - i1*q0) > 0? 1: 0;
       
       k = sp;
       unequal_flag = false;
       for (p=0; p<demod_buf_len; p++) {
-        if (demod_buf_preamble_access[phase_idx][k] != unique_bits[p]) {
+        //if (demod_buf_preamble_access[phase_idx][k] != unique_bits[p]) {
+        if (demod_buf_access[phase_idx][k] != unique_bits[p]) {
           unequal_flag = true;
           break;
         }
@@ -1216,7 +1213,7 @@ void parse_adv_pdu_header_byte(uint8_t *byte_in, int *pdu_type, int *tx_add, int
 }
 
 inline void receiver_init(void) {
-  byte_array_to_bit_array(preamble_access_byte, 5, preamble_access_bit);
+  byte_array_to_bit_array(access_byte, 4, access_bit);
 }
 
 bool crc_check(uint8_t *tmp_byte, int body_len) {
@@ -1286,7 +1283,7 @@ void print_pdu_payload(void *adv_pdu_payload, int pdu_type, int payload_len, boo
     printf(" CRC%d\n", crc_flag);
 }
 
-void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number) {
+void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number, uint32_t access_addr) {
   static int pkt_count = 0;
   static ADV_PDU_PAYLOAD_TYPE_5 adv_pdu_payload;
   static struct timeval time_current_pkt, time_pre_pkt;
@@ -1301,10 +1298,11 @@ void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number) {
     time_pre_pkt = time_current_pkt;
   }
 
+  uint32_to_bit_array(access_addr, access_bit);
   buf_len_eaten = 0;
   while( 1 ) 
   {
-    hit_idx = search_unique_bits(rxp, num_symbol_left, preamble_access_bit, LEN_DEMOD_BUF_PREAMBLE_ACCESS);
+    hit_idx = search_unique_bits(rxp, num_symbol_left, access_bit, LEN_DEMOD_BUF_ACCESS);
     if ( hit_idx == -1 ) {
       break;
     }
@@ -1316,7 +1314,7 @@ void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number) {
     buf_len_eaten = buf_len_eaten + hit_idx;
     //printf("%d\n", buf_len_eaten);
     
-    buf_len_eaten = buf_len_eaten + 8*NUM_PREAMBLE_ACCESS_BYTE*2*SAMPLE_PER_SYMBOL;// move to beginning of PDU header
+    buf_len_eaten = buf_len_eaten + 8*NUM_ACCESS_ADDR_BYTE*2*SAMPLE_PER_SYMBOL;// move to beginning of PDU header
     rxp = rxp_in + buf_len_eaten;
     
     num_demod_byte = 2; // PDU header has 2 octets
@@ -1361,7 +1359,7 @@ void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number) {
     time_diff = TimevalDiff(&time_current_pkt, &time_pre_pkt);
     time_pre_pkt = time_current_pkt;
     
-    printf("%dus Pkt%d Ch%d AA:8E89BED6 PDU_t%d:%s T%d R%d PloadL%d ", time_diff, pkt_count, channel_number, pdu_type, PDU_TYPE_STR[pdu_type], tx_add, rx_add, payload_len);
+    printf("%dus Pkt%d Ch%d AA:%08x PDU_t%d:%s T%d R%d PloadL%d ", time_diff, pkt_count, channel_number, access_addr, pdu_type, PDU_TYPE_STR[pdu_type], tx_add, rx_add, payload_len);
     
     if (parse_adv_pdu_payload_byte(tmp_byte+2, payload_len, pdu_type, (void *)(&adv_pdu_payload) ) != 0 ) {
       continue;
@@ -1377,13 +1375,14 @@ IQ_TYPE tmp_buf[2097152];
 int main(int argc, char** argv) {
   uint64_t freq_hz;
   int gain, chan, phase, rx_buf_offset_tmp;
+  uint32_t access_addr;
   bool run_flag = false;
   void* rf_dev;
   IQ_TYPE *rxp;
 
-  parse_commandline(argc, argv, &chan, &gain);
+  parse_commandline(argc, argv, &chan, &gain, &access_addr);
   freq_hz = get_freq_by_channel_number(chan);
-  printf("cmd line input: chan %d, freq %ldMHz, rx %ddB (%s)\n", chan, freq_hz/1000000, gain, board_name);
+  printf("Cmd line input: chan %d, freq %ldMHz, access addr %08x, rx %ddB (%s)\n", chan, freq_hz/1000000, access_addr, gain, board_name);
   
   // run cyclic recv in background
   do_exit = false;
@@ -1396,7 +1395,7 @@ int main(int argc, char** argv) {
     }
   }
   // init receiver
-  receiver_init();
+  //receiver_init();
   
   // scan
   do_exit = false;
@@ -1436,14 +1435,14 @@ int main(int argc, char** argv) {
       // ------------------------for offline test -------------------------------------
       //save_phy_sample(rx_buf+buf_sp, LEN_BUF/2, "/home/jxj/git/BTLE/matlab/sample_iq_4msps.txt");
       load_phy_sample(tmp_buf, 2097152, "/home/jxj/git/BTLE/matlab/sample_iq_4msps.txt");
-      receiver(tmp_buf, 2097152, 37);
+      receiver(tmp_buf, 2097152, 37, 0x8E89BED6);
       break;
       // ------------------------for offline test -------------------------------------
       #endif
       
       // -----------------------------real online run--------------------------------
       //receiver(rxp, LEN_BUF_MAX_NUM_PHY_SAMPLE+(LEN_BUF/2), chan);
-      receiver(rxp, (LEN_DEMOD_BUF_PREAMBLE_ACCESS-1)*2*SAMPLE_PER_SYMBOL+(LEN_BUF)/2, chan);
+      receiver(rxp, (LEN_DEMOD_BUF_ACCESS-1)*2*SAMPLE_PER_SYMBOL+(LEN_BUF)/2, chan, access_addr);
       // -----------------------------real online run--------------------------------
       
       run_flag = false;
