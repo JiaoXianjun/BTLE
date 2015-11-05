@@ -175,13 +175,76 @@ int tx_callback(hackrf_transfer* transfer) {
   }
   #endif
   
-  #if 1 // ----------------- simple one   ----------------
+  #if 0 // ----------------- simple one   ----------------
   if (~stop_tx) {
     memset(transfer->buffer, 0, NUM_PRE_SEND_DATA);
     memcpy(transfer->buffer+NUM_PRE_SEND_DATA, (char *)(tx_buf), tx_len);
     stop_tx = 1;
   } else {
     memset(transfer->buffer, 0, transfer->valid_length);
+  }
+  #endif
+  
+  //lib_device->transfer_count = 4;
+  #if 1
+  int size_left;
+  switch(stop_tx) {
+    
+    case 0:
+      memset(transfer->buffer, 0, NUM_PRE_SEND_DATA);
+      memcpy(transfer->buffer+NUM_PRE_SEND_DATA, (char *)(tx_buf), tx_len);
+
+      size_left = (transfer->valid_length - tx_len - NUM_PRE_SEND_DATA);
+      memset(transfer->buffer+NUM_PRE_SEND_DATA+tx_len, 0, size_left);
+
+      stop_tx = 1;
+      break;
+      
+    case 1:
+      memset(transfer->buffer, 0, transfer->valid_length);
+      stop_tx = 2;
+      break;
+      
+    case 2:
+      memset(transfer->buffer, 0, transfer->valid_length);
+      stop_tx = 3;
+      break;
+    
+    case 3:
+      memset(transfer->buffer, 0, transfer->valid_length);
+      stop_tx = 4;
+      break;
+    
+    case 4:
+      memset(transfer->buffer, 0, transfer->valid_length);
+      stop_tx = 5;
+      break;
+
+    case 5:
+      memset(transfer->buffer, 0, transfer->valid_length);
+      stop_tx = 6;
+      break;
+
+    case 6:
+      memset(transfer->buffer, 0, transfer->valid_length);
+      stop_tx = 7;
+      break;
+      
+    case 7:
+      memset(transfer->buffer, 0, transfer->valid_length);
+      stop_tx = 8;
+      break;
+      
+    case 8:
+      memset(transfer->buffer, 0, transfer->valid_length);
+      stop_tx = 9;
+      break;
+
+    default:
+      memset(transfer->buffer, 0, transfer->valid_length);
+      stop_tx = 9;
+      break;
+      
   }
   #endif
   
@@ -287,7 +350,7 @@ int init_board() {
       status = -1;
       goto initialize_device_out_point;
   } else if (fpga_loaded == 0) {
-      printf("init_board: The device's FPGA is not loaded.\n");
+      printf("init_board: The device's FPGA is not loaded. Please load it by bladeRF-cli -l /path/to/fpga/file firstly!\n");
       status = -1;
       goto initialize_device_out_point;
   }
@@ -538,7 +601,75 @@ inline int tx_one_buf(char *buf, int length, int channel_number) {
     return(-1);
   }
 
-  // first round useless TX---------------------------------
+  // first round TX---------------------------------
+  stop_tx = 0;
+
+  result = hackrf_start_tx(device, tx_callback, NULL);
+  if( result != HACKRF_SUCCESS ) {
+    printf("tx_one_buf: hackrf_start_tx() failed: %s (%d)\n", hackrf_error_name(result), result);
+    return(-1);
+  }
+
+  while( (hackrf_is_streaming(device) == HACKRF_TRUE) &&
+      (do_exit == false) )
+  {
+    if (stop_tx==9) {
+      break;
+    }
+  }
+
+  if (do_exit)
+  {
+    printf("\ntx_one_buf: Exiting...\n");
+    return(-1);
+  }
+
+  result = hackrf_stop_tx(device);
+  if( result != HACKRF_SUCCESS ) {
+    printf("tx_one_buf: hackrf_stop_tx() failed: %s (%d)\n", hackrf_error_name(result), result);
+    return(-1);
+  }
+
+#if 0
+  do_exit = false;
+  
+  // second round TX-----------------------------------
+  tx_buf = tx_zeros;
+  tx_len = HACKRF_USB_BUF_SIZE-NUM_PRE_SEND_DATA;
+  //tx_buf = buf;
+  //tx_len = length;
+
+  stop_tx = 0;
+
+  result = hackrf_start_tx(device, tx_callback, NULL);
+  if( result != HACKRF_SUCCESS ) {
+    printf("tx_one_buf: hackrf_start_tx() failed: %s (%d)\n", hackrf_error_name(result), result);
+    return(-1);
+  }
+
+  while( (hackrf_is_streaming(device) == HACKRF_TRUE) &&
+      (do_exit == false) )
+  {
+    if (stop_tx==1) {
+      break;
+    }
+  }
+
+  if (do_exit)
+  {
+    printf("\ntx_one_buf: Exiting...\n");
+    return(-1);
+  }
+  
+  result = hackrf_stop_tx(device);
+  if( result != HACKRF_SUCCESS ) {
+    printf("tx_one_buf: hackrf_stop_tx() failed: %s (%d)\n", hackrf_error_name(result), result);
+    return(-1);
+  }
+
+  do_exit = false;
+
+  // another round to flush ------------------------------
   stop_tx = 0;
 
   result = hackrf_start_tx(device, tx_callback, NULL);
@@ -568,11 +699,8 @@ inline int tx_one_buf(char *buf, int length, int channel_number) {
   }
 
   do_exit = false;
-  
-  // second round actual TX-----------------------------------
-  tx_buf = buf;
-  tx_len = length;
 
+  // another round to flush ------------------------------
   stop_tx = 0;
 
   result = hackrf_start_tx(device, tx_callback, NULL);
@@ -594,6 +722,7 @@ inline int tx_one_buf(char *buf, int length, int channel_number) {
     printf("\ntx_one_buf: Exiting...\n");
     return(-1);
   }
+#endif
 
   // close the board---------------------------------------
   if (close_board() == -1) {
@@ -4089,12 +4218,26 @@ int main(int argc, char** argv) {
 #if 1
   #ifndef USE_BLADERF
   //flush hackrf onboard buf
-  for(i=0; i<(HACKRF_ONBOARD_BUF_SIZE/HACKRF_USB_BUF_SIZE)+5; i++) {
+  #if 0
+  for(i=0; i<(HACKRF_ONBOARD_BUF_SIZE/HACKRF_USB_BUF_SIZE)+16; i++) {
     if ( tx_one_buf(tx_zeros, HACKRF_USB_BUF_SIZE-NUM_PRE_SEND_DATA, packets[0].channel_number) == -1 ){
         close_board();
         goto main_out;
-      }
+    }
   }
+  #endif
+  
+  #if 0
+  if ( tx_one_buf(tx_zeros, HACKRF_USB_BUF_SIZE-NUM_PRE_SEND_DATA, packets[0].channel_number) == -1 ){
+      close_board();
+      goto main_out;
+    }
+  if ( tx_one_buf(tx_zeros, HACKRF_USB_BUF_SIZE-NUM_PRE_SEND_DATA, packets[0].channel_number) == -1 ){
+      close_board();
+      goto main_out;
+    }
+  #endif
+  
   #endif
   
   struct timeval time_tmp, time_current_pkt, time_pre_pkt;
@@ -4109,6 +4252,13 @@ int main(int argc, char** argv) {
         goto main_out;
       }
 
+      #if 0
+      if ( tx_one_buf(tx_zeros, HACKRF_USB_BUF_SIZE-NUM_PRE_SEND_DATA, packets[0].channel_number) == -1 ){
+        close_board();
+        goto main_out;
+      }
+      #endif
+      
       printf("r%d p%d at %dus\n", j, i,  TimevalDiff(&time_current_pkt, &time_pre_pkt) );
 
       gettimeofday(&time_tmp, NULL);
