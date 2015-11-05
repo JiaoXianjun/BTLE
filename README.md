@@ -7,11 +7,13 @@ News (See complete introduction section after news section):
 
 03 Nov. 2015: BTLE packet sniffer/scanner btle_rx works! Support HACKRF currently. Usage:
     
-    btle_rx -c chan -g gain
+    btle_rx -c chan -g gain -a access_addr
 
-chan: Channel number. Default value 37. Valid value 37, 38, 39 currently (Advertising channel). Will support all channels 0~39 and flexible Access Address like TI's BTLE packet sniffer.
+chan: Channel number. Default value 37. Valid value 0~39. currently non 37 38 39 channel (advertising) are still under development. Will support all channels 0~39 and flexible Access Address like TI's BTLE packet sniffer.
 
-gain: VGA gain. default value 10. valid value 0~62. LNA has been set to maximum 40dB internally. Gain should be tuned very carefully to ensure best performance under your circumstance. Suggest test from low gain, because high gain always causes severe distortion and get you nothing.
+gain: VGA gain. default value 6. valid value 0~62. LNA has been set to maximum 40dB internally. Gain should be tuned very carefully to ensure best performance under your circumstance. Suggest test from low gain, because high gain always causes severe distortion and get you nothing.
+
+access_addr: access address. Default value 8e89bed6 for channel 37 38 39.
 
 ATTENTION: To support fast/realtime sender and scanner/sniffer, I have changed lib_device->transfer_count to 4 and lib_device->buffer_size to 4096 in hackrf driver: hackrf.c. If you want to use this tool, you'd better also do that change to your driver source code and re-compile, re-install as instructed in <a href="https://github.com/mossmann/hackrf">hackrf</a>
 
@@ -130,11 +132,13 @@ You will see a device named as "CA1308 11950 22.626 113.823 8" in your LightBlue
 
 ----btle_rx Usage:
     
-    btle_rx -c chan -g gain
+    btle_rx -c chan -g gain -a access_addr
 
-chan: Channel number. Default value 37. Valid value 37, 38, 39 currently (Advertising channel). Will support all channels 0~39 and flexible Access Address like TI's BTLE packet sniffer.
+chan: Channel number. Default value 37. Valid value 0~39. currently non 37 38 39 channel (advertising) are still under development. Will support all channels 0~39 and flexible Access Address like TI's BTLE packet sniffer.
 
-gain: VGA gain. default value 10. valid value 0~62. LNA has been set to maximum 40dB internally. Gain should be tuned very carefully to ensure best performance under your circumstance. Suggest test from low gain, because high gain always causes severe distortion and get you nothing.
+gain: VGA gain. default value 6. valid value 0~62. LNA has been set to maximum 40dB internally. Gain should be tuned very carefully to ensure best performance under your circumstance. Suggest test from low gain, because high gain always causes severe distortion and get you nothing.
+
+access_addr: access address. Default value 8e89bed6 for channel 37 38 39.
 
 ----Packet descriptor examples of btle_tx for all formats:
 
