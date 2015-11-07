@@ -498,7 +498,9 @@ static void print_usage() {
   printf("    -k --crcinit\n");
   printf("      CRC init value. 3 bytes. Hex format (like 555555). Default %06x for channel 37 38 39. For other channel you should pick correct value according to sniffed link setup procedure\n", DEFAULT_CRC_INIT);
   printf("    -v --verbose\n");
-  printf("      Print contents anyway even if there is error\n");
+  printf("      Print more information when there is error\n");
+  printf("    -r --raw\n");
+  printf("      Raw mode. After access addr is detected, print out following raw 42 bytes (without descrambling, parsing)\n");
   printf("\nSee README for detailed information.\n");
 }
 //----------------------------------print_usage----------------------------------
@@ -1000,7 +1002,8 @@ void parse_commandline(
   int* gain,
   uint32_t* access_addr,
   uint32_t* crc_init,
-  int* verbose_flag
+  int* verbose_flag,
+  int* raw_flag
 ) {
   printf("BTLE/BT4.0 Scanner(NO bladeRF support so far). Xianjun Jiao. putaoshu@gmail.com\n\n");
   
@@ -1014,6 +1017,8 @@ void parse_commandline(
   (*crc_init) = 0x555555;
   
   (*verbose_flag) = 0;
+  
+  (*raw_flag) = 0;
 
   while (1) {
     static struct option long_options[] = {
@@ -1023,11 +1028,12 @@ void parse_commandline(
       {"access",         required_argument, 0, 'a'},
       {"crcinit",           required_argument, 0, 'k'},
       {"verbose",         no_argument, 0, 'v'},
+      {"raw",         no_argument, 0, 'r'},
       {0, 0, 0, 0}
     };
     /* getopt_long stores the option index here. */
     int option_index = 0;
-    int c = getopt_long (argc, argv, "hc:g:a:k:v",
+    int c = getopt_long (argc, argv, "hc:g:a:k:vr",
                      long_options, &option_index);
 
     /* Detect the end of the options. */
@@ -1045,6 +1051,10 @@ void parse_commandline(
       
       case 'v':
         (*verbose_flag) = 1;
+        break;
+        
+      case 'r':
+        (*raw_flag) = 1;
         break;
         
       case 'h':
@@ -1777,7 +1787,7 @@ void print_adv_pdu_payload(void *adv_pdu_payload, ADV_PDU_TYPE pdu_type, int pay
     printf(" CRC%d\n", crc_flag);
 }
 
-void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number, uint32_t access_addr, uint32_t crc_init, int verbose_flag) {
+void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number, uint32_t access_addr, uint32_t crc_init, int verbose_flag, int raw_flag) {
   static int pkt_count = 0;
   static ADV_PDU_PAYLOAD_TYPE_R adv_pdu_payload;
   static LL_DATA_PDU_PAYLOAD_TYPE ll_data_pdu_payload;
@@ -1788,7 +1798,7 @@ void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number, uint32_t access_
   LL_PDU_TYPE ll_pdu_type;
   
   IQ_TYPE *rxp = rxp_in;
-  int num_demod_byte, hit_idx, buf_len_eaten, adv_tx_add, adv_rx_add, ll_nesn, ll_sn, ll_md, payload_len, time_diff, ll_ctrl_pdu_type;
+  int num_demod_byte, hit_idx, buf_len_eaten, adv_tx_add, adv_rx_add, ll_nesn, ll_sn, ll_md, payload_len, time_diff, ll_ctrl_pdu_type, i;
   int num_symbol_left = buf_len/(SAMPLE_PER_SYMBOL*2); //2 for IQ
   bool crc_flag;
   bool adv_flag = (channel_number==37 || channel_number==38 || channel_number==39);
@@ -1817,7 +1827,11 @@ void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number, uint32_t access_
     buf_len_eaten = buf_len_eaten + 8*NUM_ACCESS_ADDR_BYTE*2*SAMPLE_PER_SYMBOL;// move to beginning of PDU header
     rxp = rxp_in + buf_len_eaten;
     
-    num_demod_byte = 2; // PDU header has 2 octets
+    if (raw_flag)
+      num_demod_byte = 42;
+    else
+      num_demod_byte = 2; // PDU header has 2 octets
+      
     buf_len_eaten = buf_len_eaten + 8*num_demod_byte*2*SAMPLE_PER_SYMBOL;
     //if ( buf_len_eaten > buf_len ) {
     if ( buf_len_eaten > demod_buf_len ) {
@@ -1825,18 +1839,36 @@ void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number, uint32_t access_
     }
 
     demod_byte(rxp, num_demod_byte, tmp_byte);
-    //printf("%d %d %d %d %d %d %d %d\n", rxp[0], rxp[1], rxp[2], rxp[3], rxp[4], rxp[5], rxp[6], rxp[7]);
-    //printf("%d %d %d %d %d %d %d %d\n", rxp[8+0], rxp[8+1], rxp[8+2], rxp[8+3], rxp[8+4], rxp[8+5], rxp[8+6], rxp[8+7]);
-    scramble_byte(tmp_byte, num_demod_byte, scramble_table[channel_number], tmp_byte);
+    if(!raw_flag) scramble_byte(tmp_byte, num_demod_byte, scramble_table[channel_number], tmp_byte);
     rxp = rxp_in + buf_len_eaten;
     num_symbol_left = (buf_len-buf_len_eaten)/(SAMPLE_PER_SYMBOL*2);
+    
+    if (raw_flag) { //raw recv stop here
+      pkt_count++;
+    
+      gettimeofday(&time_current_pkt, NULL);
+      time_diff = TimevalDiff(&time_current_pkt, &time_pre_pkt);
+      time_pre_pkt = time_current_pkt;
+    
+      printf("%dus Pkt%d Ch%d AA:%08x ", time_diff, pkt_count, channel_number, access_addr);
+      printf("Raw:");
+      for(i=0; i<42; i++) {
+        printf("%02x", tmp_byte[i]);
+      }
+      printf("\n");
+      
+      continue;
+    }
     
     if (adv_flag)
     {
       parse_adv_pdu_header_byte(tmp_byte, &adv_pdu_type, &adv_tx_add, &adv_rx_add, &payload_len);
       if( payload_len<6 || payload_len>37 ) {
-        if (verbose_flag)
+        if (verbose_flag) {
+          printf("XXXus PktBAD Ch%d AA:%08x ", channel_number, access_addr);
+          printf("ADV_PDU_t%d:%s T%d R%d PloadL%d ", adv_pdu_type, ADV_PDU_TYPE_STR[adv_pdu_type], adv_tx_add, adv_rx_add, payload_len);
           printf("Error: ADV payload length should be 6~37!\n");
+        }
         continue;
       }
     } else {
@@ -1890,15 +1922,15 @@ IQ_TYPE tmp_buf[2097152];
 //---------------------------for offline test--------------------------------------
 int main(int argc, char** argv) {
   uint64_t freq_hz;
-  int gain, chan, phase, rx_buf_offset_tmp, verbose_flag;
+  int gain, chan, phase, rx_buf_offset_tmp, verbose_flag, raw_flag;
   uint32_t access_addr, crc_init, crc_init_internal;
   bool run_flag = false;
   void* rf_dev;
   IQ_TYPE *rxp;
 
-  parse_commandline(argc, argv, &chan, &gain, &access_addr, &crc_init, &verbose_flag);
+  parse_commandline(argc, argv, &chan, &gain, &access_addr, &crc_init, &verbose_flag, &raw_flag);
   freq_hz = get_freq_by_channel_number(chan);
-  printf("Cmd line input: chan %d, freq %ldMHz, access addr %08x, crc init %06x rx %ddB (%s)\n", chan, freq_hz/1000000, access_addr, crc_init, gain, board_name);
+  printf("Cmd line input: chan %d, freq %ldMHz, access addr %08x, crc init %06x raw %d verbose %d rx %ddB (%s)\n", chan, freq_hz/1000000, access_addr, crc_init, raw_flag, verbose_flag, gain, board_name);
   
   // run cyclic recv in background
   do_exit = false;
@@ -1953,14 +1985,14 @@ int main(int argc, char** argv) {
       // ------------------------for offline test -------------------------------------
       //save_phy_sample(rx_buf+buf_sp, LEN_BUF/2, "/home/jxj/git/BTLE/matlab/sample_iq_4msps.txt");
       load_phy_sample(tmp_buf, 2097152, "/home/jxj/git/BTLE/matlab/sample_iq_4msps.txt");
-      receiver(tmp_buf, 2097152, 37, 0x8E89BED6, 0x555555, 1);
+      receiver(tmp_buf, 2097152, 37, 0x8E89BED6, 0x555555, 1, 0);
       break;
       // ------------------------for offline test -------------------------------------
       #endif
       
       // -----------------------------real online run--------------------------------
       //receiver(rxp, LEN_BUF_MAX_NUM_PHY_SAMPLE+(LEN_BUF/2), chan);
-      receiver(rxp, (LEN_DEMOD_BUF_ACCESS-1)*2*SAMPLE_PER_SYMBOL+(LEN_BUF)/2, chan, access_addr, crc_init_internal, verbose_flag);
+      receiver(rxp, (LEN_DEMOD_BUF_ACCESS-1)*2*SAMPLE_PER_SYMBOL+(LEN_BUF)/2, chan, access_addr, crc_init_internal, verbose_flag, raw_flag);
       // -----------------------------real online run--------------------------------
       
       run_flag = false;
