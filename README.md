@@ -158,7 +158,7 @@ crc_init: Default 555555 for ADV channel. You should specify correct value for d
 
 RAW packets: (All bits will be sent to GFSK modulator directly)
 
-    13-RAW-AAD6BE898E5F134B5D86F2999CC3D7DF5EDF15DEE39AA2E5D0728EB68B0E449B07C547B80EAA8DD257A0E5EACB0B
+    13-RAW-aad6be898e8dc3ce338c4cb1207730144f9474e0e15eedb378c3bc
 
 ADVERTISING CHANNEL packets:
 
