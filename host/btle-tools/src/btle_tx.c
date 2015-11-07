@@ -185,8 +185,22 @@ int tx_callback(hackrf_transfer* transfer) {
   }
   #endif
   
-  //lib_device->transfer_count = 4;
   #if 1
+  int size_left;
+  if (stop_tx == 0) {
+    memset(transfer->buffer, 0, NUM_PRE_SEND_DATA);
+    memcpy(transfer->buffer+NUM_PRE_SEND_DATA, (char *)(tx_buf), tx_len);
+
+    size_left = (transfer->valid_length - tx_len - NUM_PRE_SEND_DATA);
+    memset(transfer->buffer+NUM_PRE_SEND_DATA+tx_len, 0, size_left);
+  } else {
+    memset(transfer->buffer, 0, transfer->valid_length);
+  }
+  stop_tx++;
+  #endif
+  
+  //lib_device->transfer_count = 4;
+  #if 0
   int size_left;
   switch(stop_tx) {
     
@@ -613,7 +627,7 @@ inline int tx_one_buf(char *buf, int length, int channel_number) {
   while( (hackrf_is_streaming(device) == HACKRF_TRUE) &&
       (do_exit == false) )
   {
-    if (stop_tx==9) {
+    if (stop_tx>=9) {
       break;
     }
   }

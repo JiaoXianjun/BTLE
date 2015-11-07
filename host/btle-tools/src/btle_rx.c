@@ -137,6 +137,7 @@ volatile int rx_buf_offset; // remember to initialize it!
 #include "scramble_table.h"
 #define DEFAULT_CHANNEL 37
 #define DEFAULT_ACCESS_ADDR (0x8E89BED6)
+#define DEFAULT_CRC_INIT (0x555555)
 #define MAX_CHANNEL_NUMBER 39
 #define MAX_NUM_INFO_BYTE (43)
 #define MAX_NUM_PHY_BYTE (47)
@@ -493,7 +494,11 @@ static void print_usage() {
   printf("    -g --gain\n");
   printf("      Rx gain in dB. HACKRF rxvga default %d, valid 0~62, lna in max gain. bladeRF default is max rx gain 66dB (valid 0~66)\n", DEFAULT_GAIN);
   printf("    -a --access\n");
-  printf("      Access addr. Hex format (like 89ABCDEF). Default %08x for channel 37 38 39. For other channel you should pick correct value according to sniffed link setup procedure\n", DEFAULT_ACCESS_ADDR);
+  printf("      Access addr. 4 bytes. Hex format (like 89ABCDEF). Default %08x for channel 37 38 39. For other channel you should pick correct value according to sniffed link setup procedure\n", DEFAULT_ACCESS_ADDR);
+  printf("    -k --crcinit\n");
+  printf("      CRC init value. 3 bytes. Hex format (like 555555). Default %06x for channel 37 38 39. For other channel you should pick correct value according to sniffed link setup procedure\n", DEFAULT_CRC_INIT);
+  printf("    -v --verbose\n");
+  printf("      Print contents anyway even if there is error\n");
   printf("\nSee README for detailed information.\n");
 }
 //----------------------------------print_usage----------------------------------
@@ -768,23 +773,153 @@ uint64_t get_freq_by_channel_number(int channel_number) {
 
 typedef enum
 {
-    ADV_IND,
-    ADV_DIRECT_IND,
-    ADV_NONCONN_IND,
-    SCAN_REQ,
-    SCAN_RSP,
-    CONNECT_REQ,
-    ADV_SCAN_IND,
-    RESERVED0,
-    RESERVED1,
-    RESERVED2,
-    RESERVED3,
-    RESERVED4,
-    RESERVED5,
-    RESERVED6,
-    RESERVED7,
-    RESERVED8
-} PDU_TYPE;
+    LL_RESERVED,
+    LL_DATA1,
+    LL_DATA2,
+    LL_CTRL
+} LL_PDU_TYPE;
+
+char *LL_PDU_TYPE_STR[] = {
+    "LL_RESERVED",
+    "LL_DATA1",
+    "LL_DATA2",
+    "LL_CTRL"
+};
+
+typedef struct {
+  uint8_t Data[40];
+} LL_DATA_PDU_PAYLOAD_TYPE;
+
+typedef enum
+{
+    LL_CONNECTION_UPDATE_REQ = 0,
+    LL_CHANNEL_MAP_REQ= 1,
+    LL_TERMINATE_IND= 2,
+    LL_ENC_REQ= 3,
+    LL_ENC_RSP= 4,
+    LL_START_ENC_REQ= 5,
+    LL_START_ENC_RSP= 6,
+    LL_UNKNOWN_RSP= 7,
+    LL_FEATURE_REQ= 8,
+    LL_FEATURE_RSP= 9,
+    LL_PAUSE_ENC_REQ= 10,
+    LL_PAUSE_ENC_RSP= 11,
+    LL_VERSION_IND= 12,
+    LL_REJECT_IND= 13,
+} LL_CTRL_PDU_PAYLOAD_TYPE;
+
+char *LL_CTRL_PDU_PAYLOAD_TYPE_STR[] = {
+    "LL_CONNECTION_UPDATE_REQ",
+    "LL_CHANNEL_MAP_REQ",
+    "LL_TERMINATE_IND",
+    "LL_ENC_REQ",
+    "LL_ENC_RSP",
+    "LL_START_ENC_REQ",
+    "LL_START_ENC_RSP",
+    "LL_UNKNOWN_RSP",
+    "LL_FEATURE_REQ",
+    "LL_FEATURE_RSP",
+    "LL_PAUSE_ENC_REQ",
+    "LL_PAUSE_ENC_RSP",
+    "LL_VERSION_IND",
+    "LL_REJECT_IND",
+    "LL_RESERVED"
+};
+
+typedef struct {
+  uint8_t Opcode;
+  uint8_t WinSize;
+  uint16_t WinOffset;
+  uint16_t Interval;
+  uint16_t Latency;
+  uint16_t Timeout;
+  uint16_t Instant;
+} LL_CTRL_PDU_PAYLOAD_TYPE_0;
+
+typedef struct {
+  uint8_t Opcode;
+  uint8_t ChM[5];
+  uint16_t Instant;
+} LL_CTRL_PDU_PAYLOAD_TYPE_1;
+
+typedef struct {
+  uint8_t Opcode;
+  uint8_t ErrorCode;
+} LL_CTRL_PDU_PAYLOAD_TYPE_2_7_13;
+
+typedef struct {
+  uint8_t Opcode;
+  uint8_t Rand[8];
+  uint8_t EDIV[2];
+  uint8_t SKDm[8];
+  uint8_t IVm[4];
+} LL_CTRL_PDU_PAYLOAD_TYPE_3;
+
+typedef struct {
+  uint8_t Opcode;
+  uint8_t SKDs[8];
+  uint8_t IVs[4];
+} LL_CTRL_PDU_PAYLOAD_TYPE_4;
+
+typedef struct {
+  uint8_t Opcode;
+} LL_CTRL_PDU_PAYLOAD_TYPE_5_6_10_11;
+
+typedef struct {
+  uint8_t Opcode;
+  uint8_t FeatureSet[8];
+} LL_CTRL_PDU_PAYLOAD_TYPE_8_9;
+
+typedef struct {
+  uint8_t Opcode;
+  uint8_t VersNr;
+  uint16_t CompId;
+  uint16_t SubVersNr;
+} LL_CTRL_PDU_PAYLOAD_TYPE_12;
+
+typedef struct {
+  uint8_t Opcode;
+  uint8_t payload_byte[40];
+} LL_CTRL_PDU_PAYLOAD_TYPE_R;
+
+typedef enum
+{
+    ADV_IND = 0,
+    ADV_DIRECT_IND= 1,
+    ADV_NONCONN_IND= 2,
+    SCAN_REQ= 3,
+    SCAN_RSP= 4,
+    CONNECT_REQ= 5,
+    ADV_SCAN_IND= 6,
+    RESERVED0= 7,
+    RESERVED1= 8,
+    RESERVED2= 9,
+    RESERVED3= 10,
+    RESERVED4= 11,
+    RESERVED5= 12,
+    RESERVED6= 13,
+    RESERVED7= 14,
+    RESERVED8= 15
+} ADV_PDU_TYPE;
+
+char *ADV_PDU_TYPE_STR[] = {
+    "ADV_IND",
+    "ADV_DIRECT_IND",
+    "ADV_NONCONN_IND",
+    "SCAN_REQ",
+    "SCAN_RSP",
+    "CONNECT_REQ",
+    "ADV_SCAN_IND",
+    "RESERVED0",
+    "RESERVED1",
+    "RESERVED2",
+    "RESERVED3",
+    "RESERVED4",
+    "RESERVED5",
+    "RESERVED6",
+    "RESERVED7",
+    "RESERVED8"
+};
 
 typedef struct {
   uint8_t AdvA[6];
@@ -812,27 +947,8 @@ typedef struct {
 } ADV_PDU_PAYLOAD_TYPE_5;
 
 typedef struct {
-  uint8_t payload_byte[37];
+  uint8_t payload_byte[40];
 } ADV_PDU_PAYLOAD_TYPE_R;
-
-char *PDU_TYPE_STR[] = {
-    "ADV_IND",
-    "ADV_DIRECT_IND",
-    "ADV_NONCONN_IND",
-    "SCAN_REQ",
-    "SCAN_RSP",
-    "CONNECT_REQ",
-    "ADV_SCAN_IND",
-    "RESERVED0",
-    "RESERVED1",
-    "RESERVED2",
-    "RESERVED3",
-    "RESERVED4",
-    "RESERVED5",
-    "RESERVED6",
-    "RESERVED7",
-    "RESERVED8"
-};
 
 /**
  * Update the crc value with new data.
@@ -855,7 +971,7 @@ uint_fast32_t crc_update(uint_fast32_t crc, const void *data, size_t data_len) {
     return crc & 0xffffff;
 }
 
-uint_fast32_t crc24_byte(uint8_t *byte_in, int num_byte, int init_hex) {
+uint_fast32_t crc24_byte(uint8_t *byte_in, int num_byte, uint32_t init_hex) {
   uint_fast32_t crc = init_hex;
 
   crc = crc_update(crc, byte_in, num_byte);
@@ -882,7 +998,9 @@ void parse_commandline(
   // Outputs
   int* chan,
   int* gain,
-  uint32_t* access_addr
+  uint32_t* access_addr,
+  uint32_t* crc_init,
+  int* verbose_flag
 ) {
   printf("BTLE/BT4.0 Scanner(NO bladeRF support so far). Xianjun Jiao. putaoshu@gmail.com\n\n");
   
@@ -892,6 +1010,10 @@ void parse_commandline(
   (*gain) = DEFAULT_GAIN;
   
   (*access_addr) = DEFAULT_ACCESS_ADDR;
+  
+  (*crc_init) = 0x555555;
+  
+  (*verbose_flag) = 0;
 
   while (1) {
     static struct option long_options[] = {
@@ -899,11 +1021,13 @@ void parse_commandline(
       {"chan",   required_argument, 0, 'c'},
       {"gain",         required_argument, 0, 'g'},
       {"access",         required_argument, 0, 'a'},
+      {"crcinit",           required_argument, 0, 'k'},
+      {"verbose",         no_argument, 0, 'v'},
       {0, 0, 0, 0}
     };
     /* getopt_long stores the option index here. */
     int option_index = 0;
-    int c = getopt_long (argc, argv, "hc:g:a:",
+    int c = getopt_long (argc, argv, "hc:g:a:k:v",
                      long_options, &option_index);
 
     /* Detect the end of the options. */
@@ -917,6 +1041,10 @@ void parse_commandline(
         // flag value.
         printf("Check code!\n");
         goto abnormal_quit;
+        break;
+      
+      case 'v':
+        (*verbose_flag) = 1;
         break;
         
       case 'h':
@@ -933,6 +1061,10 @@ void parse_commandline(
         
       case 'a':
         (*access_addr) = strtol(optarg,&endp,16);
+        break;
+        
+      case 'k':
+        (*crc_init) = strtol(optarg,&endp,16);
         break;
         
       case '?':
@@ -1059,8 +1191,7 @@ inline int search_unique_bits(IQ_TYPE* rxp, int search_len, uint8_t *unique_bits
   return(-1);
 }
 
-int parse_adv_pdu_payload_byte(uint8_t *payload_byte, int num_payload_byte, int pdu_type, void *adv_pdu_payload) {
-  int i;
+int parse_adv_pdu_payload_byte(uint8_t *payload_byte, int num_payload_byte, ADV_PDU_TYPE pdu_type, void *adv_pdu_payload) {
   ADV_PDU_PAYLOAD_TYPE_0_2_4_6 *payload_type_0_2_4_6 = NULL;
   ADV_PDU_PAYLOAD_TYPE_1_3 *payload_type_1_3 = NULL;
   ADV_PDU_PAYLOAD_TYPE_5 *payload_type_5 = NULL;
@@ -1071,7 +1202,7 @@ int parse_adv_pdu_payload_byte(uint8_t *payload_byte, int num_payload_byte, int 
       return(-1);
   }
 
-  if (pdu_type == 0 || pdu_type == 2 || pdu_type == 4 || pdu_type == 6) {
+  if (pdu_type == ADV_IND || pdu_type == ADV_NONCONN_IND || pdu_type == SCAN_RSP || pdu_type == ADV_SCAN_IND) {
       payload_type_0_2_4_6 = (ADV_PDU_PAYLOAD_TYPE_0_2_4_6 *)adv_pdu_payload;
       
       //AdvA = reorder_bytes_str( payload_bytes(1 : (2*6)) );
@@ -1083,14 +1214,15 @@ int parse_adv_pdu_payload_byte(uint8_t *payload_byte, int num_payload_byte, int 
       payload_type_0_2_4_6->AdvA[5] = payload_byte[0];
       
       //AdvData = payload_bytes((2*6+1):end);
-      for(i=0; i<(num_payload_byte-6); i++) {
-        payload_type_0_2_4_6->Data[i] = payload_byte[6+i];
-      }
+      //for(i=0; i<(num_payload_byte-6); i++) {
+      //  payload_type_0_2_4_6->Data[i] = payload_byte[6+i];
+      //}
+      memcpy(payload_type_0_2_4_6->Data, payload_byte+6, num_payload_byte-6);
       
       //payload_parse_result_str = ['AdvA:' AdvA ' AdvData:' AdvData];
-  } else if (pdu_type == 1 || pdu_type == 3) {
+  } else if (pdu_type == ADV_DIRECT_IND || pdu_type == SCAN_REQ) {
       if (num_payload_byte!=12) {
-          printf("Error: Payload length %d bytes. Need to be 12 for PDU Type %d\n", num_payload_byte, pdu_type);
+          printf("Error: Payload length %d bytes. Need to be 12 for PDU Type %s\n", num_payload_byte, ADV_PDU_TYPE_STR[pdu_type]);
           return(-1);
       }
       payload_type_1_3 = (ADV_PDU_PAYLOAD_TYPE_1_3 *)adv_pdu_payload;
@@ -1112,9 +1244,9 @@ int parse_adv_pdu_payload_byte(uint8_t *payload_byte, int num_payload_byte, int 
       payload_type_1_3->A1[5] = payload_byte[6];
       
       //payload_parse_result_str = ['AdvA:' AdvA ' InitA:' InitA];
-  } else if (pdu_type == 5) {
+  } else if (pdu_type == CONNECT_REQ) {
       if (num_payload_byte!=34) {
-          printf("Error: Payload length %d bytes. Need to be 34 for PDU Type %d\n", num_payload_byte, pdu_type);
+          printf("Error: Payload length %d bytes. Need to be 34 for PDU Type %s\n", num_payload_byte, ADV_PDU_TYPE_STR[pdu_type]);
           return(-1);
       }
       payload_type_5 = (ADV_PDU_PAYLOAD_TYPE_5 *)adv_pdu_payload;
@@ -1185,19 +1317,230 @@ int parse_adv_pdu_payload_byte(uint8_t *payload_byte, int num_payload_byte, int 
   } else {
       payload_type_R = (ADV_PDU_PAYLOAD_TYPE_R *)adv_pdu_payload;
 
-      for(i=0; i<(num_payload_byte); i++) {
-        payload_type_R->payload_byte[i] = payload_byte[i];
-      }
+      //for(i=0; i<(num_payload_byte); i++) {
+      //  payload_type_R->payload_byte[i] = payload_byte[i];
+      //}
+      memcpy(payload_type_R->payload_byte, payload_byte, num_payload_byte);
+      
       //printf("Warning: Reserved PDU type %d\n", pdu_type);
       //return(-1);
   }
   
   return(0);
 }
-void parse_adv_pdu_header_byte(uint8_t *byte_in, int *pdu_type, int *tx_add, int *rx_add, int *payload_len) {
+
+int parse_ll_pdu_payload_byte(uint8_t *payload_byte, int num_payload_byte, LL_PDU_TYPE pdu_type, void *ll_pdu_payload) {
+  int ctrl_pdu_type;
+  LL_DATA_PDU_PAYLOAD_TYPE *data_payload = NULL;
+  LL_CTRL_PDU_PAYLOAD_TYPE_0 *ctrl_payload_type_0 = NULL;
+  LL_CTRL_PDU_PAYLOAD_TYPE_1 *ctrl_payload_type_1 = NULL;
+  LL_CTRL_PDU_PAYLOAD_TYPE_2_7_13 *ctrl_payload_type_2_7_13 = NULL;
+  LL_CTRL_PDU_PAYLOAD_TYPE_3 *ctrl_payload_type_3 = NULL;
+  LL_CTRL_PDU_PAYLOAD_TYPE_4 *ctrl_payload_type_4 = NULL;
+  LL_CTRL_PDU_PAYLOAD_TYPE_5_6_10_11 *ctrl_payload_type_5_6_10_11 = NULL;
+  LL_CTRL_PDU_PAYLOAD_TYPE_8_9 *ctrl_payload_type_8_9 = NULL;
+  LL_CTRL_PDU_PAYLOAD_TYPE_12 *ctrl_payload_type_12 = NULL;
+  LL_CTRL_PDU_PAYLOAD_TYPE_R *ctrl_payload_type_R = NULL;
+
+  if (num_payload_byte==0) {
+      if (pdu_type == LL_RESERVED || pdu_type==LL_DATA1) {
+        return(0);
+      }
+      else if (pdu_type == LL_DATA2 || pdu_type == LL_CTRL) {
+        printf("Error: LL PDU TYPE%d(%s) should not have payload length 0!\n", pdu_type, LL_PDU_TYPE_STR[pdu_type]);
+        return(-1);
+      }
+  }
+
+  if (pdu_type == LL_RESERVED || pdu_type == LL_DATA1 || pdu_type == LL_DATA2) {
+      data_payload = (LL_DATA_PDU_PAYLOAD_TYPE *)ll_pdu_payload;
+      memcpy(data_payload->Data, payload_byte, num_payload_byte);
+  } else if (pdu_type == LL_CTRL) {
+      ctrl_pdu_type = payload_byte[0];
+      if (ctrl_pdu_type == LL_CONNECTION_UPDATE_REQ) {
+        if (num_payload_byte!=12) {
+          printf("Error: LL CTRL PDU TYPE%d(%s) should have payload length 12!\n", ctrl_pdu_type, LL_CTRL_PDU_PAYLOAD_TYPE_STR[ctrl_pdu_type]);
+          return(-1);
+        }
+        
+        ctrl_payload_type_0 = (LL_CTRL_PDU_PAYLOAD_TYPE_0 *)ll_pdu_payload;
+        ctrl_payload_type_0->Opcode = ctrl_pdu_type;
+        
+        ctrl_payload_type_0->WinSize = payload_byte[1];
+      
+        //WinOffset = reorder_bytes_str( payload_bytes((2*6+2*6+2*4+2*3+2*1+1):(2*6+2*6+2*4+2*3+2*1+2*2)) );
+        ctrl_payload_type_0->WinOffset = 0;
+        ctrl_payload_type_0->WinOffset = ( (ctrl_payload_type_0->WinOffset << 8) | payload_byte[3] );
+        ctrl_payload_type_0->WinOffset = ( (ctrl_payload_type_0->WinOffset << 8) | payload_byte[2] );
+      
+        //Interval = reorder_bytes_str( payload_bytes((2*6+2*6+2*4+2*3+2*1+2*2+1):(2*6+2*6+2*4+2*3+2*1+2*2+2*2)) );
+        ctrl_payload_type_0->Interval = 0;
+        ctrl_payload_type_0->Interval = ( (ctrl_payload_type_0->Interval << 8) | payload_byte[5] );
+        ctrl_payload_type_0->Interval = ( (ctrl_payload_type_0->Interval << 8) | payload_byte[4] );
+      
+        //Latency = reorder_bytes_str( payload_bytes((2*6+2*6+2*4+2*3+2*1+2*2+2*2+1):(2*6+2*6+2*4+2*3+2*1+2*2+2*2+2*2)) );
+        ctrl_payload_type_0->Latency = 0;
+        ctrl_payload_type_0->Latency = ( (ctrl_payload_type_0->Latency << 8) | payload_byte[7] );
+        ctrl_payload_type_0->Latency = ( (ctrl_payload_type_0->Latency << 8) | payload_byte[6] );
+      
+        //Timeout = reorder_bytes_str( payload_bytes((2*6+2*6+2*4+2*3+2*1+2*2+2*2+2*2+1):(2*6+2*6+2*4+2*3+2*1+2*2+2*2+2*2+2*2)) );
+        ctrl_payload_type_0->Timeout = 0;
+        ctrl_payload_type_0->Timeout = ( (ctrl_payload_type_0->Timeout << 8) | payload_byte[9] );
+        ctrl_payload_type_0->Timeout = ( (ctrl_payload_type_0->Timeout << 8) | payload_byte[8] );
+        
+        ctrl_payload_type_0->Instant = 0;
+        ctrl_payload_type_0->Instant = ( (ctrl_payload_type_0->Instant << 8) | payload_byte[11] );
+        ctrl_payload_type_0->Instant = ( (ctrl_payload_type_0->Instant << 8) | payload_byte[10] );
+      
+      } else if (ctrl_pdu_type == LL_CHANNEL_MAP_REQ) {
+        if (num_payload_byte!=8) {
+          printf("Error: LL CTRL PDU TYPE%d(%s) should have payload length 8!\n", ctrl_pdu_type, LL_CTRL_PDU_PAYLOAD_TYPE_STR[ctrl_pdu_type]);
+          return(-1);
+        }
+        ctrl_payload_type_1 = (LL_CTRL_PDU_PAYLOAD_TYPE_1 *)ll_pdu_payload;
+        ctrl_payload_type_1->Opcode = ctrl_pdu_type;
+        
+        ctrl_payload_type_1->ChM[0] = payload_byte[5];
+        ctrl_payload_type_1->ChM[1] = payload_byte[4];
+        ctrl_payload_type_1->ChM[2] = payload_byte[3];
+        ctrl_payload_type_1->ChM[3] = payload_byte[2];
+        ctrl_payload_type_1->ChM[4] = payload_byte[1];
+        
+        ctrl_payload_type_1->Instant = 0;
+        ctrl_payload_type_1->Instant = ( (ctrl_payload_type_1->Instant << 8) | payload_byte[7] );
+        ctrl_payload_type_1->Instant = ( (ctrl_payload_type_1->Instant << 8) | payload_byte[6] );
+        
+      } else if (ctrl_pdu_type == LL_TERMINATE_IND || ctrl_pdu_type == LL_UNKNOWN_RSP || ctrl_pdu_type == LL_REJECT_IND) {
+        if (num_payload_byte!=2) {
+          printf("Error: LL CTRL PDU TYPE%d(%s) should have payload length 2!\n", ctrl_pdu_type, LL_CTRL_PDU_PAYLOAD_TYPE_STR[ctrl_pdu_type]);
+          return(-1);
+        }
+        ctrl_payload_type_2_7_13 = (LL_CTRL_PDU_PAYLOAD_TYPE_2_7_13 *)ll_pdu_payload;
+        ctrl_payload_type_2_7_13->Opcode = ctrl_pdu_type;
+        
+        ctrl_payload_type_2_7_13->ErrorCode = payload_byte[1];
+        
+      } else if (ctrl_pdu_type == LL_ENC_REQ) {
+        if (num_payload_byte!=23) {
+          printf("Error: LL CTRL PDU TYPE%d(%s) should have payload length 23!\n", ctrl_pdu_type, LL_CTRL_PDU_PAYLOAD_TYPE_STR[ctrl_pdu_type]);
+          return(-1);
+        }
+        ctrl_payload_type_3 = (LL_CTRL_PDU_PAYLOAD_TYPE_3 *)ll_pdu_payload;
+        ctrl_payload_type_3->Opcode = ctrl_pdu_type;
+        
+        ctrl_payload_type_3->Rand[0] = payload_byte[8];
+        ctrl_payload_type_3->Rand[1] = payload_byte[7];
+        ctrl_payload_type_3->Rand[2] = payload_byte[6];
+        ctrl_payload_type_3->Rand[3] = payload_byte[5];
+        ctrl_payload_type_3->Rand[4] = payload_byte[4];
+        ctrl_payload_type_3->Rand[5] = payload_byte[3];
+        ctrl_payload_type_3->Rand[6] = payload_byte[2];
+        ctrl_payload_type_3->Rand[7] = payload_byte[1];
+        
+        ctrl_payload_type_3->EDIV[0] = payload_byte[10];
+        ctrl_payload_type_3->EDIV[1] = payload_byte[9];
+        
+        ctrl_payload_type_3->SKDm[0] = payload_byte[18];
+        ctrl_payload_type_3->SKDm[1] = payload_byte[17];
+        ctrl_payload_type_3->SKDm[2] = payload_byte[16];
+        ctrl_payload_type_3->SKDm[3] = payload_byte[15];
+        ctrl_payload_type_3->SKDm[4] = payload_byte[14];
+        ctrl_payload_type_3->SKDm[5] = payload_byte[13];
+        ctrl_payload_type_3->SKDm[6] = payload_byte[12];
+        ctrl_payload_type_3->SKDm[7] = payload_byte[11];
+        
+        ctrl_payload_type_3->IVm[0] = payload_byte[22];
+        ctrl_payload_type_3->IVm[1] = payload_byte[21];
+        ctrl_payload_type_3->IVm[2] = payload_byte[20];
+        ctrl_payload_type_3->IVm[3] = payload_byte[19];
+        
+      } else if (ctrl_pdu_type == LL_ENC_RSP) {
+        if (num_payload_byte!=13) {
+          printf("Error: LL CTRL PDU TYPE%d(%s) should have payload length 13!\n", ctrl_pdu_type, LL_CTRL_PDU_PAYLOAD_TYPE_STR[ctrl_pdu_type]);
+          return(-1);
+        }
+        ctrl_payload_type_4 = (LL_CTRL_PDU_PAYLOAD_TYPE_4 *)ll_pdu_payload;
+        ctrl_payload_type_4->Opcode = ctrl_pdu_type;
+        
+        ctrl_payload_type_4->SKDs[0] = payload_byte[8];
+        ctrl_payload_type_4->SKDs[1] = payload_byte[7];
+        ctrl_payload_type_4->SKDs[2] = payload_byte[6];
+        ctrl_payload_type_4->SKDs[3] = payload_byte[5];
+        ctrl_payload_type_4->SKDs[4] = payload_byte[4];
+        ctrl_payload_type_4->SKDs[5] = payload_byte[3];
+        ctrl_payload_type_4->SKDs[6] = payload_byte[2];
+        ctrl_payload_type_4->SKDs[7] = payload_byte[1];
+        
+        ctrl_payload_type_4->IVs[0] = payload_byte[12];
+        ctrl_payload_type_4->IVs[1] = payload_byte[11];
+        ctrl_payload_type_4->IVs[2] = payload_byte[10];
+        ctrl_payload_type_4->IVs[3] = payload_byte[9];
+        
+      } else if (ctrl_pdu_type == LL_START_ENC_REQ || ctrl_pdu_type == LL_START_ENC_RSP || ctrl_pdu_type == LL_PAUSE_ENC_REQ || ctrl_pdu_type == LL_PAUSE_ENC_RSP) {
+        if (num_payload_byte!=1) {
+          printf("Error: LL CTRL PDU TYPE%d(%s) should have payload length 1!\n", ctrl_pdu_type, LL_CTRL_PDU_PAYLOAD_TYPE_STR[ctrl_pdu_type]);
+          return(-1);
+        }
+        ctrl_payload_type_5_6_10_11 = (LL_CTRL_PDU_PAYLOAD_TYPE_5_6_10_11 *)ll_pdu_payload;
+        ctrl_payload_type_5_6_10_11->Opcode = ctrl_pdu_type;
+        
+      } else if (ctrl_pdu_type == LL_FEATURE_REQ || ctrl_pdu_type == LL_FEATURE_RSP) {
+        if (num_payload_byte!=9) {
+          printf("Error: LL CTRL PDU TYPE%d(%s) should have payload length 9!\n", ctrl_pdu_type, LL_CTRL_PDU_PAYLOAD_TYPE_STR[ctrl_pdu_type]);
+          return(-1);
+        }
+        ctrl_payload_type_8_9 = (LL_CTRL_PDU_PAYLOAD_TYPE_8_9 *)ll_pdu_payload;
+        ctrl_payload_type_8_9->Opcode = ctrl_pdu_type;
+        
+        ctrl_payload_type_8_9->FeatureSet[0] = payload_byte[8];
+        ctrl_payload_type_8_9->FeatureSet[1] = payload_byte[7];
+        ctrl_payload_type_8_9->FeatureSet[2] = payload_byte[6];
+        ctrl_payload_type_8_9->FeatureSet[3] = payload_byte[5];
+        ctrl_payload_type_8_9->FeatureSet[4] = payload_byte[4];
+        ctrl_payload_type_8_9->FeatureSet[5] = payload_byte[3];
+        ctrl_payload_type_8_9->FeatureSet[6] = payload_byte[2];
+        ctrl_payload_type_8_9->FeatureSet[7] = payload_byte[1];
+        
+      } else if (ctrl_pdu_type == LL_VERSION_IND) {
+        if (num_payload_byte!=6) {
+          printf("Error: LL CTRL PDU TYPE%d(%s) should have payload length 6!\n", ctrl_pdu_type, LL_CTRL_PDU_PAYLOAD_TYPE_STR[ctrl_pdu_type]);
+          return(-1);
+        }
+        ctrl_payload_type_12 = (LL_CTRL_PDU_PAYLOAD_TYPE_12 *)ll_pdu_payload;
+        ctrl_payload_type_12->Opcode = ctrl_pdu_type;
+        
+        ctrl_payload_type_12->VersNr = payload_byte[1];
+        
+        ctrl_payload_type_12->CompId = 0;
+        ctrl_payload_type_12->CompId = ( (ctrl_payload_type_12->CompId << 8) | payload_byte[3] );
+        ctrl_payload_type_12->CompId = ( (ctrl_payload_type_12->CompId << 8) | payload_byte[2] );
+        
+        ctrl_payload_type_12->SubVersNr = 0;
+        ctrl_payload_type_12->SubVersNr = ( (ctrl_payload_type_12->SubVersNr << 8) | payload_byte[5] );
+        ctrl_payload_type_12->SubVersNr = ( (ctrl_payload_type_12->SubVersNr << 8) | payload_byte[4] );
+
+      } else {
+        ctrl_payload_type_R = (LL_CTRL_PDU_PAYLOAD_TYPE_R *)ll_pdu_payload;
+        ctrl_payload_type_R->Opcode = ctrl_pdu_type;
+        memcpy(ctrl_payload_type_R->payload_byte, payload_byte+1, num_payload_byte-1);
+      }
+  }
+  
+  return(ctrl_pdu_type);
+}
+
+void parse_ll_pdu_header_byte(uint8_t *byte_in, LL_PDU_TYPE *llid, int *nesn, int *sn, int *md, int *payload_len) {
+  (*llid) = (LL_PDU_TYPE)(byte_in[0]&0x03);
+  (*nesn) = ( (byte_in[0]&0x04) == 1 );
+  (*sn) = ( (byte_in[0]&0x08) == 1 );
+  (*md) = ( (byte_in[0]&0x10) == 1 );
+  (*payload_len) = (byte_in[1]&0x1F);
+}
+
+void parse_adv_pdu_header_byte(uint8_t *byte_in, ADV_PDU_TYPE *pdu_type, int *tx_add, int *rx_add, int *payload_len) {
 //% pdy_type_str = {'ADV_IND', 'ADV_DIRECT_IND', 'ADV_NONCONN_IND', 'SCAN_REQ', 'SCAN_RSP', 'CONNECT_REQ', 'ADV_SCAN_IND', 'Reserved', 'Reserved', 'Reserved', 'Reserved', 'Reserved', 'Reserved', 'Reserved', 'Reserved'};
 //pdu_type = bi2de(bits(1:4), 'right-msb');
-(*pdu_type) = (byte_in[0]&0x0F);
+(*pdu_type) = (ADV_PDU_TYPE)(byte_in[0]&0x0F);
 //% disp(['   PDU Type: ' pdy_type_str{pdu_type+1}]);
 
 //tx_add = bits(7);
@@ -1216,9 +1559,15 @@ inline void receiver_init(void) {
   byte_array_to_bit_array(access_byte, 4, access_bit);
 }
 
-bool crc_check(uint8_t *tmp_byte, int body_len) {
+bool crc_check(uint8_t *tmp_byte, int body_len, uint32_t crc_init) {
     int crc24_checksum, crc24_received;
-    crc24_checksum = crc24_byte(tmp_byte, body_len, 0xAAAAAA); // 0x555555 --> 0xaaaaaa. maybe because byte order
+    uint32_t crc_init_tmp;
+    // method 1
+    crc_init_tmp = ( (~crc_init)&0xFFFFFF );
+    
+    // method 2
+    
+    crc24_checksum = crc24_byte(tmp_byte, body_len, crc_init_tmp); // 0x555555 --> 0xaaaaaa. maybe because byte order
     crc24_received = 0;
     crc24_received = ( (crc24_received << 8) | tmp_byte[body_len+2] );
     crc24_received = ( (crc24_received << 8) | tmp_byte[body_len+1] );
@@ -1226,14 +1575,125 @@ bool crc_check(uint8_t *tmp_byte, int body_len) {
     return(crc24_checksum!=crc24_received);
 }
 
-void print_pdu_payload(void *adv_pdu_payload, int pdu_type, int payload_len, bool crc_flag) {
+void print_ll_pdu_payload(void *ll_pdu_payload, LL_PDU_TYPE pdu_type, int ctrl_pdu_type, int num_payload_byte, bool crc_flag) {
+  int i;
+  LL_DATA_PDU_PAYLOAD_TYPE *data_payload = NULL;
+  LL_CTRL_PDU_PAYLOAD_TYPE_0 *ctrl_payload_type_0 = NULL;
+  LL_CTRL_PDU_PAYLOAD_TYPE_1 *ctrl_payload_type_1 = NULL;
+  LL_CTRL_PDU_PAYLOAD_TYPE_2_7_13 *ctrl_payload_type_2_7_13 = NULL;
+  LL_CTRL_PDU_PAYLOAD_TYPE_3 *ctrl_payload_type_3 = NULL;
+  LL_CTRL_PDU_PAYLOAD_TYPE_4 *ctrl_payload_type_4 = NULL;
+  LL_CTRL_PDU_PAYLOAD_TYPE_5_6_10_11 *ctrl_payload_type_5_6_10_11 = NULL;
+  LL_CTRL_PDU_PAYLOAD_TYPE_8_9 *ctrl_payload_type_8_9 = NULL;
+  LL_CTRL_PDU_PAYLOAD_TYPE_12 *ctrl_payload_type_12 = NULL;
+  LL_CTRL_PDU_PAYLOAD_TYPE_R *ctrl_payload_type_R = NULL;
+
+  if (num_payload_byte==0) {
+      return;
+  }
+
+  if (pdu_type == LL_RESERVED || pdu_type == LL_DATA1 || pdu_type == LL_DATA2) {
+      data_payload = (LL_DATA_PDU_PAYLOAD_TYPE *)ll_pdu_payload;
+      //memcpy(data_payload->Data, payload_byte, num_payload_byte);
+      printf("LL_Data:");
+      for(i=0; i<(num_payload_byte); i++) {
+        printf("%02x", data_payload->Data[i]);
+      }
+  } else if (pdu_type == LL_CTRL) {
+      if (ctrl_pdu_type == LL_CONNECTION_UPDATE_REQ) {
+        ctrl_payload_type_0 = (LL_CTRL_PDU_PAYLOAD_TYPE_0 *)ll_pdu_payload;
+        printf("OP%02x(%s) WSize:%02x WOffset:%04x Itrvl:%04x Ltncy:%04x Timot:%04x Inst:%04x", 
+        ctrl_payload_type_0->Opcode,
+        LL_CTRL_PDU_PAYLOAD_TYPE_STR[ctrl_pdu_type],
+        ctrl_payload_type_0->WinSize, ctrl_payload_type_0->WinOffset, ctrl_payload_type_0->Interval, ctrl_payload_type_0->Latency, ctrl_payload_type_0->Timeout, ctrl_payload_type_0->Instant);
+     
+      } else if (ctrl_pdu_type == LL_CHANNEL_MAP_REQ) {
+        ctrl_payload_type_1 = (LL_CTRL_PDU_PAYLOAD_TYPE_1 *)ll_pdu_payload;
+        printf("OP%02x(%s)", ctrl_payload_type_1->Opcode, LL_CTRL_PDU_PAYLOAD_TYPE_STR[ctrl_pdu_type] );
+        printf(" ChM:");
+        for(i=0; i<5; i++) {
+          printf("%02x", ctrl_payload_type_1->ChM[i]);
+        }
+        printf(" Inst:%04x", ctrl_payload_type_1->Instant );
+        
+      } else if (ctrl_pdu_type == LL_TERMINATE_IND || ctrl_pdu_type == LL_UNKNOWN_RSP || ctrl_pdu_type == LL_REJECT_IND) {
+        ctrl_payload_type_2_7_13 = (LL_CTRL_PDU_PAYLOAD_TYPE_2_7_13 *)ll_pdu_payload;
+        printf("OP%02x(%s) Err:%02x", ctrl_payload_type_2_7_13->Opcode, LL_CTRL_PDU_PAYLOAD_TYPE_STR[ctrl_pdu_type], ctrl_payload_type_2_7_13->ErrorCode );
+        
+      } else if (ctrl_pdu_type == LL_ENC_REQ) {
+        ctrl_payload_type_3 = (LL_CTRL_PDU_PAYLOAD_TYPE_3 *)ll_pdu_payload;
+        printf("OP%02x(%s)", ctrl_payload_type_3->Opcode, LL_CTRL_PDU_PAYLOAD_TYPE_STR[ctrl_pdu_type] );
+        printf(" Rand:");
+        for(i=0; i<8; i++) {
+          printf("%02x", ctrl_payload_type_3->Rand[i]);
+        }
+        printf(" EDIV:");
+        for(i=0; i<2; i++) {
+          printf("%02x", ctrl_payload_type_3->EDIV[i]);
+        }
+        printf(" SKDm:");
+        for(i=0; i<8; i++) {
+          printf("%02x", ctrl_payload_type_3->SKDm[i]);
+        }
+        printf(" IVm:");
+        for(i=0; i<4; i++) {
+          printf("%02x", ctrl_payload_type_3->IVm[i]);
+        }
+        
+      } else if (ctrl_pdu_type == LL_ENC_RSP) {
+        ctrl_payload_type_4 = (LL_CTRL_PDU_PAYLOAD_TYPE_4 *)ll_pdu_payload;
+        printf("OP%02x(%s)", ctrl_payload_type_4->Opcode, LL_CTRL_PDU_PAYLOAD_TYPE_STR[ctrl_pdu_type] );
+        printf(" SKDs:");
+        for(i=0; i<8; i++) {
+          printf("%02x", ctrl_payload_type_4->SKDs[i]);
+        }
+        printf(" IVs:");
+        for(i=0; i<4; i++) {
+          printf("%02x", ctrl_payload_type_4->IVs[i]);
+        }
+        
+      } else if (ctrl_pdu_type == LL_START_ENC_REQ || ctrl_pdu_type == LL_START_ENC_RSP || ctrl_pdu_type == LL_PAUSE_ENC_REQ || ctrl_pdu_type == LL_PAUSE_ENC_RSP) {
+        ctrl_payload_type_5_6_10_11 = (LL_CTRL_PDU_PAYLOAD_TYPE_5_6_10_11 *)ll_pdu_payload;
+        printf("OP%02x(%s)", ctrl_payload_type_5_6_10_11->Opcode, LL_CTRL_PDU_PAYLOAD_TYPE_STR[ctrl_pdu_type] );
+        
+      } else if (ctrl_pdu_type == LL_FEATURE_REQ || ctrl_pdu_type == LL_FEATURE_RSP) {
+        ctrl_payload_type_8_9 = (LL_CTRL_PDU_PAYLOAD_TYPE_8_9 *)ll_pdu_payload;
+        printf("OP%02x(%s)", ctrl_payload_type_8_9->Opcode, LL_CTRL_PDU_PAYLOAD_TYPE_STR[ctrl_pdu_type] );
+        printf(" FteurSet:");
+        for(i=0; i<8; i++) {
+          printf("%02x", ctrl_payload_type_8_9->FeatureSet[i]);
+        }
+
+      } else if (ctrl_pdu_type == LL_VERSION_IND) {
+        ctrl_payload_type_12 = (LL_CTRL_PDU_PAYLOAD_TYPE_12 *)ll_pdu_payload;
+        printf("OP%02x(%s) Ver:%02x CompId:%04x SubVer:%04x", 
+        ctrl_payload_type_12->Opcode,
+        LL_CTRL_PDU_PAYLOAD_TYPE_STR[ctrl_pdu_type],
+        ctrl_payload_type_12->VersNr, ctrl_payload_type_12->CompId, ctrl_payload_type_12->SubVersNr);
+
+      } else {
+        if (ctrl_pdu_type>LL_REJECT_IND)
+          ctrl_pdu_type = LL_REJECT_IND+1;
+        ctrl_payload_type_R = (LL_CTRL_PDU_PAYLOAD_TYPE_R *)ll_pdu_payload;
+        printf("OP%02x(%s)", ctrl_payload_type_R->Opcode, LL_CTRL_PDU_PAYLOAD_TYPE_STR[ctrl_pdu_type] );
+        printf(" Byte:");
+        for(i=0; i<(num_payload_byte-1); i++) {
+          printf("%02x", ctrl_payload_type_R->payload_byte[i]);
+        }
+      }
+  }
+  
+  printf(" CRC%d\n", crc_flag);
+}
+
+void print_adv_pdu_payload(void *adv_pdu_payload, ADV_PDU_TYPE pdu_type, int payload_len, bool crc_flag) {
     int i;
     ADV_PDU_PAYLOAD_TYPE_5 *adv_pdu_payload_5;
     ADV_PDU_PAYLOAD_TYPE_1_3 *adv_pdu_payload_1_3;
     ADV_PDU_PAYLOAD_TYPE_0_2_4_6 *adv_pdu_payload_0_2_4_6;
     ADV_PDU_PAYLOAD_TYPE_R *adv_pdu_payload_R;
     // print payload out
-    if (pdu_type==0 || pdu_type==2 || pdu_type==4 || pdu_type==6) {
+    if (pdu_type==ADV_IND || pdu_type==ADV_NONCONN_IND || pdu_type==SCAN_RSP || pdu_type==ADV_SCAN_IND) {
       adv_pdu_payload_0_2_4_6 = (ADV_PDU_PAYLOAD_TYPE_0_2_4_6 *)(adv_pdu_payload);
       printf("AdvA:");
       for(i=0; i<6; i++) {
@@ -1243,7 +1703,7 @@ void print_pdu_payload(void *adv_pdu_payload, int pdu_type, int payload_len, boo
       for(i=0; i<(payload_len-6); i++) {
         printf("%02x", adv_pdu_payload_0_2_4_6->Data[i]);
       }
-    } else if (pdu_type==1 || pdu_type==3) {
+    } else if (pdu_type==ADV_DIRECT_IND || pdu_type==SCAN_REQ) {
       adv_pdu_payload_1_3 = (ADV_PDU_PAYLOAD_TYPE_1_3 *)(adv_pdu_payload);
       printf("A0:");
       for(i=0; i<6; i++) {
@@ -1253,7 +1713,7 @@ void print_pdu_payload(void *adv_pdu_payload, int pdu_type, int payload_len, boo
       for(i=0; i<6; i++) {
         printf("%02x", adv_pdu_payload_1_3->A1[i]);
       }
-    } else if (pdu_type==5) {
+    } else if (pdu_type==CONNECT_REQ) {
       adv_pdu_payload_5 = (ADV_PDU_PAYLOAD_TYPE_5 *)(adv_pdu_payload);
       printf("InitA:");
       for(i=0; i<6; i++) {
@@ -1267,7 +1727,7 @@ void print_pdu_payload(void *adv_pdu_payload, int pdu_type, int payload_len, boo
       for(i=0; i<4; i++) {
         printf("%02x", adv_pdu_payload_5->AA[i]);
       }
-      printf(" CRCInit:%06x WSize:%d WOffset:%d Interval:%d Latency:%d Timeout:%d", adv_pdu_payload_5->CRCInit, adv_pdu_payload_5->WinSize, adv_pdu_payload_5->WinOffset, adv_pdu_payload_5->Interval, adv_pdu_payload_5->Latency, adv_pdu_payload_5->Timeout);
+      printf(" CRCInit:%06x WSize:%02x WOffset:%04x Itrvl:%04x Ltncy:%04x Timot:%04x", adv_pdu_payload_5->CRCInit, adv_pdu_payload_5->WinSize, adv_pdu_payload_5->WinOffset, adv_pdu_payload_5->Interval, adv_pdu_payload_5->Latency, adv_pdu_payload_5->Timeout);
       printf(" ChM:");
       for(i=0; i<5; i++) {
         printf("%02x", adv_pdu_payload_5->ChM[i]);
@@ -1283,15 +1743,21 @@ void print_pdu_payload(void *adv_pdu_payload, int pdu_type, int payload_len, boo
     printf(" CRC%d\n", crc_flag);
 }
 
-void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number, uint32_t access_addr) {
+void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number, uint32_t access_addr, uint32_t crc_init, int verbose_flag) {
   static int pkt_count = 0;
-  static ADV_PDU_PAYLOAD_TYPE_5 adv_pdu_payload;
+  static ADV_PDU_PAYLOAD_TYPE_R adv_pdu_payload;
+  static LL_DATA_PDU_PAYLOAD_TYPE ll_data_pdu_payload;
   static struct timeval time_current_pkt, time_pre_pkt;
   const int demod_buf_len = LEN_BUF_MAX_NUM_PHY_SAMPLE+(LEN_BUF/2);
+  
+  ADV_PDU_TYPE adv_pdu_type;
+  LL_PDU_TYPE ll_pdu_type;
+  
   IQ_TYPE *rxp = rxp_in;
-  int num_demod_byte, hit_idx, buf_len_eaten, pdu_type, tx_add, rx_add, payload_len, time_diff;
+  int num_demod_byte, hit_idx, buf_len_eaten, adv_tx_add, adv_rx_add, ll_nesn, ll_sn, ll_md, payload_len, time_diff, ll_ctrl_pdu_type;
   int num_symbol_left = buf_len/(SAMPLE_PER_SYMBOL*2); //2 for IQ
   bool crc_flag;
+  bool adv_flag = (channel_number==37 || channel_number==38 || channel_number==39);
   
   if (pkt_count == 0) { // the 1st time run
     gettimeofday(&time_current_pkt, NULL);
@@ -1331,11 +1797,15 @@ void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number, uint32_t access_
     rxp = rxp_in + buf_len_eaten;
     num_symbol_left = (buf_len-buf_len_eaten)/(SAMPLE_PER_SYMBOL*2);
     
-    parse_adv_pdu_header_byte(tmp_byte, &pdu_type, &tx_add, &rx_add, &payload_len);
-    
-    if( payload_len<6 || payload_len>37 ) {
-      //printf(" (should be 6~37, quit!)\n");
-      continue;
+    if (adv_flag)
+    {
+      parse_adv_pdu_header_byte(tmp_byte, &adv_pdu_type, &adv_tx_add, &adv_rx_add, &payload_len);
+      if( payload_len<6 || payload_len>37 ) {
+        //printf(" (should be 6~37, quit!)\n");
+        continue;
+      }
+    } else {
+      parse_ll_pdu_header_byte(tmp_byte, &ll_pdu_type, &ll_nesn, &ll_sn, &ll_md, &payload_len);
     }
     
     //num_pdu_payload_crc_bits = (payload_len+3)*8;
@@ -1352,19 +1822,30 @@ void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number, uint32_t access_
     rxp = rxp_in + buf_len_eaten;
     num_symbol_left = (buf_len-buf_len_eaten)/(SAMPLE_PER_SYMBOL*2);
     
-    crc_flag = crc_check(tmp_byte, payload_len+2);
+    crc_flag = crc_check(tmp_byte, payload_len+2, crc_init);
     pkt_count++;
     
     gettimeofday(&time_current_pkt, NULL);
     time_diff = TimevalDiff(&time_current_pkt, &time_pre_pkt);
     time_pre_pkt = time_current_pkt;
     
-    printf("%dus Pkt%d Ch%d AA:%08x PDU_t%d:%s T%d R%d PloadL%d ", time_diff, pkt_count, channel_number, access_addr, pdu_type, PDU_TYPE_STR[pdu_type], tx_add, rx_add, payload_len);
+    printf("%dus Pkt%d Ch%d AA:%08x ", time_diff, pkt_count, channel_number, access_addr);
     
-    if (parse_adv_pdu_payload_byte(tmp_byte+2, payload_len, pdu_type, (void *)(&adv_pdu_payload) ) != 0 ) {
-      continue;
+    if (adv_flag) {
+      printf("ADV_PDU_t%d:%s T%d R%d PloadL%d ", adv_pdu_type, ADV_PDU_TYPE_STR[adv_pdu_type], adv_tx_add, adv_rx_add, payload_len);
+    
+      if (parse_adv_pdu_payload_byte(tmp_byte+2, payload_len, adv_pdu_type, (void *)(&adv_pdu_payload) ) != 0 ) {
+        continue;
+      }
+      print_adv_pdu_payload((void *)(&adv_pdu_payload), adv_pdu_type, payload_len, crc_flag);
+    } else {
+      printf("LL_PDU_t%d:%s NESN%d SN%d MD%d PloadL%d ", ll_pdu_type, LL_PDU_TYPE_STR[ll_pdu_type], ll_nesn, ll_sn, ll_md, payload_len);
+      
+      if ( ( ll_ctrl_pdu_type=parse_ll_pdu_payload_byte(tmp_byte+2, payload_len, ll_pdu_type, (void *)(&ll_data_pdu_payload) )  ) < 0 ) {
+        continue;
+      }
+      print_ll_pdu_payload((void *)(&ll_data_pdu_payload), ll_pdu_type, ll_ctrl_pdu_type, payload_len, crc_flag);
     }
-    print_pdu_payload((void *)(&adv_pdu_payload), pdu_type, payload_len, crc_flag);
   }
 }
 //----------------------------------receiver----------------------------------
@@ -1374,15 +1855,15 @@ IQ_TYPE tmp_buf[2097152];
 //---------------------------for offline test--------------------------------------
 int main(int argc, char** argv) {
   uint64_t freq_hz;
-  int gain, chan, phase, rx_buf_offset_tmp;
-  uint32_t access_addr;
+  int gain, chan, phase, rx_buf_offset_tmp, verbose_flag;
+  uint32_t access_addr, crc_init;
   bool run_flag = false;
   void* rf_dev;
   IQ_TYPE *rxp;
 
-  parse_commandline(argc, argv, &chan, &gain, &access_addr);
+  parse_commandline(argc, argv, &chan, &gain, &access_addr, &crc_init, &verbose_flag);
   freq_hz = get_freq_by_channel_number(chan);
-  printf("Cmd line input: chan %d, freq %ldMHz, access addr %08x, rx %ddB (%s)\n", chan, freq_hz/1000000, access_addr, gain, board_name);
+  printf("Cmd line input: chan %d, freq %ldMHz, access addr %08x, crc init %06x rx %ddB (%s)\n", chan, freq_hz/1000000, access_addr, crc_init, gain, board_name);
   
   // run cyclic recv in background
   do_exit = false;
@@ -1435,14 +1916,14 @@ int main(int argc, char** argv) {
       // ------------------------for offline test -------------------------------------
       //save_phy_sample(rx_buf+buf_sp, LEN_BUF/2, "/home/jxj/git/BTLE/matlab/sample_iq_4msps.txt");
       load_phy_sample(tmp_buf, 2097152, "/home/jxj/git/BTLE/matlab/sample_iq_4msps.txt");
-      receiver(tmp_buf, 2097152, 37, 0x8E89BED6);
+      receiver(tmp_buf, 2097152, 37, 0x8E89BED6, 0x555555, 1);
       break;
       // ------------------------for offline test -------------------------------------
       #endif
       
       // -----------------------------real online run--------------------------------
       //receiver(rxp, LEN_BUF_MAX_NUM_PHY_SAMPLE+(LEN_BUF/2), chan);
-      receiver(rxp, (LEN_DEMOD_BUF_ACCESS-1)*2*SAMPLE_PER_SYMBOL+(LEN_BUF)/2, chan, access_addr);
+      receiver(rxp, (LEN_DEMOD_BUF_ACCESS-1)*2*SAMPLE_PER_SYMBOL+(LEN_BUF)/2, chan, access_addr, crc_init, verbose_flag);
       // -----------------------------real online run--------------------------------
       
       run_flag = false;
