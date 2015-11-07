@@ -13,7 +13,7 @@ chan: Channel number. Default value 37 (one of ADV chan). Valid value 0~39 (all 
 
 gain: VGA gain. default value 6. valid value 0~62. LNA has been set to maximum 40dB internally. Gain should be tuned very carefully to ensure best performance under your circumstance. Suggest test from low gain, because high gain always causes severe distortion and get you nothing.
 
-access_addr: Access address. Default 8e89bed6 for ADV channel 37 38 39.
+access_addr: Access address. Default 8e89bed6 for ADV channel 37 38 39. You should specify correct value for data channel according to captured connection setup procedure.
 
 crc_init: Default 555555 for ADV channel. You should specify correct value for data channel according to captured connection setup procedure.
 
@@ -150,7 +150,7 @@ chan: Channel number. Default value 37 (one of ADV chan). Valid value 0~39 (all 
 
 gain: VGA gain. default value 6. valid value 0~62. LNA has been set to maximum 40dB internally. Gain should be tuned very carefully to ensure best performance under your circumstance. Suggest test from low gain, because high gain always causes severe distortion and get you nothing.
 
-access_addr: Access address. Default 8e89bed6 for ADV channel 37 38 39.
+access_addr: Access address. Default 8e89bed6 for ADV channel 37 38 39. You should specify correct value for data channel according to captured connection setup procedure.
 
 crc_init: Default 555555 for ADV channel. You should specify correct value for data channel according to captured connection setup procedure.
 
