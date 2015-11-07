@@ -989,9 +989,15 @@ void int_to_bit(int n, char *bit) {
 }
 
 int convert_hex_to_bit(char *hex, char *bit){
-  int num_hex = strlen(hex);
-  while(hex[num_hex-1]<=32 || hex[num_hex-1]>=127) {
-    num_hex--;
+  int num_hex_orig = strlen(hex);
+  //while(hex[num_hex-1]<=32 || hex[num_hex-1]>=127) {
+  //  num_hex--;
+  //}
+  int i, num_hex;
+  num_hex = num_hex_orig;
+  for(i=0; i<num_hex_orig; i++) {
+    if ( !( (hex[i]>=48 && hex[i]<=57) || (hex[i]>=65 && hex[i]<=70) || (hex[i]>=97 && hex[i]<=102) ) ) //not a hex
+      num_hex--;
   }
 
   if (num_hex%2 != 0) {
@@ -1002,7 +1008,7 @@ int convert_hex_to_bit(char *hex, char *bit){
 
   int num_bit = num_hex*4;
 
-  int i, j;
+  int j;
   for (i=0; i<num_hex; i=i+2) {
     j = i*4;
     octet_hex_to_bit(hex+i, bit+j);
@@ -2830,31 +2836,31 @@ int calculate_sample_for_LL_CONNECTION_UPDATE_REQ(char *pkt_str, PKT_INFO *pkt) 
     return(-1);
   }
   pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
-  current_p = get_next_field_name_bit(current_p, "WINOFFSET", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 0, 2, &ret);
+  current_p = get_next_field_name_bit(current_p, "WINOFFSET", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 2, &ret);
   if (ret != 0) { // failed or the last
     return(-1);
   }
   pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
 
-  current_p = get_next_field_name_bit(current_p, "INTERVAL", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 0, 2, &ret);
+  current_p = get_next_field_name_bit(current_p, "INTERVAL", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 2, &ret);
   if (ret != 0) { // failed or the last
     return(-1);
   }
   pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
 
-  current_p = get_next_field_name_bit(current_p, "LATENCY", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 0, 2, &ret);
+  current_p = get_next_field_name_bit(current_p, "LATENCY", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 2, &ret);
   if (ret != 0) { // failed or the last
     return(-1);
   }
   pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
 
-  current_p = get_next_field_name_bit(current_p, "TIMEOUT", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 0, 2, &ret);
+  current_p = get_next_field_name_bit(current_p, "TIMEOUT", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 2, &ret);
   if (ret != 0) { // failed or the last
     return(-1);
   }
   pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
 
-  current_p = get_next_field_name_bit(current_p, "INSTANT", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 0, 2, &ret);
+  current_p = get_next_field_name_bit(current_p, "INSTANT", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 2, &ret);
   if (ret != 0) { // failed or the last
     return(-1);
   }
@@ -2952,12 +2958,12 @@ int calculate_sample_for_LL_CHANNEL_MAP_REQ(char *pkt_str, PKT_INFO *pkt) {
   pkt->num_info_bit = pkt->num_info_bit + 8; // 8 is opcode
 
 // get ChM Instant
-  current_p = get_next_field_name_bit(current_p, "CHM", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 0, 5, &ret);
+  current_p = get_next_field_name_bit(current_p, "CHM", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 5, &ret);
   if (ret != 0) { // failed or the last
     return(-1);
   }
   pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
-  current_p = get_next_field_name_bit(current_p, "INSTANT", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 0, 2, &ret);
+  current_p = get_next_field_name_bit(current_p, "INSTANT", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 2, &ret);
   if (ret != 0) { // failed or the last
     return(-1);
   }
@@ -3153,25 +3159,25 @@ int calculate_sample_for_LL_ENC_REQ(char *pkt_str, PKT_INFO *pkt) {
   pkt->num_info_bit = pkt->num_info_bit + 8; // 8 is opcode
 
 // get Rand EDIV SKDm IVm
-  current_p = get_next_field_name_bit(current_p, "RAND", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 0, 8, &ret);
+  current_p = get_next_field_name_bit(current_p, "RAND", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 8, &ret);
   if (ret != 0) { // failed or the last
     return(-1);
   }
   pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
 
-  current_p = get_next_field_name_bit(current_p, "EDIV", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 0, 2, &ret);
+  current_p = get_next_field_name_bit(current_p, "EDIV", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 2, &ret);
   if (ret != 0) { // failed or the last
     return(-1);
   }
   pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
 
-  current_p = get_next_field_name_bit(current_p, "SKDM", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 0, 8, &ret);
+  current_p = get_next_field_name_bit(current_p, "SKDM", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 8, &ret);
   if (ret != 0) { // failed or the last
     return(-1);
   }
   pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
 
-  current_p = get_next_field_name_bit(current_p, "IVM", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 0, 4, &ret);
+  current_p = get_next_field_name_bit(current_p, "IVM", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 4, &ret);
   if (ret != 0) { // failed or the last
     return(-1);
   }
@@ -3269,13 +3275,13 @@ int calculate_sample_for_LL_ENC_RSP(char *pkt_str, PKT_INFO *pkt) {
   pkt->num_info_bit = pkt->num_info_bit + 8; // 8 is opcode
 
 // get SKDs IVs
-  current_p = get_next_field_name_bit(current_p, "SKDS", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 0, 8, &ret);
+  current_p = get_next_field_name_bit(current_p, "SKDS", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 8, &ret);
   if (ret != 0) { // failed or the last
     return(-1);
   }
   pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
 
-  current_p = get_next_field_name_bit(current_p, "IVS", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 0, 4, &ret);
+  current_p = get_next_field_name_bit(current_p, "IVS", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 4, &ret);
   if (ret != 0) { // failed or the last
     return(-1);
   }
@@ -3573,7 +3579,7 @@ int calculate_sample_for_LL_FEATURE_REQ(char *pkt_str, PKT_INFO *pkt) {
   pkt->num_info_bit = pkt->num_info_bit + 8; // 8 is opcode
 
 // get FeatureSet
-  current_p = get_next_field_name_bit(current_p, "FEATURESET", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 0, 8, &ret);
+  current_p = get_next_field_name_bit(current_p, "FEATURESET", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 8, &ret);
   if (ret != 0) { // failed or the last
     return(-1);
   }
@@ -3698,13 +3704,13 @@ int calculate_sample_for_LL_VERSION_IND(char *pkt_str, PKT_INFO *pkt) {
   }
   pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
 
-  current_p = get_next_field_name_bit(current_p, "COMPID", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 0, 2, &ret);
+  current_p = get_next_field_name_bit(current_p, "COMPID", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 2, &ret);
   if (ret != 0) { // failed or the last
     return(-1);
   }
   pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
 
-  current_p = get_next_field_name_bit(current_p, "SUBVERSNR", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 0, 2, &ret);
+  current_p = get_next_field_name_bit(current_p, "SUBVERSNR", pkt->info_bit+pkt->num_info_bit, &num_bit_tmp, 1, 2, &ret);
   if (ret != 0) { // failed or the last
     return(-1);
   }

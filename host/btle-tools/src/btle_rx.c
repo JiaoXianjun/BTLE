@@ -1559,15 +1559,48 @@ inline void receiver_init(void) {
   byte_array_to_bit_array(access_byte, 4, access_bit);
 }
 
+uint32_t crc_init_reorder(uint32_t crc_init) {
+  int i;
+  uint32_t crc_init_tmp, crc_init_input, crc_init_input_tmp;
+  
+  crc_init_input_tmp = crc_init;
+  crc_init_input = 0;
+  
+  crc_init_input = ( (crc_init_input)|(crc_init_input_tmp&0xFF) );
+  
+  crc_init_input_tmp = (crc_init_input_tmp>>8);
+  crc_init_input = ( (crc_init_input<<8)|(crc_init_input_tmp&0xFF) );
+  
+  crc_init_input_tmp = (crc_init_input_tmp>>8);
+  crc_init_input = ( (crc_init_input<<8)|(crc_init_input_tmp&0xFF) );
+  
+  //printf("%06x\n", crc_init_input);
+  
+  crc_init_input = (crc_init_input<<1);
+  crc_init_tmp = 0;
+  for(i=0; i<24; i++) {
+    crc_init_input = (crc_init_input>>1);
+    crc_init_tmp = ( (crc_init_tmp<<1)|( crc_init_input&0x01 ) );
+  }
+  return(crc_init_tmp);
+}
 bool crc_check(uint8_t *tmp_byte, int body_len, uint32_t crc_init) {
-    int crc24_checksum, crc24_received;
-    uint32_t crc_init_tmp;
+    int crc24_checksum, crc24_received;//, i;
+    //uint32_t crc_init_tmp, crc_init_input;
     // method 1
-    crc_init_tmp = ( (~crc_init)&0xFFFFFF );
+    //crc_init_tmp = ( (~crc_init)&0xFFFFFF );
     
     // method 2
+    #if 0
+    crc_init_input = (crc_init<<1);
+    crc_init_tmp = 0;
+    for(i=0; i<24; i++) {
+      crc_init_input = (crc_init_input>>1);
+      crc_init_tmp = ( (crc_init_tmp<<1)|( crc_init_input&0x01 ) );
+    }
+    #endif
     
-    crc24_checksum = crc24_byte(tmp_byte, body_len, crc_init_tmp); // 0x555555 --> 0xaaaaaa. maybe because byte order
+    crc24_checksum = crc24_byte(tmp_byte, body_len, crc_init); // 0x555555 --> 0xaaaaaa. maybe because byte order
     crc24_received = 0;
     crc24_received = ( (crc24_received << 8) | tmp_byte[body_len+2] );
     crc24_received = ( (crc24_received << 8) | tmp_byte[body_len+1] );
@@ -1856,7 +1889,7 @@ IQ_TYPE tmp_buf[2097152];
 int main(int argc, char** argv) {
   uint64_t freq_hz;
   int gain, chan, phase, rx_buf_offset_tmp, verbose_flag;
-  uint32_t access_addr, crc_init;
+  uint32_t access_addr, crc_init, crc_init_internal;
   bool run_flag = false;
   void* rf_dev;
   IQ_TYPE *rxp;
@@ -1877,6 +1910,8 @@ int main(int argc, char** argv) {
   }
   // init receiver
   //receiver_init();
+  
+  crc_init_internal = crc_init_reorder(crc_init);
   
   // scan
   do_exit = false;
@@ -1923,7 +1958,7 @@ int main(int argc, char** argv) {
       
       // -----------------------------real online run--------------------------------
       //receiver(rxp, LEN_BUF_MAX_NUM_PHY_SAMPLE+(LEN_BUF/2), chan);
-      receiver(rxp, (LEN_DEMOD_BUF_ACCESS-1)*2*SAMPLE_PER_SYMBOL+(LEN_BUF)/2, chan, access_addr, crc_init, verbose_flag);
+      receiver(rxp, (LEN_DEMOD_BUF_ACCESS-1)*2*SAMPLE_PER_SYMBOL+(LEN_BUF)/2, chan, access_addr, crc_init_internal, verbose_flag);
       // -----------------------------real online run--------------------------------
       
       run_flag = false;
