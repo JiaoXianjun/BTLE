@@ -3,30 +3,39 @@ A BTLE (Bluetooth Low energy)/BT4.0 radio packet sniffer/scanner and sender ( bu
 
 ==========================================================================
 
-News (See complete introduction section after news section):
+# News (See complete introduction section after news section):
 
-03 Nov. 2015: BTLE packet sniffer/scanner btle_rx works! Support HACKRF currently. Usage:
+## Nov. 2015: BTLE packet sniffer/scanner btle_rx works! Support HACKRF currently. Usage:
     
-    btle_rx -c chan -g gain -a access_addr
+    btle_rx -c chan -g gain -a access_addr -k crc_init -v
 
-chan: Channel number. Default value 37. Valid value 0~39. currently non 37 38 39 channel (advertising) are still under development. Will support all channels 0~39 and flexible Access Address like TI's BTLE packet sniffer.
+chan: Channel number. Default value 37 (one of ADV chan). Valid value 0~39 (all ADV and DATA chan).
 
 gain: VGA gain. default value 6. valid value 0~62. LNA has been set to maximum 40dB internally. Gain should be tuned very carefully to ensure best performance under your circumstance. Suggest test from low gain, because high gain always causes severe distortion and get you nothing.
 
-access_addr: access address. Default value 8e89bed6 for channel 37 38 39.
+access_addr: Access address. Default 8e89bed6 for ADV channel 37 38 39.
 
-ATTENTION: To support fast/realtime sender and scanner/sniffer, I have changed lib_device->transfer_count to 4 and lib_device->buffer_size to 4096 in hackrf driver: hackrf.c. If you want to use this tool, you'd better also do that change to your driver source code and re-compile, re-install as instructed in <a href="https://github.com/mossmann/hackrf">hackrf</a>
+crc_init: Default 555555 for ADV channel. You should specify correct value for data channel according to captured connection setup procedure.
+
+-v: verbose mode
+
+**ATTENTION**: To support fast/realtime sender and scanner/sniffer, I have changed:
+
+    lib_device->transfer_count to 4
+    lib_device->buffer_size to 4096 
+
+in hackrf driver: hackrf.c. You should also do that change to your driver source code and re-compile, re-install as instructed in <a href="https://github.com/mossmann/hackrf">hackrf</a>
 
 See a comparison with TI's packet sniffer here: [http://sdr-x.github.io/BTLE-SNIFFER/](http://sdr-x.github.io/BTLE-SNIFFER/)
 
-02 Sep. 2015: Fixed-point version. Add new packet type: discovery. Open LightBlue APP in your iPhone/device, then:
+## Sep. 2015: Fixed-point version. Add new packet type: discovery. Open LightBlue APP in your iPhone/device, then:
 
     btle_tx packets_discovery.txt
     (packets_discovery.txt is under host/btle-tools/src)
 
 You will see a device named as "CA1308 11950 22.626 113.823 8" in your LightBlue APP.
 
-DO NOT use space character " " in a command line packet descriptor. You CAN use space in the txt file packet descriptor like above. Command line of above example:
+**DO NOT** use space character " " in a command line packet descriptor. You CAN use space in the txt file packet descriptor like above. Command line of above example:
 
     btle_tx 37-DISCOVERY-TxAdd-1-RxAdd-0-AdvA-010203040506-LOCAL_NAME09-CA1308/11950/22.626/113.823/8 r40
     
@@ -34,8 +43,7 @@ DO NOT use space character " " in a command line packet descriptor. You CAN use 
 
 "-" is magic character which is used to separate different fields in packet descriptor. DO NOT use "-" inside each field.
 
-
-11 Aug. 2014: Fix packet loss bug. And, add <a href="https://github.com/Nuand/bladeRF">bladeRF</a> support:
+## Aug. 2014: Fix packet loss bug. And, add <a href="https://github.com/Nuand/bladeRF">bladeRF</a> support:
 
     cmake ../ -DUSE_BLADERF=1  (without -DUSE_BLADERF=1 means HACKRF will be used by default)
     
@@ -43,18 +51,18 @@ DO NOT use space character " " in a command line packet descriptor. You CAN use 
 
 ==========================================================================
 
-All link layer packet formats are supported. (Chapter 2&3, PartB, Volume 6, 
+# Introduction
+
+All ADV and DATA channel link layer packet formats are supported. (Chapter 2&3, PartB, Volume 6, 
 <a href="https://www.google.fi/url?sa=t&rct=j&q=&esrc=s&source=web&cd=1&cad=rja&uact=8&ved=0CCAQFjAA&url=https%3A%2F%2Fwww.bluetooth.org%2Fdocman%2Fhandlers%2Fdownloaddoc.ashx%3Fdoc_id%3D229737&ei=ui3gU4GkC-up0AW4q4GwBw&usg=AFQjCNFY1IFeFAAWwimnoaWMsIRZQvPDSw&sig2=wTgMMxNPJ52NHclpsQ4XhQ&bvm=bv.72197243,d.d2k">Core_V4.0.pdf</a>   )
 
-btle_tx can be used to transmit arbitrary pre-defined BTLE signal/packet sequence, such as raw bits to GFSK modulator, iBeacon packet, <a href="http://processors.wiki.ti.com/index.php/BLE_sniffer_guide">Connection establishment procedure packet</a> in TI's website, or any other packets you want. 
+btle_tx transmits arbitrary pre-defined BTLE signal/packet sequence, such as raw bits to GFSK modulator, iBeacon packet, <a href="http://processors.wiki.ti.com/index.php/BLE_sniffer_guide">Connection establishment procedure packet</a> in TI's website, or any other packets you want. 
 
-btle_rx can be used as a BTLE packet sniffer/scanner, just like TI'S packet sniffer.
+btle_rx sniffs/scans BTLE packets in the air, just like TI'S packet sniffer.
 
-ATTENTION: To support fast/realtime sender and scanner/sniffer, I have changed lib_device->transfer_count to 4 and lib_device->buffer_size to 4096 in hackrf driver: hackrf.c. If you want to use this tool, you'd better also do that change to your driver source code and re-compile, re-install as instructed in <a href="https://github.com/mossmann/hackrf">hackrf</a>
+See <a href="https://youtu.be/9LDPhOF2yyw">btle_rx video demo</a> (youtube) or <a href="https://vimeo.com/144574631">btle_rx video demo</a> (in China) and <a href="http://youtu.be/Y8ttV5AEb-g">btle_tx video demo 1</a> (outside China) or <a href="http://v.youku.com/v_show/id_XNzUxMDIzNzAw.html">btle_tx video demo 2</a> (inside China)
 
-See <a href="https://youtu.be/9LDPhOF2yyw">btle_rx video demo</a> (youtube) or <a href="http://v.youku.com/v_show/id_XMTM3NzA0NjgyNA==.html">btle_rx video demo</a> (in China) and <a href="http://youtu.be/Y8ttV5AEb-g">btle_tx video demo 1</a> (outside China) or <a href="http://v.youku.com/v_show/id_XNzUxMDIzNzAw.html">btle_tx video demo 2</a> (inside China)
-
-----Build:
+# 1. Build:
 
     cd host
     mkdir build
@@ -63,11 +71,13 @@ See <a href="https://youtu.be/9LDPhOF2yyw">btle_rx video demo</a> (youtube) or <
     make
     sudo make install  (or not install, just use btle_tx in btle-tools/src)
 
-----btle_tx Usage method 1:
+# 2. btle_tx usage
+
+Usage method 1:
 
     btle_tx packet1 packet2 ... packetX ...  rN
 
-----btle_tx Usage method 2:
+Usage method 2:
 
     btle_tx packets.txt
 
@@ -77,13 +87,13 @@ In method 2, just those command line parameters (packet1 ... rN) in method 1 are
 
 "rN" means the sequence will be repeated for N times. If it is not specified, the sequence will only be sent once.
 
-----Format of packet descriptor "packetX"
+## Format of packet descriptor "packetX"
     
     channel_number-packet_type-field-value-field-value-...-Space-value
 
 Each descriptor string starts with BTLE channel number (0~39), then followed by packet_type (RAW/iBeacon/ADV_IND/ADV_DIRECT_IND/etc. See all format examples at the end), then followed by field-value pair which is packet_type specific, at last there is Space-value pair (optional) where the value specifies how many millisecond will be waited after this packet sent.
 
-----iBeacon example: (iBeacon principle: http://www.warski.org/blog/2014/01/how-ibeacons-work/ )
+### a). iBeacon example: (iBeacon principle: http://www.warski.org/blog/2014/01/how-ibeacons-work/ )
 
     btle_tx     37-iBeacon-AdvA-010203040506-UUID-B9407F30F5F8466EAFF925556B57FE6D-Major-0008-Minor-0009-TxPower-C5-Space-100     r100
 
@@ -107,7 +117,7 @@ Txpower -- transmit power parameter of iBeacon format (Here it is C5)
 
 Space -- How many millisecond will be waited after this packet sent. (Here it is 100ms)
 
-----Connection establishment example: (See "Connection establishment" part of http://processors.wiki.ti.com/index.php/BLE_sniffer_guide )
+### b). Connection establishment example: (See "Connection establishment" part of http://processors.wiki.ti.com/index.php/BLE_sniffer_guide )
 
     btle_tx     37-ADV_IND-TxAdd-0-RxAdd-0-AdvA-90D7EBB19299-AdvData-0201050702031802180418-Space-1      37-CONNECT_REQ-TxAdd-0-RxAdd-0-InitA-001830EA965F-AdvA-90D7EBB19299-AA-60850A1B-CRCInit-A77B22-WinSize-02-WinOffset-000F-Interval-0050-Latency-0000-Timeout-07D0-ChM-1FFFFFFFFF-Hop-9-SCA-5-Space-1     9-LL_DATA-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-DATA-XX-CRCInit-A77B22-Space-1
     
@@ -121,7 +131,7 @@ The 3rd packet -- device 1 send an empty Link layer data PDU in channel 9 (decid
 
 Time space between packets are 1s (1000ms). Tune TI's packet sniffer to channel 37, then above establishment procedure will be captured.
 
-----Discovery packets example: (which can show any name or services in receiver/scanner, such as LightBlue):
+### c). Discovery packets example: (which can show any name or services in receiver/scanner, such as LightBlue):
 
 Open LightBlue APP in your iPhone/device, then:
 
@@ -130,17 +140,21 @@ Open LightBlue APP in your iPhone/device, then:
 
 You will see a device named as "CA1308 11950 22.626 113.823 8" in your LightBlue APP.
 
-----btle_rx Usage:
+# 3. btle_rx Usage
     
-    btle_rx -c chan -g gain -a access_addr
+    btle_rx -c chan -g gain -a access_addr -k crc_init -v
 
-chan: Channel number. Default value 37. Valid value 0~39. currently non 37 38 39 channel (advertising) are still under development. Will support all channels 0~39 and flexible Access Address like TI's BTLE packet sniffer.
+chan: Channel number. Default value 37 (one of ADV chan). Valid value 0~39 (all ADV and DATA chan).
 
 gain: VGA gain. default value 6. valid value 0~62. LNA has been set to maximum 40dB internally. Gain should be tuned very carefully to ensure best performance under your circumstance. Suggest test from low gain, because high gain always causes severe distortion and get you nothing.
 
-access_addr: access address. Default value 8e89bed6 for channel 37 38 39.
+access_addr: Access address. Default 8e89bed6 for ADV channel 37 38 39.
 
-----Packet descriptor examples of btle_tx for all formats:
+crc_init: Default 555555 for ADV channel. You should specify correct value for data channel according to captured connection setup procedure.
+
+-v: verbose mode
+
+# Appendix: Packet descriptor examples of btle_tx for all formats:
 
 RAW packets: (All bits will be sent to GFSK modulator directly)
 
@@ -183,7 +197,7 @@ Discovery packets: (which can show any name or services in receiver/scanner, suc
     SERVICE:
     0x02 16-bit Service UUIDs More 16-bit UUIDs available
     0x03 16-bit Service UUIDs Complete list of 16-bit UUIDs available
-    0x04 32-bit Service UUIDs More 32-bit UUIDs available
+    0x04 32-bit Service UUIDs More 3a2-bit UUIDs available
     0x05 32-bit Service UUIDs Complete list of 32-bit UUIDs available
     0x06 128-bit Service UUIDs More 128-bit UUIDs available
     0x07 128-bit Service UUIDs Complete list of 128-bit UUIDs available
