@@ -1089,7 +1089,7 @@ void parse_commandline(
   
   // Error if extra arguments are found on the command line
   if (optind < argc) {
-    printf("Error: unknown/extra arguments specified on command line\n");
+    printf("Error: unknown/extra arguments specified on command line!\n");
     goto abnormal_quit;
   }
 
@@ -1198,7 +1198,7 @@ int parse_adv_pdu_payload_byte(uint8_t *payload_byte, int num_payload_byte, ADV_
   ADV_PDU_PAYLOAD_TYPE_R *payload_type_R = NULL;
   if (num_payload_byte<6) {
       //payload_parse_result_str = ['Payload Too Short (only ' num2str(length(payload_bits)) ' bits)'];
-      printf("Error: Payload Too Short (only %d bytes)\n", num_payload_byte);
+      printf("Error: Payload Too Short (only %d bytes)!\n", num_payload_byte);
       return(-1);
   }
 
@@ -1222,7 +1222,7 @@ int parse_adv_pdu_payload_byte(uint8_t *payload_byte, int num_payload_byte, ADV_
       //payload_parse_result_str = ['AdvA:' AdvA ' AdvData:' AdvData];
   } else if (pdu_type == ADV_DIRECT_IND || pdu_type == SCAN_REQ) {
       if (num_payload_byte!=12) {
-          printf("Error: Payload length %d bytes. Need to be 12 for PDU Type %s\n", num_payload_byte, ADV_PDU_TYPE_STR[pdu_type]);
+          printf("Error: Payload length %d bytes. Need to be 12 for PDU Type %s!\n", num_payload_byte, ADV_PDU_TYPE_STR[pdu_type]);
           return(-1);
       }
       payload_type_1_3 = (ADV_PDU_PAYLOAD_TYPE_1_3 *)adv_pdu_payload;
@@ -1246,7 +1246,7 @@ int parse_adv_pdu_payload_byte(uint8_t *payload_byte, int num_payload_byte, ADV_
       //payload_parse_result_str = ['AdvA:' AdvA ' InitA:' InitA];
   } else if (pdu_type == CONNECT_REQ) {
       if (num_payload_byte!=34) {
-          printf("Error: Payload length %d bytes. Need to be 34 for PDU Type %s\n", num_payload_byte, ADV_PDU_TYPE_STR[pdu_type]);
+          printf("Error: Payload length %d bytes. Need to be 34 for PDU Type %s!\n", num_payload_byte, ADV_PDU_TYPE_STR[pdu_type]);
           return(-1);
       }
       payload_type_5 = (ADV_PDU_PAYLOAD_TYPE_5 *)adv_pdu_payload;
@@ -1622,6 +1622,7 @@ void print_ll_pdu_payload(void *ll_pdu_payload, LL_PDU_TYPE pdu_type, int ctrl_p
   LL_CTRL_PDU_PAYLOAD_TYPE_R *ctrl_payload_type_R = NULL;
 
   if (num_payload_byte==0) {
+      printf("CRC%d\n", crc_flag);
       return;
   }
 
@@ -1635,14 +1636,14 @@ void print_ll_pdu_payload(void *ll_pdu_payload, LL_PDU_TYPE pdu_type, int ctrl_p
   } else if (pdu_type == LL_CTRL) {
       if (ctrl_pdu_type == LL_CONNECTION_UPDATE_REQ) {
         ctrl_payload_type_0 = (LL_CTRL_PDU_PAYLOAD_TYPE_0 *)ll_pdu_payload;
-        printf("OP%02x(%s) WSize:%02x WOffset:%04x Itrvl:%04x Ltncy:%04x Timot:%04x Inst:%04x", 
+        printf("Op%02x(%s) WSize:%02x WOffset:%04x Itrvl:%04x Ltncy:%04x Timot:%04x Inst:%04x", 
         ctrl_payload_type_0->Opcode,
         LL_CTRL_PDU_PAYLOAD_TYPE_STR[ctrl_pdu_type],
         ctrl_payload_type_0->WinSize, ctrl_payload_type_0->WinOffset, ctrl_payload_type_0->Interval, ctrl_payload_type_0->Latency, ctrl_payload_type_0->Timeout, ctrl_payload_type_0->Instant);
      
       } else if (ctrl_pdu_type == LL_CHANNEL_MAP_REQ) {
         ctrl_payload_type_1 = (LL_CTRL_PDU_PAYLOAD_TYPE_1 *)ll_pdu_payload;
-        printf("OP%02x(%s)", ctrl_payload_type_1->Opcode, LL_CTRL_PDU_PAYLOAD_TYPE_STR[ctrl_pdu_type] );
+        printf("Op%02x(%s)", ctrl_payload_type_1->Opcode, LL_CTRL_PDU_PAYLOAD_TYPE_STR[ctrl_pdu_type] );
         printf(" ChM:");
         for(i=0; i<5; i++) {
           printf("%02x", ctrl_payload_type_1->ChM[i]);
@@ -1651,11 +1652,11 @@ void print_ll_pdu_payload(void *ll_pdu_payload, LL_PDU_TYPE pdu_type, int ctrl_p
         
       } else if (ctrl_pdu_type == LL_TERMINATE_IND || ctrl_pdu_type == LL_UNKNOWN_RSP || ctrl_pdu_type == LL_REJECT_IND) {
         ctrl_payload_type_2_7_13 = (LL_CTRL_PDU_PAYLOAD_TYPE_2_7_13 *)ll_pdu_payload;
-        printf("OP%02x(%s) Err:%02x", ctrl_payload_type_2_7_13->Opcode, LL_CTRL_PDU_PAYLOAD_TYPE_STR[ctrl_pdu_type], ctrl_payload_type_2_7_13->ErrorCode );
+        printf("Op%02x(%s) Err:%02x", ctrl_payload_type_2_7_13->Opcode, LL_CTRL_PDU_PAYLOAD_TYPE_STR[ctrl_pdu_type], ctrl_payload_type_2_7_13->ErrorCode );
         
       } else if (ctrl_pdu_type == LL_ENC_REQ) {
         ctrl_payload_type_3 = (LL_CTRL_PDU_PAYLOAD_TYPE_3 *)ll_pdu_payload;
-        printf("OP%02x(%s)", ctrl_payload_type_3->Opcode, LL_CTRL_PDU_PAYLOAD_TYPE_STR[ctrl_pdu_type] );
+        printf("Op%02x(%s)", ctrl_payload_type_3->Opcode, LL_CTRL_PDU_PAYLOAD_TYPE_STR[ctrl_pdu_type] );
         printf(" Rand:");
         for(i=0; i<8; i++) {
           printf("%02x", ctrl_payload_type_3->Rand[i]);
@@ -1675,7 +1676,7 @@ void print_ll_pdu_payload(void *ll_pdu_payload, LL_PDU_TYPE pdu_type, int ctrl_p
         
       } else if (ctrl_pdu_type == LL_ENC_RSP) {
         ctrl_payload_type_4 = (LL_CTRL_PDU_PAYLOAD_TYPE_4 *)ll_pdu_payload;
-        printf("OP%02x(%s)", ctrl_payload_type_4->Opcode, LL_CTRL_PDU_PAYLOAD_TYPE_STR[ctrl_pdu_type] );
+        printf("Op%02x(%s)", ctrl_payload_type_4->Opcode, LL_CTRL_PDU_PAYLOAD_TYPE_STR[ctrl_pdu_type] );
         printf(" SKDs:");
         for(i=0; i<8; i++) {
           printf("%02x", ctrl_payload_type_4->SKDs[i]);
@@ -1687,11 +1688,11 @@ void print_ll_pdu_payload(void *ll_pdu_payload, LL_PDU_TYPE pdu_type, int ctrl_p
         
       } else if (ctrl_pdu_type == LL_START_ENC_REQ || ctrl_pdu_type == LL_START_ENC_RSP || ctrl_pdu_type == LL_PAUSE_ENC_REQ || ctrl_pdu_type == LL_PAUSE_ENC_RSP) {
         ctrl_payload_type_5_6_10_11 = (LL_CTRL_PDU_PAYLOAD_TYPE_5_6_10_11 *)ll_pdu_payload;
-        printf("OP%02x(%s)", ctrl_payload_type_5_6_10_11->Opcode, LL_CTRL_PDU_PAYLOAD_TYPE_STR[ctrl_pdu_type] );
+        printf("Op%02x(%s)", ctrl_payload_type_5_6_10_11->Opcode, LL_CTRL_PDU_PAYLOAD_TYPE_STR[ctrl_pdu_type] );
         
       } else if (ctrl_pdu_type == LL_FEATURE_REQ || ctrl_pdu_type == LL_FEATURE_RSP) {
         ctrl_payload_type_8_9 = (LL_CTRL_PDU_PAYLOAD_TYPE_8_9 *)ll_pdu_payload;
-        printf("OP%02x(%s)", ctrl_payload_type_8_9->Opcode, LL_CTRL_PDU_PAYLOAD_TYPE_STR[ctrl_pdu_type] );
+        printf("Op%02x(%s)", ctrl_payload_type_8_9->Opcode, LL_CTRL_PDU_PAYLOAD_TYPE_STR[ctrl_pdu_type] );
         printf(" FteurSet:");
         for(i=0; i<8; i++) {
           printf("%02x", ctrl_payload_type_8_9->FeatureSet[i]);
@@ -1699,7 +1700,7 @@ void print_ll_pdu_payload(void *ll_pdu_payload, LL_PDU_TYPE pdu_type, int ctrl_p
 
       } else if (ctrl_pdu_type == LL_VERSION_IND) {
         ctrl_payload_type_12 = (LL_CTRL_PDU_PAYLOAD_TYPE_12 *)ll_pdu_payload;
-        printf("OP%02x(%s) Ver:%02x CompId:%04x SubVer:%04x", 
+        printf("Op%02x(%s) Ver:%02x CompId:%04x SubVer:%04x", 
         ctrl_payload_type_12->Opcode,
         LL_CTRL_PDU_PAYLOAD_TYPE_STR[ctrl_pdu_type],
         ctrl_payload_type_12->VersNr, ctrl_payload_type_12->CompId, ctrl_payload_type_12->SubVersNr);
@@ -1708,7 +1709,7 @@ void print_ll_pdu_payload(void *ll_pdu_payload, LL_PDU_TYPE pdu_type, int ctrl_p
         if (ctrl_pdu_type>LL_REJECT_IND)
           ctrl_pdu_type = LL_REJECT_IND+1;
         ctrl_payload_type_R = (LL_CTRL_PDU_PAYLOAD_TYPE_R *)ll_pdu_payload;
-        printf("OP%02x(%s)", ctrl_payload_type_R->Opcode, LL_CTRL_PDU_PAYLOAD_TYPE_STR[ctrl_pdu_type] );
+        printf("Op%02x(%s)", ctrl_payload_type_R->Opcode, LL_CTRL_PDU_PAYLOAD_TYPE_STR[ctrl_pdu_type] );
         printf(" Byte:");
         for(i=0; i<(num_payload_byte-1); i++) {
           printf("%02x", ctrl_payload_type_R->payload_byte[i]);
@@ -1834,7 +1835,8 @@ void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number, uint32_t access_
     {
       parse_adv_pdu_header_byte(tmp_byte, &adv_pdu_type, &adv_tx_add, &adv_rx_add, &payload_len);
       if( payload_len<6 || payload_len>37 ) {
-        //printf(" (should be 6~37, quit!)\n");
+        if (verbose_flag)
+          printf("Error: ADV payload length should be 6~37!\n");
         continue;
       }
     } else {
