@@ -7,7 +7,7 @@ A BTLE (Bluetooth Low energy)/BT4.0 radio packet sniffer/scanner and sender ( bu
 
 ## Nov. 2015: BTLE packet sniffer/scanner btle_rx works! Support HACKRF currently. Usage:
     
-    btle_rx -c chan -g gain -a access_addr -k crc_init -v
+    btle_rx -c chan -g gain -a access_addr -k crc_init -v -r
 
 chan: Channel number. Default value 37 (one of ADV chan). Valid value 0~39 (all ADV and DATA chan).
 
@@ -17,7 +17,9 @@ access_addr: Access address. Default 8e89bed6 for ADV channel 37 38 39.
 
 crc_init: Default 555555 for ADV channel. You should specify correct value for data channel according to captured connection setup procedure.
 
--v: verbose mode
+-v: Verbose mode. Print more information when there is error
+
+-r: Raw mode. After access addr is detected, print out following raw 42 bytes (without descrambling, parsing)
 
 **ATTENTION**: To support fast/realtime sender and scanner/sniffer, I have changed:
 
@@ -142,7 +144,7 @@ You will see a device named as "CA1308 11950 22.626 113.823 8" in your LightBlue
 
 # 3. btle_rx Usage
     
-    btle_rx -c chan -g gain -a access_addr -k crc_init -v
+    btle_rx -c chan -g gain -a access_addr -k crc_init -v -r
 
 chan: Channel number. Default value 37 (one of ADV chan). Valid value 0~39 (all ADV and DATA chan).
 
@@ -152,7 +154,10 @@ access_addr: Access address. Default 8e89bed6 for ADV channel 37 38 39.
 
 crc_init: Default 555555 for ADV channel. You should specify correct value for data channel according to captured connection setup procedure.
 
--v: verbose mode
+-v: Verbose mode. Print more information when there is error
+
+-r: Raw mode. After access addr is detected, print out following raw 42 bytes (without descrambling, parsing)
+
 
 # Appendix: Packet descriptor examples of btle_tx for all formats:
 
