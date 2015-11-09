@@ -494,13 +494,19 @@ static void print_usage() {
   printf("    -g --gain\n");
   printf("      Rx gain in dB. HACKRF rxvga default %d, valid 0~62, lna in max gain. bladeRF default is max rx gain 66dB (valid 0~66)\n", DEFAULT_GAIN);
   printf("    -a --access\n");
-  printf("      Access addr. 4 bytes. Hex format (like 89ABCDEF). Default %08x for channel 37 38 39. For other channel you should pick correct value according to sniffed link setup procedure\n", DEFAULT_ACCESS_ADDR);
+  printf("      Access address. 4 bytes. Hex format (like 89ABCDEF). Default %08x for channel 37 38 39. For other channel you should pick correct value according to sniffed link setup procedure\n", DEFAULT_ACCESS_ADDR);
   printf("    -k --crcinit\n");
   printf("      CRC init value. 3 bytes. Hex format (like 555555). Default %06x for channel 37 38 39. For other channel you should pick correct value according to sniffed link setup procedure\n", DEFAULT_CRC_INIT);
   printf("    -v --verbose\n");
   printf("      Print more information when there is error\n");
   printf("    -r --raw\n");
   printf("      Raw mode. After access addr is detected, print out following raw 42 bytes (without descrambling, parsing)\n");
+  printf("    -f --freq_hz\n");
+  printf("      This frequency (Hz) will override channel setting\n");
+  printf("    -m --access_mask\n");
+  printf("      If a bit is 1 in this mask, corresponding bit in access address will be taken into packet detection\n");
+  printf("    -o --hop\n");
+  printf("      This will turn on frequency hopping after link setup information is captured in ADV_CONNECT_REQ packet\n");
   printf("\nSee README for detailed information.\n");
 }
 //----------------------------------print_usage----------------------------------
@@ -807,7 +813,7 @@ typedef enum
     LL_PAUSE_ENC_REQ= 10,
     LL_PAUSE_ENC_RSP= 11,
     LL_VERSION_IND= 12,
-    LL_REJECT_IND= 13,
+    LL_REJECT_IND= 13
 } LL_CTRL_PDU_PAYLOAD_TYPE;
 
 char *LL_CTRL_PDU_PAYLOAD_TYPE_STR[] = {
@@ -1003,7 +1009,10 @@ void parse_commandline(
   uint32_t* access_addr,
   uint32_t* crc_init,
   int* verbose_flag,
-  int* raw_flag
+  int* raw_flag,
+  uint64_t* freq_hz, 
+  uint32_t* access_mask, 
+  int* hop_flag
 ) {
   printf("BTLE/BT4.0 Scanner(NO bladeRF support so far). Xianjun Jiao. putaoshu@gmail.com\n\n");
   
@@ -1019,6 +1028,12 @@ void parse_commandline(
   (*verbose_flag) = 0;
   
   (*raw_flag) = 0;
+  
+  (*freq_hz) = 123;
+  
+  (*access_mask) = 0xFFFFFFFF;
+  
+  (*hop_flag) = 0;
 
   while (1) {
     static struct option long_options[] = {
@@ -1029,11 +1044,14 @@ void parse_commandline(
       {"crcinit",           required_argument, 0, 'k'},
       {"verbose",         no_argument, 0, 'v'},
       {"raw",         no_argument, 0, 'r'},
+      {"freq_hz",           required_argument, 0, 'f'},
+      {"access_mask",         required_argument, 0, 'm'},
+      {"hop",         no_argument, 0, 'o'},
       {0, 0, 0, 0}
     };
     /* getopt_long stores the option index here. */
     int option_index = 0;
-    int c = getopt_long (argc, argv, "hc:g:a:k:vr",
+    int c = getopt_long (argc, argv, "hc:g:a:k:vrf:m:o",
                      long_options, &option_index);
 
     /* Detect the end of the options. */
@@ -1056,6 +1074,10 @@ void parse_commandline(
       case 'r':
         (*raw_flag) = 1;
         break;
+      
+      case 'o':
+        (*hop_flag) = 1;
+        break;
         
       case 'h':
         goto abnormal_quit;
@@ -1068,9 +1090,17 @@ void parse_commandline(
       case 'g':
         (*gain) = strtol(optarg,&endp,10);
         break;
+      
+      case 'f':
+        (*freq_hz) = strtol(optarg,&endp,10);
+        break;
         
       case 'a':
         (*access_addr) = strtol(optarg,&endp,16);
+        break;
+      
+      case 'm':
+        (*access_mask) = strtol(optarg,&endp,16);
         break;
         
       case 'k':
@@ -1112,6 +1142,12 @@ abnormal_quit:
 //----------------------------------command line parameters----------------------------------
 
 //----------------------------------receiver----------------------------------
+typedef struct {
+    int pkt_avaliable;
+    int hop;
+    uint32_t access_addr;
+    uint32_t crc_init;
+} RECV_STATUS;
 
 //#define LEN_DEMOD_BUF_PREAMBLE_ACCESS ( (NUM_PREAMBLE_ACCESS_BYTE*8)-8 ) // to get 2^x integer
 //#define LEN_DEMOD_BUF_PREAMBLE_ACCESS 32
@@ -1124,7 +1160,10 @@ static uint8_t demod_buf_access[SAMPLE_PER_SYMBOL][LEN_DEMOD_BUF_ACCESS];
 uint8_t access_byte[NUM_ACCESS_ADDR_BYTE] = {0xD6, 0xBE, 0x89, 0x8E};
 //uint8_t preamble_access_bit[NUM_PREAMBLE_ACCESS_BYTE*8];
 uint8_t access_bit[NUM_ACCESS_ADDR_BYTE*8];
+uint8_t access_bit_mask[NUM_ACCESS_ADDR_BYTE*8];
 uint8_t tmp_byte[2+37+3]; // header length + maximum payload length 37 + 3 octets CRC
+
+RECV_STATUS receiver_status;
 
 void demod_byte(IQ_TYPE* rxp, int num_byte, uint8_t *out_byte) {
   int i, j;
@@ -1147,7 +1186,7 @@ void demod_byte(IQ_TYPE* rxp, int num_byte, uint8_t *out_byte) {
   }
 }
 
-inline int search_unique_bits(IQ_TYPE* rxp, int search_len, uint8_t *unique_bits, const int num_bits) {
+inline int search_unique_bits(IQ_TYPE* rxp, int search_len, uint8_t *unique_bits, uint8_t *unique_bits_mask, const int num_bits) {
   int i, sp, j, i0, q0, i1, q1, k, p, phase_idx;
   bool unequal_flag;
   const int demod_buf_len = num_bits;
@@ -1176,7 +1215,7 @@ inline int search_unique_bits(IQ_TYPE* rxp, int search_len, uint8_t *unique_bits
       unequal_flag = false;
       for (p=0; p<demod_buf_len; p++) {
         //if (demod_buf_preamble_access[phase_idx][k] != unique_bits[p]) {
-        if (demod_buf_access[phase_idx][k] != unique_bits[p]) {
+        if (demod_buf_access[phase_idx][k] != unique_bits[p] && unique_bits_mask[p]) {
           unequal_flag = true;
           break;
         }
@@ -1324,6 +1363,15 @@ int parse_adv_pdu_payload_byte(uint8_t *payload_byte, int num_payload_byte, ADV_
       //SCA = num2str( bi2de(tmp_bits(6:end), 'right-msb') );
       payload_type_5->Hop = (payload_byte[33]&0x1F);
       payload_type_5->SCA = ((payload_byte[33]>>5)&0x07);
+      
+      receiver_status.hop = payload_type_5->Hop;
+      
+      receiver_status.access_addr = (payload_byte[12]&0xFF);
+      receiver_status.access_addr  = ( (receiver_status.access_addr  << 8) | payload_byte[13] );
+      receiver_status.access_addr  = ( (receiver_status.access_addr  << 8) | payload_byte[14] );
+      receiver_status.access_addr  = ( (receiver_status.access_addr  << 8) | payload_byte[15] );
+      
+      receiver_status.crc_init = payload_type_5->CRCInit;
   } else {
       payload_type_R = (ADV_PDU_PAYLOAD_TYPE_R *)adv_pdu_payload;
 
@@ -1812,7 +1860,7 @@ void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number, uint32_t access_
   buf_len_eaten = 0;
   while( 1 ) 
   {
-    hit_idx = search_unique_bits(rxp, num_symbol_left, access_bit, LEN_DEMOD_BUF_ACCESS);
+    hit_idx = search_unique_bits(rxp, num_symbol_left, access_bit, access_bit_mask, LEN_DEMOD_BUF_ACCESS);
     if ( hit_idx == -1 ) {
       break;
     }
@@ -1891,6 +1939,7 @@ void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number, uint32_t access_
     
     crc_flag = crc_check(tmp_byte, payload_len+2, crc_init);
     pkt_count++;
+    receiver_status.pkt_avaliable = 1;
     
     gettimeofday(&time_current_pkt, NULL);
     time_diff = TimevalDiff(&time_current_pkt, &time_pre_pkt);
@@ -1922,14 +1971,20 @@ IQ_TYPE tmp_buf[2097152];
 //---------------------------for offline test--------------------------------------
 int main(int argc, char** argv) {
   uint64_t freq_hz;
-  int gain, chan, phase, rx_buf_offset_tmp, verbose_flag, raw_flag;
-  uint32_t access_addr, crc_init, crc_init_internal;
+  int gain, chan, hop_chan, phase, rx_buf_offset_tmp, verbose_flag, raw_flag, hop_flag, result;
+  uint32_t access_addr, access_addr_mask, crc_init, crc_init_internal;
   bool run_flag = false;
   void* rf_dev;
   IQ_TYPE *rxp;
 
-  parse_commandline(argc, argv, &chan, &gain, &access_addr, &crc_init, &verbose_flag, &raw_flag);
-  freq_hz = get_freq_by_channel_number(chan);
+  parse_commandline(argc, argv, &chan, &gain, &access_addr, &crc_init, &verbose_flag, &raw_flag, &freq_hz, &access_addr_mask, &hop_flag);
+  
+  if (freq_hz == 123)
+    freq_hz = get_freq_by_channel_number(chan);
+  
+  uint32_to_bit_array(access_addr_mask, access_bit_mask);
+  hop_chan = 0;
+  
   printf("Cmd line input: chan %d, freq %ldMHz, access addr %08x, crc init %06x raw %d verbose %d rx %ddB (%s)\n", chan, freq_hz/1000000, access_addr, crc_init, raw_flag, verbose_flag, gain, board_name);
   
   // run cyclic recv in background
@@ -1944,6 +1999,10 @@ int main(int argc, char** argv) {
   }
   // init receiver
   //receiver_init();
+  receiver_status.hop = -1;
+  receiver_status.pkt_avaliable = 0;
+  receiver_status.access_addr = 0;
+  receiver_status.crc_init = 0;
   
   crc_init_internal = crc_init_reorder(crc_init);
   
@@ -1994,6 +2053,31 @@ int main(int argc, char** argv) {
       //receiver(rxp, LEN_BUF_MAX_NUM_PHY_SAMPLE+(LEN_BUF/2), chan);
       receiver(rxp, (LEN_DEMOD_BUF_ACCESS-1)*2*SAMPLE_PER_SYMBOL+(LEN_BUF)/2, chan, access_addr, crc_init_internal, verbose_flag, raw_flag);
       // -----------------------------real online run--------------------------------
+      
+      if (hop_flag) {
+      //---------------------handle freq hop for channel mapping 1FFFFFFFFF--------------------
+        if ( receiver_status.pkt_avaliable ) {
+          if  (receiver_status.hop!=-1) {
+            
+            hop_chan = ((hop_chan + receiver_status.hop)%37);
+            chan = hop_chan;
+            freq_hz = get_freq_by_channel_number(chan);
+            
+            result = hackrf_set_freq(rf_dev, freq_hz);
+            if( result != HACKRF_SUCCESS ) {
+              printf("Hop: hackrf_set_freq() failed: %s (%d)\n", hackrf_error_name(result), result);
+              goto program_quit;
+            }
+            
+            crc_init_internal = crc_init_reorder(receiver_status.crc_init);
+            access_addr = receiver_status.access_addr;
+            
+            printf("Hop: next chan %d freq %ldMHz access_addr %08x crc_init %06x\n", chan, freq_hz/1000000, access_addr, receiver_status.crc_init);
+          }
+          receiver_status.pkt_avaliable = 0;
+        }
+      //---------------------handle freq hop for channel mapping 1FFFFFFFFF--------------------
+      }
       
       run_flag = false;
     }
