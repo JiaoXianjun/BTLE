@@ -515,11 +515,11 @@ static void print_usage() {
   printf("    -r --raw\n");
   printf("      Raw mode. After access addr is detected, print out following raw 42 bytes (without descrambling, parsing)\n");
   printf("    -f --freq_hz\n");
-  printf("      This frequency (Hz) will override channel setting\n");
+  printf("      This frequency (Hz) will override channel setting (In case someone want to work on freq other than BTLE. More general purpose)\n");
   printf("    -m --access_mask\n");
-  printf("      If a bit is 1 in this mask, corresponding bit in access address will be taken into packet detection\n");
+  printf("      If a bit is 1 in this mask, corresponding bit in access address will be taken into packet existing decision (In case someone want a shorter/sparser unique word to do packet detection. More general purpose)\n");
   printf("    -o --hop\n");
-  printf("      This will turn on frequency hopping after link setup information is captured in ADV_CONNECT_REQ packet\n");
+  printf("      This will turn on data channel tracking (frequency hopping) after link setup information is captured in ADV_CONNECT_REQ packet\n");
   printf("\nSee README for detailed information.\n");
 }
 //----------------------------------print_usage----------------------------------
