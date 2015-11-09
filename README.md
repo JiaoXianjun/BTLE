@@ -17,7 +17,7 @@ This frequency (Hz) will override channel setting (In case someone want to work 
 
 If a bit is 1 in this mask, corresponding bit in access address will be taken into packet existing decision (In case someone want a shorter/sparser unique word to do packet detection. More general purpose).
 
-    -o --hop\n");
+    -o --hop
 
 This will turn on data channel tracking (frequency hopping) after link setup information is captured in ADV_CONNECT_REQ packet.
         
