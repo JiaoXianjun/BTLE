@@ -1379,10 +1379,10 @@ int parse_adv_pdu_payload_byte(uint8_t *payload_byte, int num_payload_byte, ADV_
       
       receiver_status.hop = payload_type_5->Hop;
       
-      receiver_status.access_addr = (payload_byte[12]&0xFF);
-      receiver_status.access_addr  = ( (receiver_status.access_addr  << 8) | payload_byte[13] );
+      receiver_status.access_addr = (payload_byte[15]&0xFF);
       receiver_status.access_addr  = ( (receiver_status.access_addr  << 8) | payload_byte[14] );
-      receiver_status.access_addr  = ( (receiver_status.access_addr  << 8) | payload_byte[15] );
+      receiver_status.access_addr  = ( (receiver_status.access_addr  << 8) | payload_byte[13] );
+      receiver_status.access_addr  = ( (receiver_status.access_addr  << 8) | payload_byte[12] );
       
       receiver_status.crc_init = payload_type_5->CRCInit;
   } else {
