@@ -258,6 +258,10 @@ initialize_device_out_point:
   return(0);
 }
 
+int board_set_freq(void *device, uint64_t freq_hz) {
+  return(-1); //dummy
+}
+
 inline int open_board(uint64_t freq_hz, int gain, bladerf_device *dev) {
   int status;
 
@@ -358,6 +362,15 @@ int init_board() {
   #endif
 
   return(0);
+}
+
+int board_set_freq(void *device, uint64_t freq_hz) {
+  int result = hackrf_set_freq((hackrf_device*)device, freq_hz);
+  if( result != HACKRF_SUCCESS ) {
+    printf("board_set_freq: hackrf_set_freq() failed: %s (%d)\n", hackrf_error_name(result), result);
+    return(-1);
+  }
+  return(HACKRF_SUCCESS);
 }
 
 inline int open_board(uint64_t freq_hz, int gain, hackrf_device** device) {
@@ -1971,7 +1984,7 @@ IQ_TYPE tmp_buf[2097152];
 //---------------------------for offline test--------------------------------------
 int main(int argc, char** argv) {
   uint64_t freq_hz;
-  int gain, chan, hop_chan, phase, rx_buf_offset_tmp, verbose_flag, raw_flag, hop_flag, result;
+  int gain, chan, hop_chan, phase, rx_buf_offset_tmp, verbose_flag, raw_flag, hop_flag;
   uint32_t access_addr, access_addr_mask, crc_init, crc_init_internal;
   bool run_flag = false;
   void* rf_dev;
@@ -2063,9 +2076,7 @@ int main(int argc, char** argv) {
             chan = hop_chan;
             freq_hz = get_freq_by_channel_number(chan);
             
-            result = hackrf_set_freq(rf_dev, freq_hz);
-            if( result != HACKRF_SUCCESS ) {
-              printf("Hop: hackrf_set_freq() failed: %s (%d)\n", hackrf_error_name(result), result);
+            if( board_set_freq(rf_dev, freq_hz) != 0 ) {
               goto program_quit;
             }
             
