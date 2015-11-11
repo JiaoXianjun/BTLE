@@ -5,10 +5,14 @@ A BTLE (Bluetooth Low energy)/BT4.0 radio packet sniffer/scanner and sender ( bu
 
 # News (See complete introduction section after news section):
 
-## Nov. 2015: So excited that the packet sniffer/scanner btle_rx can follow BTLE hopping data channels now! It follows ~8ms hopping link successfully! (Because the fastest speed of my btle_tx is about 8ms gap between successive packets). Currently it only works on a simple case (which is the most cases in real world) where channel mapping is 0x1FFFFFFFFF (This means all data channel 0~36 will be used for freq hopping). btle_rx is a fast moving target currently. More for demonstration purpose than full verification for now. Will release more soon.
+## Nov. 2015: So excited that the HACKRF BTLE packet sniffer/scanner can follow hopping data channels automatically now! Just like TI's sniffer.
 
 New added options:
 
+    -o --hop
+
+This will turn on data channel tracking (frequency hopping) after link setup information is captured in ADV_CONNECT_REQ packet.
+        
     -f --freq_hz
 
 This frequency (Hz) will override channel setting (In case someone want to work on freq other than BTLE. More general purpose).
@@ -17,10 +21,6 @@ This frequency (Hz) will override channel setting (In case someone want to work 
 
 If a bit is 1 in this mask, corresponding bit in access address will be taken into packet existing decision (In case someone want a shorter/sparser unique word to do packet detection. More general purpose).
 
-    -o --hop
-
-This will turn on data channel tracking (frequency hopping) after link setup information is captured in ADV_CONNECT_REQ packet.
-        
 ## Nov. 2015: BTLE packet sniffer/scanner btle_rx works! Support HACKRF currently. Usage:
     
     btle_rx -c chan -g gain -a access_addr -k crc_init -v -r
