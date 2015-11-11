@@ -13,11 +13,11 @@ New added options:
 
 This will turn on data channel tracking (frequency hopping) after link setup information is captured in ADV_CONNECT_REQ packet.
         
-    -f --freq_hz
+    -f --freq_hz (need argument)
 
 This frequency (Hz) will override channel setting (In case someone want to work on freq other than BTLE. More general purpose).
 
-    -m --access_mask
+    -m --access_mask (need argument)
 
 If a bit is 1 in this mask, corresponding bit in access address will be taken into packet existing decision (In case someone want a shorter/sparser unique word to do packet detection. More general purpose).
 
@@ -174,6 +174,19 @@ crc_init: Default 555555 for ADV channel. You should specify correct value for d
 
 -r: Raw mode. After access addr is detected, print out following raw 42 bytes (without descrambling, parsing)
 
+New added options:
+
+    -o --hop
+
+This will turn on data channel tracking (frequency hopping) after link setup information is captured in ADV_CONNECT_REQ packet.
+        
+    -f --freq_hz (need argument)
+
+This frequency (Hz) will override channel setting (In case someone want to work on freq other than BTLE. More general purpose).
+
+    -m --access_mask (need argument)
+
+If a bit is 1 in this mask, corresponding bit in access address will be taken into packet existing decision (In case someone want a shorter/sparser unique word to do packet detection. More general purpose).
 
 # Appendix: Packet descriptor examples of btle_tx for all formats:
 
