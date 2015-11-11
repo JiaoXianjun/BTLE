@@ -128,7 +128,7 @@ void sigint_callback_handler(int signum)
 
 volatile int rx_buf_offset; // remember to initialize it!
 
-#define LEN_BUF_IN_SAMPLE (8*4096) //4096 samples = ~1ms for 4Msps; ATTENTION each rx callback get hackrf.c:lib_device->buffer_size samples!!!
+#define LEN_BUF_IN_SAMPLE (4*4096) //4096 samples = ~1ms for 4Msps; ATTENTION each rx callback get hackrf.c:lib_device->buffer_size samples!!!
 #define LEN_BUF (LEN_BUF_IN_SAMPLE*2)
 #define LEN_BUF_IN_SYMBOL (LEN_BUF_IN_SAMPLE/SAMPLE_PER_SYMBOL)
 //----------------------------------some basic signal definition----------------------------------
@@ -1158,8 +1158,12 @@ abnormal_quit:
 typedef struct {
     int pkt_avaliable;
     int hop;
+    int new_chm_flag;
+    int interval;
     uint32_t access_addr;
     uint32_t crc_init;
+    uint8_t chm[5];
+    bool crc_ok;
 } RECV_STATUS;
 
 //#define LEN_DEMOD_BUF_PREAMBLE_ACCESS ( (NUM_PREAMBLE_ACCESS_BYTE*8)-8 ) // to get 2^x integer
@@ -1336,8 +1340,7 @@ int parse_adv_pdu_payload_byte(uint8_t *payload_byte, int num_payload_byte, ADV_
       payload_type_5->AA[3] = payload_byte[12];
       
       //CRCInit = payload_bytes((2*6+2*6+2*4+1):(2*6+2*6+2*4+2*3));
-      payload_type_5->CRCInit = 0;
-      payload_type_5->CRCInit = ( (payload_type_5->CRCInit << 8) | payload_byte[16] );
+      payload_type_5->CRCInit = ( payload_byte[16] );
       payload_type_5->CRCInit = ( (payload_type_5->CRCInit << 8) | payload_byte[17] );
       payload_type_5->CRCInit = ( (payload_type_5->CRCInit << 8) | payload_byte[18] );
       
@@ -1345,23 +1348,19 @@ int parse_adv_pdu_payload_byte(uint8_t *payload_byte, int num_payload_byte, ADV_
       payload_type_5->WinSize = payload_byte[19];
       
       //WinOffset = reorder_bytes_str( payload_bytes((2*6+2*6+2*4+2*3+2*1+1):(2*6+2*6+2*4+2*3+2*1+2*2)) );
-      payload_type_5->WinOffset = 0;
-      payload_type_5->WinOffset = ( (payload_type_5->WinOffset << 8) | payload_byte[21] );
+      payload_type_5->WinOffset = ( payload_byte[21] );
       payload_type_5->WinOffset = ( (payload_type_5->WinOffset << 8) | payload_byte[20] );
       
       //Interval = reorder_bytes_str( payload_bytes((2*6+2*6+2*4+2*3+2*1+2*2+1):(2*6+2*6+2*4+2*3+2*1+2*2+2*2)) );
-      payload_type_5->Interval = 0;
-      payload_type_5->Interval = ( (payload_type_5->Interval << 8) | payload_byte[23] );
+      payload_type_5->Interval = ( payload_byte[23] );
       payload_type_5->Interval = ( (payload_type_5->Interval << 8) | payload_byte[22] );
       
       //Latency = reorder_bytes_str( payload_bytes((2*6+2*6+2*4+2*3+2*1+2*2+2*2+1):(2*6+2*6+2*4+2*3+2*1+2*2+2*2+2*2)) );
-      payload_type_5->Latency = 0;
-      payload_type_5->Latency = ( (payload_type_5->Latency << 8) | payload_byte[25] );
+      payload_type_5->Latency = ( payload_byte[25] );
       payload_type_5->Latency = ( (payload_type_5->Latency << 8) | payload_byte[24] );
       
       //Timeout = reorder_bytes_str( payload_bytes((2*6+2*6+2*4+2*3+2*1+2*2+2*2+2*2+1):(2*6+2*6+2*4+2*3+2*1+2*2+2*2+2*2+2*2)) );
-      payload_type_5->Timeout = 0;
-      payload_type_5->Timeout = ( (payload_type_5->Timeout << 8) | payload_byte[27] );
+      payload_type_5->Timeout = ( payload_byte[27] );
       payload_type_5->Timeout = ( (payload_type_5->Timeout << 8) | payload_byte[26] );
       
       //ChM = reorder_bytes_str( payload_bytes((2*6+2*6+2*4+2*3+2*1+2*2+2*2+2*2+2*2+1):(2*6+2*6+2*4+2*3+2*1+2*2+2*2+2*2+2*2+2*5)) );
@@ -1378,13 +1377,21 @@ int parse_adv_pdu_payload_byte(uint8_t *payload_byte, int num_payload_byte, ADV_
       payload_type_5->SCA = ((payload_byte[33]>>5)&0x07);
       
       receiver_status.hop = payload_type_5->Hop;
+      receiver_status.new_chm_flag = 1;
+      receiver_status.interval = payload_type_5->Interval;
       
-      receiver_status.access_addr = (payload_byte[15]&0xFF);
+      receiver_status.access_addr  = ( payload_byte[15]);
       receiver_status.access_addr  = ( (receiver_status.access_addr  << 8) | payload_byte[14] );
       receiver_status.access_addr  = ( (receiver_status.access_addr  << 8) | payload_byte[13] );
       receiver_status.access_addr  = ( (receiver_status.access_addr  << 8) | payload_byte[12] );
       
       receiver_status.crc_init = payload_type_5->CRCInit;
+      
+      receiver_status.chm[0] = payload_type_5->ChM[0];
+      receiver_status.chm[1] = payload_type_5->ChM[1];
+      receiver_status.chm[2] = payload_type_5->ChM[2];
+      receiver_status.chm[3] = payload_type_5->ChM[3];
+      receiver_status.chm[4] = payload_type_5->ChM[4];
   } else {
       payload_type_R = (ADV_PDU_PAYLOAD_TYPE_R *)adv_pdu_payload;
 
@@ -1439,30 +1446,23 @@ int parse_ll_pdu_payload_byte(uint8_t *payload_byte, int num_payload_byte, LL_PD
         
         ctrl_payload_type_0->WinSize = payload_byte[1];
       
-        //WinOffset = reorder_bytes_str( payload_bytes((2*6+2*6+2*4+2*3+2*1+1):(2*6+2*6+2*4+2*3+2*1+2*2)) );
-        ctrl_payload_type_0->WinOffset = 0;
-        ctrl_payload_type_0->WinOffset = ( (ctrl_payload_type_0->WinOffset << 8) | payload_byte[3] );
+        ctrl_payload_type_0->WinOffset = ( payload_byte[3] );
         ctrl_payload_type_0->WinOffset = ( (ctrl_payload_type_0->WinOffset << 8) | payload_byte[2] );
       
-        //Interval = reorder_bytes_str( payload_bytes((2*6+2*6+2*4+2*3+2*1+2*2+1):(2*6+2*6+2*4+2*3+2*1+2*2+2*2)) );
-        ctrl_payload_type_0->Interval = 0;
-        ctrl_payload_type_0->Interval = ( (ctrl_payload_type_0->Interval << 8) | payload_byte[5] );
+        ctrl_payload_type_0->Interval = ( payload_byte[5] );
         ctrl_payload_type_0->Interval = ( (ctrl_payload_type_0->Interval << 8) | payload_byte[4] );
       
-        //Latency = reorder_bytes_str( payload_bytes((2*6+2*6+2*4+2*3+2*1+2*2+2*2+1):(2*6+2*6+2*4+2*3+2*1+2*2+2*2+2*2)) );
-        ctrl_payload_type_0->Latency = 0;
-        ctrl_payload_type_0->Latency = ( (ctrl_payload_type_0->Latency << 8) | payload_byte[7] );
+        ctrl_payload_type_0->Latency = ( payload_byte[7] );
         ctrl_payload_type_0->Latency = ( (ctrl_payload_type_0->Latency << 8) | payload_byte[6] );
       
-        //Timeout = reorder_bytes_str( payload_bytes((2*6+2*6+2*4+2*3+2*1+2*2+2*2+2*2+1):(2*6+2*6+2*4+2*3+2*1+2*2+2*2+2*2+2*2)) );
-        ctrl_payload_type_0->Timeout = 0;
-        ctrl_payload_type_0->Timeout = ( (ctrl_payload_type_0->Timeout << 8) | payload_byte[9] );
+        ctrl_payload_type_0->Timeout = ( payload_byte[9] );
         ctrl_payload_type_0->Timeout = ( (ctrl_payload_type_0->Timeout << 8) | payload_byte[8] );
         
-        ctrl_payload_type_0->Instant = 0;
-        ctrl_payload_type_0->Instant = ( (ctrl_payload_type_0->Instant << 8) | payload_byte[11] );
+        ctrl_payload_type_0->Instant = ( payload_byte[11] );
         ctrl_payload_type_0->Instant = ( (ctrl_payload_type_0->Instant << 8) | payload_byte[10] );
-      
+
+        receiver_status.interval = ctrl_payload_type_0->Interval;
+       
       } else if (ctrl_pdu_type == LL_CHANNEL_MAP_REQ) {
         if (num_payload_byte!=8) {
           printf("Error: LL CTRL PDU TYPE%d(%s) should have payload length 8!\n", ctrl_pdu_type, LL_CTRL_PDU_PAYLOAD_TYPE_STR[ctrl_pdu_type]);
@@ -1477,9 +1477,16 @@ int parse_ll_pdu_payload_byte(uint8_t *payload_byte, int num_payload_byte, LL_PD
         ctrl_payload_type_1->ChM[3] = payload_byte[2];
         ctrl_payload_type_1->ChM[4] = payload_byte[1];
         
-        ctrl_payload_type_1->Instant = 0;
-        ctrl_payload_type_1->Instant = ( (ctrl_payload_type_1->Instant << 8) | payload_byte[7] );
+        ctrl_payload_type_1->Instant = ( payload_byte[7] );
         ctrl_payload_type_1->Instant = ( (ctrl_payload_type_1->Instant << 8) | payload_byte[6] );
+        
+        receiver_status.new_chm_flag = 1;
+        
+        receiver_status.chm[0] = ctrl_payload_type_1->ChM[0];
+        receiver_status.chm[1] = ctrl_payload_type_1->ChM[1];
+        receiver_status.chm[2] = ctrl_payload_type_1->ChM[2];
+        receiver_status.chm[3] = ctrl_payload_type_1->ChM[3];
+        receiver_status.chm[4] = ctrl_payload_type_1->ChM[4];
         
       } else if (ctrl_pdu_type == LL_TERMINATE_IND || ctrl_pdu_type == LL_UNKNOWN_RSP || ctrl_pdu_type == LL_REJECT_IND) {
         if (num_payload_byte!=2) {
@@ -1582,12 +1589,10 @@ int parse_ll_pdu_payload_byte(uint8_t *payload_byte, int num_payload_byte, LL_PD
         
         ctrl_payload_type_12->VersNr = payload_byte[1];
         
-        ctrl_payload_type_12->CompId = 0;
-        ctrl_payload_type_12->CompId = ( (ctrl_payload_type_12->CompId << 8) | payload_byte[3] );
+        ctrl_payload_type_12->CompId = (  payload_byte[3] );
         ctrl_payload_type_12->CompId = ( (ctrl_payload_type_12->CompId << 8) | payload_byte[2] );
         
-        ctrl_payload_type_12->SubVersNr = 0;
-        ctrl_payload_type_12->SubVersNr = ( (ctrl_payload_type_12->SubVersNr << 8) | payload_byte[5] );
+        ctrl_payload_type_12->SubVersNr = (  payload_byte[5] );
         ctrl_payload_type_12->SubVersNr = ( (ctrl_payload_type_12->SubVersNr << 8) | payload_byte[4] );
 
       } else {
@@ -1602,9 +1607,9 @@ int parse_ll_pdu_payload_byte(uint8_t *payload_byte, int num_payload_byte, LL_PD
 
 void parse_ll_pdu_header_byte(uint8_t *byte_in, LL_PDU_TYPE *llid, int *nesn, int *sn, int *md, int *payload_len) {
   (*llid) = (LL_PDU_TYPE)(byte_in[0]&0x03);
-  (*nesn) = ( (byte_in[0]&0x04) == 1 );
-  (*sn) = ( (byte_in[0]&0x08) == 1 );
-  (*md) = ( (byte_in[0]&0x10) == 1 );
+  (*nesn) = ( (byte_in[0]&0x04) != 0 );
+  (*sn) = ( (byte_in[0]&0x08) != 0 );
+  (*md) = ( (byte_in[0]&0x10) != 0 );
   (*payload_len) = (byte_in[1]&0x1F);
 }
 
@@ -1953,6 +1958,7 @@ void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number, uint32_t access_
     crc_flag = crc_check(tmp_byte, payload_len+2, crc_init);
     pkt_count++;
     receiver_status.pkt_avaliable = 1;
+    receiver_status.crc_ok = (crc_flag==0);
     
     gettimeofday(&time_current_pkt, NULL);
     time_diff = TimevalDiff(&time_current_pkt, &time_pre_pkt);
@@ -1979,12 +1985,138 @@ void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number, uint32_t access_
 }
 //----------------------------------receiver----------------------------------
 
+//---------------------handle freq hop for channel mapping 1FFFFFFFFF--------------------
+bool chm_is_full_map(uint8_t *chm) {
+  if ( (chm[0] == 0x1F) && (chm[1] == 0xFF) && (chm[2] == 0xFF) && (chm[3] == 0xFF) && (chm[4] == 0xFF) ) {
+    return(true);
+  }
+  return(false);
+}
+
+int receiver_controller(void *rf_dev, int verbose_flag, int *chan, uint32_t *access_addr, uint32_t *crc_init_internal) {
+  const int guard_us = 7000;
+  const int guard_us1 = 4000;
+  static int hop_chan = 0;
+  static int state = 0;
+  static int interval_us, target_us, target_us1, hop;
+  static struct timeval time_run, time_mark;
+  uint64_t freq_hz;
+
+  switch(state) {
+    case 0: // wait for track
+      if ( receiver_status.crc_ok && receiver_status.hop!=-1 ) { //start track unless you ctrl+c
+      
+        if ( !chm_is_full_map(receiver_status.chm) ) {
+          printf("Hop: Not full ChnMap 1FFFFFFFFF! (%02x%02x%02x%02x%02x) Stay in ADV Chn\n", receiver_status.chm[0], receiver_status.chm[1], receiver_status.chm[2], receiver_status.chm[3], receiver_status.chm[4]);
+          receiver_status.hop = -1;
+          return(0);
+        }
+        
+        printf("Hop: track start ...\n");
+        
+        hop = receiver_status.hop;
+        interval_us = receiver_status.interval*1250;
+        target_us = interval_us - guard_us;
+        target_us1 = interval_us - guard_us1;
+
+        hop_chan = ((hop_chan + hop)%37);
+        (*chan) = hop_chan;
+        freq_hz = get_freq_by_channel_number( hop_chan );
+        
+        if( board_set_freq(rf_dev, freq_hz) != 0 ) {
+          return(-1);
+        }
+        
+        (*crc_init_internal) = crc_init_reorder(receiver_status.crc_init);
+        (*access_addr) = receiver_status.access_addr;
+        
+        printf("Hop: next ch %d freq %ldMHz access %08x crcInit %06x\n", hop_chan, freq_hz/1000000, receiver_status.access_addr, receiver_status.crc_init);
+        
+        state = 1;
+        printf("Hop: next state %d\n", state);
+      }
+      receiver_status.crc_ok = false;
+      
+      break;
+    
+    case 1: // wait for the 1st packet in data channel
+      if ( receiver_status.crc_ok ) {// we capture the 1st data channel packet
+        gettimeofday(&time_mark, NULL);
+        printf("Hop: 1st data pdu\n");
+        state = 2;
+        printf("Hop: next state %d\n", state);
+      }
+      receiver_status.crc_ok = false;
+      
+      break;
+      
+    case 2: // wait for time is up. let hop to next chan
+      gettimeofday(&time_run, NULL);
+      if ( TimevalDiff(&time_run, &time_mark)>target_us ) {// time is up. let's hop
+      
+        gettimeofday(&time_mark, NULL);
+        
+        hop_chan = ((hop_chan + hop)%37);
+        (*chan) = hop_chan;
+        freq_hz = get_freq_by_channel_number( hop_chan );
+        
+        if( board_set_freq(rf_dev, freq_hz) != 0 ) {
+          return(-1);
+        }
+       
+        if (verbose_flag) printf("Hop: next ch %d freq %ldMHz\n", hop_chan, freq_hz/1000000);
+        
+        state = 3;
+        if (verbose_flag) printf("Hop: next state %d\n", state);
+      }
+      receiver_status.crc_ok = false;
+      
+      break;
+    
+    case 3: // wait for the 1st packet in new data channel
+      if ( receiver_status.crc_ok ) {// we capture the 1st data channel packet in new data channel
+        gettimeofday(&time_mark, NULL);        
+        state = 2;
+        if (verbose_flag) printf("Hop: next state %d\n", state);
+      }
+      
+      gettimeofday(&time_run, NULL);
+      if ( TimevalDiff(&time_run, &time_mark)>target_us1 ) {
+        if (verbose_flag) printf("Hop: skip\n");
+        
+        gettimeofday(&time_mark, NULL);
+        
+        hop_chan = ((hop_chan + hop)%37);
+        (*chan) = hop_chan;
+        freq_hz = get_freq_by_channel_number( hop_chan );
+        
+        if( board_set_freq(rf_dev, freq_hz) != 0 ) {
+          return(-1);
+        }
+       
+        if (verbose_flag) printf("Hop: next ch %d freq %ldMHz\n", hop_chan, freq_hz/1000000);
+        
+        if (verbose_flag) printf("Hop: next state %d\n", state);
+      }
+      
+      receiver_status.crc_ok = false;
+      break;
+
+    default:
+      printf("Hop: unknown state!\n");
+      return(-1);
+  }
+  
+  return(0);
+}
+
 //---------------------------for offline test--------------------------------------
-IQ_TYPE tmp_buf[2097152];
+//IQ_TYPE tmp_buf[2097152];
 //---------------------------for offline test--------------------------------------
+
 int main(int argc, char** argv) {
   uint64_t freq_hz;
-  int gain, chan, hop_chan, phase, rx_buf_offset_tmp, verbose_flag, raw_flag, hop_flag;
+  int gain, chan, phase, rx_buf_offset_tmp, verbose_flag, raw_flag, hop_flag;
   uint32_t access_addr, access_addr_mask, crc_init, crc_init_internal;
   bool run_flag = false;
   void* rf_dev;
@@ -1996,7 +2128,6 @@ int main(int argc, char** argv) {
     freq_hz = get_freq_by_channel_number(chan);
   
   uint32_to_bit_array(access_addr_mask, access_bit_mask);
-  hop_chan = 0;
   
   printf("Cmd line input: chan %d, freq %ldMHz, access addr %08x, crc init %06x raw %d verbose %d rx %ddB (%s)\n", chan, freq_hz/1000000, access_addr, crc_init, raw_flag, verbose_flag, gain, board_name);
   
@@ -2010,12 +2141,20 @@ int main(int argc, char** argv) {
       return(1);
     }
   }
+  
   // init receiver
-  //receiver_init();
-  receiver_status.hop = -1;
   receiver_status.pkt_avaliable = 0;
+  receiver_status.hop = -1;
+  receiver_status.new_chm_flag = 0;
+  receiver_status.interval = 0;
   receiver_status.access_addr = 0;
   receiver_status.crc_init = 0;
+  receiver_status.chm[0] = 0;
+  receiver_status.chm[1] = 0;
+  receiver_status.chm[2] = 0;
+  receiver_status.chm[3] = 0;
+  receiver_status.chm[4] = 0;
+  receiver_status.crc_ok = false;
   
   crc_init_internal = crc_init_reorder(crc_init);
   
@@ -2067,27 +2206,9 @@ int main(int argc, char** argv) {
       receiver(rxp, (LEN_DEMOD_BUF_ACCESS-1)*2*SAMPLE_PER_SYMBOL+(LEN_BUF)/2, chan, access_addr, crc_init_internal, verbose_flag, raw_flag);
       // -----------------------------real online run--------------------------------
       
-      if (hop_flag) {
-      //---------------------handle freq hop for channel mapping 1FFFFFFFFF--------------------
-        if ( receiver_status.pkt_avaliable ) {
-          if  (receiver_status.hop!=-1) {
-            
-            hop_chan = ((hop_chan + receiver_status.hop)%37);
-            chan = hop_chan;
-            freq_hz = get_freq_by_channel_number(chan);
-            
-            if( board_set_freq(rf_dev, freq_hz) != 0 ) {
-              goto program_quit;
-            }
-            
-            crc_init_internal = crc_init_reorder(receiver_status.crc_init);
-            access_addr = receiver_status.access_addr;
-            
-            printf("Hop: next chan %d freq %ldMHz access_addr %08x crc_init %06x\n", chan, freq_hz/1000000, access_addr, receiver_status.crc_init);
-          }
-          receiver_status.pkt_avaliable = 0;
-        }
-      //---------------------handle freq hop for channel mapping 1FFFFFFFFF--------------------
+      if (hop_flag){
+        if ( receiver_controller(rf_dev, verbose_flag, &chan, &access_addr, &crc_init_internal) != 0 )
+          goto program_quit;
       }
       
       run_flag = false;
