@@ -2136,7 +2136,7 @@ int receiver_controller(void *rf_dev, int verbose_flag, int *chan, uint32_t *acc
         (*crc_init_internal) = crc_init_reorder(receiver_status.crc_init);
         (*access_addr) = receiver_status.access_addr;
         
-        printf("Hop: next ch %d freq %ldMHz access %08x crcInit %06x\n", hop_chan, freq_hz/1000000, receiver_status.access_addr, receiver_status.crc_init);
+        printf("Hop: next ch %d freq %lldMHz access %08x crcInit %06x\n", hop_chan, freq_hz/1000000, receiver_status.access_addr, receiver_status.crc_init);
         
         state = 1;
         printf("Hop: next state %d\n", state);
@@ -2170,7 +2170,7 @@ int receiver_controller(void *rf_dev, int verbose_flag, int *chan, uint32_t *acc
           return(-1);
         }
        
-        if (verbose_flag) printf("Hop: next ch %d freq %ldMHz\n", hop_chan, freq_hz/1000000);
+        if (verbose_flag) printf("Hop: next ch %d freq %lldMHz\n", hop_chan, freq_hz/1000000);
         
         state = 3;
         if (verbose_flag) printf("Hop: next state %d\n", state);
@@ -2200,7 +2200,7 @@ int receiver_controller(void *rf_dev, int verbose_flag, int *chan, uint32_t *acc
           return(-1);
         }
        
-        if (verbose_flag) printf("Hop: next ch %d freq %ldMHz\n", hop_chan, freq_hz/1000000);
+        if (verbose_flag) printf("Hop: next ch %d freq %lldMHz\n", hop_chan, freq_hz/1000000);
         
         if (verbose_flag) printf("Hop: next state %d\n", state);
       }
@@ -2235,7 +2235,7 @@ int main(int argc, char** argv) {
   
   uint32_to_bit_array(access_addr_mask, access_bit_mask);
   
-  printf("Cmd line input: chan %d, freq %ldMHz, access addr %08x, crc init %06x raw %d verbose %d rx %ddB (%s)\n", chan, freq_hz/1000000, access_addr, crc_init, raw_flag, verbose_flag, gain, board_name);
+  printf("Cmd line input: chan %d, freq %lldMHz, access addr %08x, crc init %06x raw %d verbose %d rx %ddB (%s)\n", chan, freq_hz/1000000, access_addr, crc_init, raw_flag, verbose_flag, gain, board_name);
   
   // run cyclic recv in background
   do_exit = false;
