@@ -123,18 +123,24 @@ void sigint_callback_handler(int signum)
 }
 #endif
 
-/* File handling for pcap + BTLE, don't use btbb as it's too buggy and slow */
-// TCPDUMP_MAGIC PCAP_VERSION_MAJOR PCAP_VERSION_MINOR thiszone sigfigs snaplen linktype (DLT_BLUETOOTH_LE_LL_WITH_PHDR)
+/* File handling for pcap + BTLE, don't use btbb as it's too buggy and slow.
+   We don't need full blown feature rich pcap/pcapng file handling. */
+// TCPDUMP_MAGIC (Big Endian, usec resolution) PCAP_VERSION_MAJOR PCAP_VERSION_MINOR thiszone sigfigs snaplen linktype (DLT_BLUETOOTH_LE_LL_WITH_PHDR)
 // 0xa1b2c3d4 \x00\x02 \x00\x04 \x00\x00\x00\x00 \x00\x00\x00\x00 \x00\x00\x05\xDC \x00\x00\x01\x00
 const char* PCAP_HDR_TCPDUMP = "\xA1\xB2\xC3\xD4\x00\x02\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\xDC\x00\x00\x01\x00";
 const int PCAP_HDR_TCPDUMP_LEN = 24;
 //const char* PCAP_FILE_NAME = "btle_store.pcap";
 char* filename_pcap = NULL;
-FILE *fh_pcap_store;
+FILE *fh_pcap_store = NULL;
 
-void init_pcap_file() {
+// return -- 0 on success, 1 on error
+int init_pcap_file() {
     fh_pcap_store = fopen(filename_pcap, "wb");
     fwrite(PCAP_HDR_TCPDUMP, 1, PCAP_HDR_TCPDUMP_LEN, fh_pcap_store);
+
+    if(fh_pcap_store == NULL)
+       printf("Could not open pcap file for storing\n");
+    return fh_pcap_store != NULL ? 0 : 1;
 }
 
 typedef struct {
@@ -142,31 +148,42 @@ typedef struct {
     int usec;
     int caplen;
     int len;
-} pcap_header;
+} header_pcap;
+uint8_t header_btle[10] = {0, 0, 0, 0, 0, 0, 0, 0, 1, 0};
 
 const uint8_t BTLE_HEADER_LEN = 10;
 
 // http://www.whiterocker.com/bt/LINKTYPE_BLUETOOTH_LE_LL_WITH_PHDR.html
 // num_demod_byte -- LE packet: header + data
-void write_packet_to_file(FILE *fh, int packet_len, uint8_t *packet, uint8_t channel, uint32_t access_addr){
+void write_packet_to_file(FILE *fh, int packet_len, uint8_t *packet, struct timeval *tv, uint8_t channel, uint32_t access_addr){
    // flags: 0x0001 indicates the LE Packet is de-whitened
    // pcap header: tv_sec tv_usec caplen len
-   pcap_header header_pcap;
-   //header_pcap.sec = packetcount++;
-   header_pcap.caplen = htonl(BTLE_HEADER_LEN + 4 + packet_len);
-   header_pcap.len = htonl(BTLE_HEADER_LEN + 4 + packet_len);
-   fwrite(&header_pcap, 16, 1, fh_pcap_store);
+   header_pcap header_pcap_;
+   header_pcap_.sec = htonl(tv->tv_sec);
+   header_pcap_.usec = htonl(tv->tv_usec);
+   header_pcap_.caplen = htonl(BTLE_HEADER_LEN + 4 + packet_len);
+   header_pcap_.len = htonl(BTLE_HEADER_LEN + 4 + packet_len);
+   fwrite(&header_pcap_, 16, 1, fh_pcap_store);
    // BTLE header: RF_Channel:1 Signal_Power:1 Noise_Power:1 Access_address_off:1 Reference_access_address (receiver):4 flags:2 packet
-   uint8_t header_btle[10] = {channel, 0, 0, 0, 0, 0, 0, 0, 1, 0};
+   // just set channel and ignore the rest
+   header_btle[0] = channel;
    fwrite(header_btle, 1, 10, fh);
    fwrite(&access_addr, 1, 4, fh);
    fwrite(packet, 1, packet_len, fh);
 }
 void write_dummy_entry(){
+    printf("Writing dummy entry\n");
     uint8_t pkt[10] = {7,7,7,7,7,7,7,7,7,7};
-    write_packet_to_file(fh_pcap_store, 10, pkt, 1, 0xFFFFFFF1);
-    write_packet_to_file(fh_pcap_store, 10, pkt, 2, 0xFFFFFFF2);
-    write_packet_to_file(fh_pcap_store, 10, pkt, 3, 0xFFFFFFF3);
+    struct timeval tv;
+    tv.tv_sec = 0;
+    tv.tv_usec = 0;
+    write_packet_to_file(fh_pcap_store, 10, pkt, &tv, 1, 0xFFFFFFF1);
+    tv.tv_sec = 1;
+    tv.tv_usec = 200;
+    write_packet_to_file(fh_pcap_store, 10, pkt, &tv, 2, 0xFFFFFFF2);
+    tv.tv_sec = 2;
+    tv.tv_usec = 400;
+    write_packet_to_file(fh_pcap_store, 10, pkt, &tv, 3, 0xFFFFFFF3);
 }
 
 
@@ -1117,7 +1134,7 @@ void parse_commandline(
     };
     /* getopt_long stores the option index here. */
     int option_index = 0;
-    int c = getopt_long (argc, argv, "hc:g:a:k:vrf:m:o:s:",
+    int c = getopt_long (argc, argv, "hc:g:a:k:vrf:m:os:",
                      long_options, &option_index);
 
     /* Detect the end of the options. */
@@ -1910,6 +1927,7 @@ void print_adv_pdu_payload(void *adv_pdu_payload, ADV_PDU_TYPE pdu_type, int pay
     printf(" CRC%d\n", crc_flag);
 }
 
+// demodulates and parses a packet
 void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number, uint32_t access_addr, uint32_t crc_init, int verbose_flag, int raw_flag) {
   static int pkt_count = 0;
   static ADV_PDU_PAYLOAD_TYPE_R adv_pdu_payload;
@@ -2024,9 +2042,10 @@ void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number, uint32_t access_
     time_pre_pkt = time_current_pkt;
     
     printf("%07dus Pkt%03d Ch%d AA:%08x ", time_diff, pkt_count, channel_number, access_addr);
-    if(filename_pcap != NULL)
-        write_packet_to_file(fh_pcap_store, payload_len+2, tmp_byte, channel_number, access_addr);
 
+    if(fh_pcap_store != NULL) {
+        write_packet_to_file(fh_pcap_store, payload_len+2, tmp_byte, &time_current_pkt, channel_number, access_addr);
+    }
     
     if (adv_flag) {
       printf("ADV_PDU_t%d:%s T%d R%d PloadL%d ", adv_pdu_type, ADV_PDU_TYPE_STR[adv_pdu_type], adv_tx_add, adv_rx_add, payload_len);
@@ -2055,6 +2074,7 @@ bool chm_is_full_map(uint8_t *chm) {
   return(false);
 }
 
+// state machine
 int receiver_controller(void *rf_dev, int verbose_flag, int *chan, uint32_t *access_addr, uint32_t *crc_init_internal) {
   const int guard_us = 7000;
   const int guard_us1 = 4000;
@@ -2186,6 +2206,9 @@ int main(int argc, char** argv) {
 
   parse_commandline(argc, argv, &chan, &gain, &access_addr, &crc_init, &verbose_flag, &raw_flag, &freq_hz, &access_addr_mask, &hop_flag, &filename_pcap);
 
+  if(filename_pcap != NULL)
+    init_pcap_file();
+
   if (freq_hz == 123)
     freq_hz = get_freq_by_channel_number(chan);
   
@@ -2193,11 +2216,8 @@ int main(int argc, char** argv) {
   
   printf("Cmd line input: chan %d, freq %lldMHz, access addr %08x, crc init %06x raw %d verbose %d rx %ddB (%s) file=%s\n", chan, freq_hz/1000000, access_addr, crc_init, raw_flag, verbose_flag, gain, board_name, filename_pcap);
 
-  if(filename_pcap != NULL) {
-    printf("will store packets to: %s\n", filename_pcap);
-    init_pcap_file();
-  }
-  
+  //write_dummy_entry();
+   //exit(0);
   // run cyclic recv in background
   do_exit = false;
   if ( config_run_board(freq_hz, gain, &rf_dev) != 0 ){
