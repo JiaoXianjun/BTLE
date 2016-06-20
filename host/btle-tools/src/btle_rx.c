@@ -123,6 +123,9 @@ void sigint_callback_handler(int signum)
 }
 #endif
 
+// bugfix for virtual environments where closing hackrf forces USB-reconnect: do NOT close hackrf on exit, default: close on exit
+int noclose = false;
+
 /* File handling for pcap + BTLE, don't use btbb as it's too buggy and slow.
    We don't need full blown feature rich pcap/pcapng file handling. */
 // TCPDUMP_MAGIC (Big Endian, usec resolution) PCAP_VERSION_MAJOR PCAP_VERSION_MINOR thiszone sigfigs snaplen linktype (DLT_BLUETOOTH_LE_LL_WITH_PHDR)
@@ -482,35 +485,37 @@ inline int open_board(uint64_t freq_hz, int gain, hackrf_device** device) {
 }
 
 void exit_board(hackrf_device *device) {
-	if(device != NULL)
-	{
-		hackrf_exit();
-		printf("hackrf_exit() done\n");
-	}
+  if(device != NULL) {
+    hackrf_exit();
+    printf("hackrf_exit() done\n");
+  }
 }
 
 inline int close_board(hackrf_device *device) {
   int result;
 
-	if(device != NULL)
-	{
+  if(device != NULL) {
+    if(noclose) {
+      printf("will NOT close device\n");
+      return 0;
+    }
     result = hackrf_stop_rx(device);
+
     if( result != HACKRF_SUCCESS ) {
       printf("close_board: hackrf_stop_rx() failed: %s (%d)\n", hackrf_error_name(result), result);
       return(-1);
     }
 
-		result = hackrf_close(device);
-		if( result != HACKRF_SUCCESS )
-		{
-			printf("close_board: hackrf_close() failed: %s (%d)\n", hackrf_error_name(result), result);
-			return(-1);
-		}
+    result = hackrf_close(device);
+    if( result != HACKRF_SUCCESS ) {
+      printf("close_board: hackrf_close() failed: %s (%d)\n", hackrf_error_name(result), result);
+      return(-1);
+    }
 
     return(0);
-	} else {
-	  return(-1);
-	}
+  } else {
+    return(-1);
+  }
 }
 
 inline int run_board(hackrf_device* device) {
@@ -1092,7 +1097,8 @@ void parse_commandline(
   uint64_t* freq_hz, 
   uint32_t* access_mask, 
   int* hop_flag,
-  char** filename_pcap
+  char** filename_pcap,
+  int* noclose
 ) {
   printf("BTLE/BT4.0 Scanner(NO bladeRF support so far). Xianjun Jiao. putaoshu@gmail.com\n\n");
   
@@ -1117,6 +1123,8 @@ void parse_commandline(
   
   (*filename_pcap) = 0;
 
+  (*noclose) = 0;
+
   while (1) {
     static struct option long_options[] = {
       {"help",         no_argument,       0, 'h'},
@@ -1130,11 +1138,12 @@ void parse_commandline(
       {"access_mask",         required_argument, 0, 'm'},
       {"hop",         no_argument, 0, 'o'},
       {"filename",         required_argument, 0, 's'},
+      {"noclose",         no_argument, 0, 'x'},
       {0, 0, 0, 0}
     };
     /* getopt_long stores the option index here. */
     int option_index = 0;
-    int c = getopt_long (argc, argv, "hc:g:a:k:vrf:m:os:",
+    int c = getopt_long (argc, argv, "hc:g:a:k:vrf:m:os:x",
                      long_options, &option_index);
 
     /* Detect the end of the options. */
@@ -1192,6 +1201,10 @@ void parse_commandline(
 
       case 's':
         (*filename_pcap) = (char*)optarg;
+        break;
+
+      case 'x':
+        (*noclose) = true;
         break;
         
       case '?':
@@ -2112,7 +2125,7 @@ int receiver_controller(void *rf_dev, int verbose_flag, int *chan, uint32_t *acc
         (*crc_init_internal) = crc_init_reorder(receiver_status.crc_init);
         (*access_addr) = receiver_status.access_addr;
         
-        printf("Hop: next ch %d freq %lldMHz access %08x crcInit %06x\n", hop_chan, freq_hz/1000000, receiver_status.access_addr, receiver_status.crc_init);
+        printf("Hop: next ch %d freq %lldMHz access %08x crcInit %06x\n", hop_chan, (unsigned long long)freq_hz/1000000, receiver_status.access_addr, receiver_status.crc_init);
         
         state = 1;
         printf("Hop: next state %d\n", state);
@@ -2146,7 +2159,7 @@ int receiver_controller(void *rf_dev, int verbose_flag, int *chan, uint32_t *acc
           return(-1);
         }
        
-        if (verbose_flag) printf("Hop: next ch %d freq %lldMHz\n", hop_chan, freq_hz/1000000);
+        if (verbose_flag) printf("Hop: next ch %d freq %lldMHz\n", hop_chan, (unsigned long long)freq_hz/1000000);
         
         state = 3;
         if (verbose_flag) printf("Hop: next state %d\n", state);
@@ -2176,7 +2189,7 @@ int receiver_controller(void *rf_dev, int verbose_flag, int *chan, uint32_t *acc
           return(-1);
         }
        
-        if (verbose_flag) printf("Hop: next ch %d freq %lldMHz\n", hop_chan, freq_hz/1000000);
+        if (verbose_flag) printf("Hop: next ch %d freq %lldMHz\n", hop_chan, (unsigned long long)freq_hz/1000000);
         
         if (verbose_flag) printf("Hop: next state %d\n", state);
       }
@@ -2204,7 +2217,7 @@ int main(int argc, char** argv) {
   void* rf_dev;
   IQ_TYPE *rxp;
 
-  parse_commandline(argc, argv, &chan, &gain, &access_addr, &crc_init, &verbose_flag, &raw_flag, &freq_hz, &access_addr_mask, &hop_flag, &filename_pcap);
+  parse_commandline(argc, argv, &chan, &gain, &access_addr, &crc_init, &verbose_flag, &raw_flag, &freq_hz, &access_addr_mask, &hop_flag, &filename_pcap, &noclose);
 
   if(filename_pcap != NULL)
     init_pcap_file();
