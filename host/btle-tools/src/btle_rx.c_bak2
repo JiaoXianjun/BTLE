@@ -43,8 +43,6 @@
 #include <fcntl.h>
 #include <errno.h>
 
-#include <netinet/in.h>
-
 //----------------------------------some sys stuff----------------------------------
 #ifndef bool
 typedef int bool;
@@ -120,74 +118,15 @@ void sigint_callback_handler(int signum)
 {
 	fprintf(stdout, "Caught signal %d\n", signum);
 	do_exit = true;
-	exit(1);
 }
 #endif
 
-// bugfix for virtual environments where closing hackrf forces USB-reconnect: do NOT close hackrf on exit, default: close on exit
-int noclose = false;
+/* File handling */
+btbb_pcap_handle* pcap_handle;
+unlink("btle_capture.cap");
 
-/* File handling for pcap + BTLE, don't use btbb as it's too buggy and slow.
-   We don't need full blown feature rich pcap/pcapng file handling. */
-// TCPDUMP_MAGIC (Big Endian, usec resolution) PCAP_VERSION_MAJOR PCAP_VERSION_MINOR thiszone sigfigs snaplen linktype (DLT_BLUETOOTH_LE_LL_WITH_PHDR)
-// 0xa1b2c3d4 \x00\x02 \x00\x04 \x00\x00\x00\x00 \x00\x00\x00\x00 \x00\x00\x05\xDC \x00\x00\x01\x00
-const char* PCAP_HDR_TCPDUMP = "\xA1\xB2\xC3\xD4\x00\x02\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\xDC\x00\x00\x01\x00";
-const int PCAP_HDR_TCPDUMP_LEN = 24;
-//const char* PCAP_FILE_NAME = "btle_store.pcap";
-char* filename_pcap = NULL;
-FILE *fh_pcap_store = NULL;
-
-// return -- 0 on success, 1 on error
-int init_pcap_file() {
-    fh_pcap_store = fopen(filename_pcap, "wb");
-    fwrite(PCAP_HDR_TCPDUMP, 1, PCAP_HDR_TCPDUMP_LEN, fh_pcap_store);
-
-    if(fh_pcap_store == NULL)
-       printf("Could not open pcap file for storing\n");
-    return fh_pcap_store != NULL ? 0 : 1;
-}
-
-typedef struct {
-    int sec;
-    int usec;
-    int caplen;
-    int len;
-} header_pcap;
-uint8_t header_btle[10] = {0, 0, 0, 0, 0, 0, 0, 0, 1, 0};
-
-const uint8_t BTLE_HEADER_LEN = 10;
-
-// http://www.whiterocker.com/bt/LINKTYPE_BLUETOOTH_LE_LL_WITH_PHDR.html
-// num_demod_byte -- LE packet: header + data
-void write_packet_to_file(FILE *fh, int packet_len, uint8_t *packet, struct timeval *tv, uint8_t channel, uint32_t access_addr){
-   // flags: 0x0001 indicates the LE Packet is de-whitened
-   // pcap header: tv_sec tv_usec caplen len
-   header_pcap header_pcap_;
-   header_pcap_.sec = htonl(tv->tv_sec);
-   header_pcap_.usec = htonl(tv->tv_usec);
-   header_pcap_.caplen = htonl(BTLE_HEADER_LEN + 4 + packet_len);
-   header_pcap_.len = htonl(BTLE_HEADER_LEN + 4 + packet_len);
-   fwrite(&header_pcap_, 16, 1, fh_pcap_store);
-   // BTLE header: RF_Channel:1 Signal_Power:1 Noise_Power:1 Access_address_off:1 Reference_access_address (receiver):4 flags:2 packet
-   // just set channel and ignore the rest
-   header_btle[0] = channel;
-   fwrite(header_btle, 1, 10, fh);
-   fwrite(&access_addr, 1, 4, fh);
-   fwrite(packet, 1, packet_len, fh);
-}
-void write_dummy_entry(){
-    printf("Writing dummy entry\n");
-    uint8_t pkt[10] = {7,7,7,7,7,7,7,7,7,7};
-    struct timeval tv;
-    tv.tv_sec = 0;
-    tv.tv_usec = 0;
-    write_packet_to_file(fh_pcap_store, 10, pkt, &tv, 1, 0xFFFFFFF1);
-    tv.tv_sec = 1;
-    tv.tv_usec = 200;
-    write_packet_to_file(fh_pcap_store, 10, pkt, &tv, 2, 0xFFFFFFF2);
-    tv.tv_sec = 2;
-    tv.tv_usec = 400;
-    write_packet_to_file(fh_pcap_store, 10, pkt, &tv, 3, 0xFFFFFFF3);
+if(btbb_pcap_create_file("btle_capture.cap", pcap_handle)) {
+    printf("Could not create pcap file\n");
 }
 
 
@@ -196,13 +135,10 @@ void write_dummy_entry(){
 //----------------------------------some basic signal definition----------------------------------
 #define SAMPLE_PER_SYMBOL 4 // 4M sampling rate
 
-volatile int rx_write_index; // remember to initialize it!
-volatile int rx_read_index;
+volatile int rx_buf_offset; // remember to initialize it!
 
 #define LEN_BUF_IN_SAMPLE (4*4096) //4096 samples = ~1ms for 4Msps; ATTENTION each rx callback get hackrf.c:lib_device->buffer_size samples!!!
-// must be multiple of 2
-//#define LEN_BUF (LEN_BUF_IN_SAMPLE*20)
-#define LEN_BUF (LEN_BUF_IN_SAMPLE*64)
+#define LEN_BUF (LEN_BUF_IN_SAMPLE*2)
 #define LEN_BUF_IN_SYMBOL (LEN_BUF_IN_SAMPLE/SAMPLE_PER_SYMBOL)
 //----------------------------------some basic signal definition----------------------------------
 
@@ -402,35 +338,14 @@ char *board_name = "HACKRF";
 #define MAX_LNA_GAIN 40
 
 typedef int8_t IQ_TYPE;
-volatile IQ_TYPE rx_buf[LEN_BUF];
+volatile IQ_TYPE rx_buf[LEN_BUF + LEN_BUF_MAX_NUM_PHY_SAMPLE];
 
 int rx_callback(hackrf_transfer* transfer) {
   int i;
   int8_t *p = (int8_t *)transfer->buffer;
-  // LEN_BUF_MAX_NUM_PHY_SAMPLE*2 -> enough space when wrapping index
-  long rx_write_index_new = rx_write_index + LEN_BUF_MAX_NUM_PHY_SAMPLE*2;
-  long rx_write_index_new_mod = rx_write_index_new & ( LEN_BUF-1 );
-
-  //printf(".\n");
-  // don't write beyond read index
-  // ...w....r..
-  if ( (rx_write_index < rx_read_index && rx_write_index_new >= rx_read_index) ||
-  // ...r....w.. -> .w..r...... -> ....r.w....
-    (rx_write_index > rx_read_index && rx_write_index_new != rx_write_index_new_mod && rx_write_index_new_mod > rx_read_index)) {
-   printf("buffer full, not adding any data: rx_write=%d rx_write_new=%ld rx_write_new_mod=%ld LEN_BUF_MAX_NUM_PHY_SAMPLE=%d\n", rx_write_index, rx_write_index_new, rx_write_index_new_mod, LEN_BUF);
-   return(0);
-  }
-
-  //printf("%d %ld %ld\n", rx_write_index, rx_write_index_new, rx_write_index_new_mod);
-  // start writing at 0
-  if (rx_write_index_new != rx_write_index_new_mod) {
-    rx_write_index = 0;
-    //printf("resetting\n");
-  }
-
-  for( i=0; i < transfer->valid_length; ++i) {
-    rx_buf[rx_write_index] = p[i];
-    ++rx_write_index;
+  for( i=0; i<transfer->valid_length; i++) {
+    rx_buf[rx_buf_offset] = p[i];
+    rx_buf_offset = (rx_buf_offset+1)&( LEN_BUF-1 ); //cyclic buffer
   }
   //printf("%d\n", transfer->valid_length); // !!!!it is 262144 always!!!! Now it is 4096. Defined in hackrf.c lib_device->buffer_size
   return(0);
@@ -510,37 +425,35 @@ inline int open_board(uint64_t freq_hz, int gain, hackrf_device** device) {
 }
 
 void exit_board(hackrf_device *device) {
-  if(device != NULL) {
-    hackrf_exit();
-    printf("hackrf_exit() done\n");
-  }
+	if(device != NULL)
+	{
+		hackrf_exit();
+		printf("hackrf_exit() done\n");
+	}
 }
 
 inline int close_board(hackrf_device *device) {
   int result;
 
-  if(device != NULL) {
-    if(noclose) {
-      printf("will NOT close device\n");
-      return 0;
-    }
+	if(device != NULL)
+	{
     result = hackrf_stop_rx(device);
-
     if( result != HACKRF_SUCCESS ) {
       printf("close_board: hackrf_stop_rx() failed: %s (%d)\n", hackrf_error_name(result), result);
       return(-1);
     }
 
-    result = hackrf_close(device);
-    if( result != HACKRF_SUCCESS ) {
-      printf("close_board: hackrf_close() failed: %s (%d)\n", hackrf_error_name(result), result);
-      return(-1);
-    }
+		result = hackrf_close(device);
+		if( result != HACKRF_SUCCESS )
+		{
+			printf("close_board: hackrf_close() failed: %s (%d)\n", hackrf_error_name(result), result);
+			return(-1);
+		}
 
     return(0);
-  } else {
-    return(-1);
-  }
+	} else {
+	  return(-1);
+	}
 }
 
 inline int run_board(hackrf_device* device) {
@@ -1121,9 +1034,7 @@ void parse_commandline(
   int* raw_flag,
   uint64_t* freq_hz, 
   uint32_t* access_mask, 
-  int* hop_flag,
-  char** filename_pcap,
-  int* noclose
+  int* hop_flag
 ) {
   printf("BTLE/BT4.0 Scanner(NO bladeRF support so far). Xianjun Jiao. putaoshu@gmail.com\n\n");
   
@@ -1145,10 +1056,6 @@ void parse_commandline(
   (*access_mask) = 0xFFFFFFFF;
   
   (*hop_flag) = 0;
-  
-  (*filename_pcap) = 0;
-
-  (*noclose) = 0;
 
   while (1) {
     static struct option long_options[] = {
@@ -1162,13 +1069,11 @@ void parse_commandline(
       {"freq_hz",           required_argument, 0, 'f'},
       {"access_mask",         required_argument, 0, 'm'},
       {"hop",         no_argument, 0, 'o'},
-      {"filename",         required_argument, 0, 's'},
-      {"noclose",         no_argument, 0, 'x'},
       {0, 0, 0, 0}
     };
     /* getopt_long stores the option index here. */
     int option_index = 0;
-    int c = getopt_long (argc, argv, "hc:g:a:k:vrf:m:os:x",
+    int c = getopt_long (argc, argv, "hc:g:a:k:vrf:m:o",
                      long_options, &option_index);
 
     /* Detect the end of the options. */
@@ -1222,14 +1127,6 @@ void parse_commandline(
         
       case 'k':
         (*crc_init) = strtol(optarg,&endp,16);
-        break;
-
-      case 's':
-        (*filename_pcap) = (char*)optarg;
-        break;
-
-      case 'x':
-        (*noclose) = true;
         break;
         
       case '?':
@@ -1315,7 +1212,6 @@ void demod_byte(IQ_TYPE* rxp, int num_byte, uint8_t *out_byte) {
   }
 }
 
-// searches for a pattern, default: advertising access adress 0x8E89BED6 (unique_bits)
 inline int search_unique_bits(IQ_TYPE* rxp, int search_len, uint8_t *unique_bits, uint8_t *unique_bits_mask, const int num_bits) {
   int i, sp, j, i0, q0, i1, q1, k, p, phase_idx;
   bool unequal_flag;
@@ -1325,7 +1221,6 @@ inline int search_unique_bits(IQ_TYPE* rxp, int search_len, uint8_t *unique_bits
   //demod_buf_preamble_access[SAMPLE_PER_SYMBOL][LEN_DEMOD_BUF_PREAMBLE_ACCESS]
   //memset(demod_buf_preamble_access, 0, SAMPLE_PER_SYMBOL*LEN_DEMOD_BUF_PREAMBLE_ACCESS);
   memset(demod_buf_access, 0, SAMPLE_PER_SYMBOL*LEN_DEMOD_BUF_ACCESS);
-
   for(i=0; i<search_len*SAMPLE_PER_SYMBOL*2; i=i+(SAMPLE_PER_SYMBOL*2)) {
     sp = ( (demod_buf_offset-demod_buf_len+1)&(demod_buf_len-1) );
     //sp = (demod_buf_offset-demod_buf_len+1);
@@ -1344,7 +1239,6 @@ inline int search_unique_bits(IQ_TYPE* rxp, int search_len, uint8_t *unique_bits
       
       k = sp;
       unequal_flag = false;
-
       for (p=0; p<demod_buf_len; p++) {
         //if (demod_buf_preamble_access[phase_idx][k] != unique_bits[p]) {
         if (demod_buf_access[phase_idx][k] != unique_bits[p] && unique_bits_mask[p]) {
@@ -1427,12 +1321,8 @@ int parse_adv_pdu_payload_byte(uint8_t *payload_byte, int num_payload_byte, ADV_
       //payload_parse_result_str = ['AdvA:' AdvA ' InitA:' InitA];
   } else if (pdu_type == CONNECT_REQ) {
       if (num_payload_byte!=34) {
-          printf("Warning: !!! CONNECT_REQ: Payload length %d bytes. Need to be 34 for PDU Type %s!\n", num_payload_byte, ADV_PDU_TYPE_STR[pdu_type]);
-
-        if (num_payload_byte < 34) {
-            printf("Error: payload for CONNECT_REQ too short, ignoring\n");
-            return(-1);
-        }
+          printf("Error: Payload length %d bytes. Need to be 34 for PDU Type %s!\n", num_payload_byte, ADV_PDU_TYPE_STR[pdu_type]);
+          return(-1);
       }
       payload_type_5 = (ADV_PDU_PAYLOAD_TYPE_5 *)adv_pdu_payload;
       
@@ -1944,7 +1834,7 @@ void print_adv_pdu_payload(void *adv_pdu_payload, ADV_PDU_TYPE pdu_type, int pay
       }
     } else if (pdu_type==CONNECT_REQ) {
       adv_pdu_payload_5 = (ADV_PDU_PAYLOAD_TYPE_5 *)(adv_pdu_payload);
-      printf("!!!CONNECT_REQ: InitA:");
+      printf("InitA:");
       for(i=0; i<6; i++) {
         printf("%02x", adv_pdu_payload_5->InitA[i]);
       }
@@ -1972,19 +1862,17 @@ void print_adv_pdu_payload(void *adv_pdu_payload, ADV_PDU_TYPE pdu_type, int pay
     printf(" CRC%d\n", crc_flag);
 }
 
-// demodulates and parses a packet
 void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number, uint32_t access_addr, uint32_t crc_init, int verbose_flag, int raw_flag) {
   static int pkt_count = 0;
   static ADV_PDU_PAYLOAD_TYPE_R adv_pdu_payload;
   static LL_DATA_PDU_PAYLOAD_TYPE ll_data_pdu_payload;
   static struct timeval time_current_pkt, time_pre_pkt;
-  const int demod_buf_len = buf_len;
+  const int demod_buf_len = LEN_BUF_MAX_NUM_PHY_SAMPLE+(LEN_BUF/2);
   
   ADV_PDU_TYPE adv_pdu_type;
   LL_PDU_TYPE ll_pdu_type;
   
   IQ_TYPE *rxp = rxp_in;
-  // payload_len = length based on header data
   int num_demod_byte, hit_idx, buf_len_eaten, adv_tx_add, adv_rx_add, ll_nesn, ll_sn, ll_md, payload_len, time_diff, ll_ctrl_pdu_type, i;
   int num_symbol_left = buf_len/(SAMPLE_PER_SYMBOL*2); //2 for IQ
   bool crc_flag;
@@ -1997,58 +1885,42 @@ void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number, uint32_t access_
 
   uint32_to_bit_array(access_addr, access_bit);
   buf_len_eaten = 0;
-
-  //uint8_t tmp_byte2[num_symbol_left]; // header length + maximum payload length 37 + 3 octets CRC
-  //printf("amount symbols: %d\n", num_symbol_left);
-  //demod_byte(rxp, num_symbol_left/2, tmp_byte2);
-  //if(strstr((char*)tmp_byte2, "\xD6")) printf("\nFOUND AA!\n");
-
-
   while( 1 ) 
   {
-    // search for pattern "access_bit", can be anywhere in symbol stream..search it!
     hit_idx = search_unique_bits(rxp, num_symbol_left, access_bit, access_bit_mask, LEN_DEMOD_BUF_ACCESS);
-
     if ( hit_idx == -1 ) {
-      //printf("nothing found...\n");
       break;
     }
     //pkt_count++;
     //printf("hit %d\n", hit_idx);
+    
     //printf("%d %d %d %d %d %d %d %d\n", rxp[hit_idx+0], rxp[hit_idx+1], rxp[hit_idx+2], rxp[hit_idx+3], rxp[hit_idx+4], rxp[hit_idx+5], rxp[hit_idx+6], rxp[hit_idx+7]);
-
 
     buf_len_eaten = buf_len_eaten + hit_idx;
     //printf("%d\n", buf_len_eaten);
-
-
-    // skip 4 bytes cessaddress -> move to beginning of PDU header
-    buf_len_eaten = buf_len_eaten + 8*NUM_ACCESS_ADDR_BYTE*2*SAMPLE_PER_SYMBOL;
-    // rxp points after access address
+    
+    buf_len_eaten = buf_len_eaten + 8*NUM_ACCESS_ADDR_BYTE*2*SAMPLE_PER_SYMBOL;// move to beginning of PDU header
     rxp = rxp_in + buf_len_eaten;
-
+    
     if (raw_flag)
       num_demod_byte = 42;
     else
       num_demod_byte = 2; // PDU header has 2 octets
-
-    // skip 2 bytes PDU header
+      
     buf_len_eaten = buf_len_eaten + 8*num_demod_byte*2*SAMPLE_PER_SYMBOL;
-
     //if ( buf_len_eaten > buf_len ) {
     if ( buf_len_eaten > demod_buf_len ) {
       break;
     }
 
-    // demod 2 bytes header (or everything)
     demod_byte(rxp, num_demod_byte, tmp_byte);
 
-    // de-whitening
-    if(!raw_flag) scramble_byte(tmp_byte, num_demod_byte, scramble_table[channel_number], tmp_byte);
+    write_packet_to_file(fh, num_demod_byte, tmp_byte);
 
+    if(!raw_flag) scramble_byte(tmp_byte, num_demod_byte, scramble_table[channel_number], tmp_byte);
     rxp = rxp_in + buf_len_eaten;
     num_symbol_left = (buf_len-buf_len_eaten)/(SAMPLE_PER_SYMBOL*2);
-
+    
     if (raw_flag) { //raw recv stop here
       pkt_count++;
     
@@ -2058,7 +1930,6 @@ void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number, uint32_t access_
     
       printf("%dus Pkt%d Ch%d AA:%08x ", time_diff, pkt_count, channel_number, access_addr);
       printf("Raw:");
-
       for(i=0; i<42; i++) {
         printf("%02x", tmp_byte[i]);
       }
@@ -2067,9 +1938,9 @@ void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number, uint32_t access_
       continue;
     }
     
-    if (adv_flag) {
+    if (adv_flag)
+    {
       parse_adv_pdu_header_byte(tmp_byte, &adv_pdu_type, &adv_tx_add, &adv_rx_add, &payload_len);
-
       if( payload_len<6 || payload_len>37 ) {
         if (verbose_flag) {
           printf("XXXus PktBAD Ch%d AA:%08x ", channel_number, access_addr);
@@ -2081,9 +1952,8 @@ void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number, uint32_t access_
     } else {
       parse_ll_pdu_header_byte(tmp_byte, &ll_pdu_type, &ll_nesn, &ll_sn, &ll_md, &payload_len);
     }
-
+    
     //num_pdu_payload_crc_bits = (payload_len+3)*8;
-    // total length = start:? + [payload_length:? (based on header info) + crc:3]
     num_demod_byte = (payload_len+3);
     buf_len_eaten = buf_len_eaten + 8*num_demod_byte*2*SAMPLE_PER_SYMBOL;
     //if ( buf_len_eaten > buf_len ) {
@@ -2106,12 +1976,8 @@ void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number, uint32_t access_
     time_diff = TimevalDiff(&time_current_pkt, &time_pre_pkt);
     time_pre_pkt = time_current_pkt;
     
-    printf("%07dus Pkt%03d Ch%d AA:%08x ", time_diff, pkt_count, channel_number, access_addr);
-
-    if(fh_pcap_store != NULL) {
-        write_packet_to_file(fh_pcap_store, payload_len+2+3, tmp_byte, &time_current_pkt, channel_number, access_addr);
-    }
-    //printf(">>> %d <<<", num_demod_byte + 2);
+    printf("%dus Pkt%d Ch%d AA:%08x ", time_diff, pkt_count, channel_number, access_addr);
+    
     if (adv_flag) {
       printf("ADV_PDU_t%d:%s T%d R%d PloadL%d ", adv_pdu_type, ADV_PDU_TYPE_STR[adv_pdu_type], adv_tx_add, adv_rx_add, payload_len);
     
@@ -2139,7 +2005,6 @@ bool chm_is_full_map(uint8_t *chm) {
   return(false);
 }
 
-// state machine for connection tracking
 int receiver_controller(void *rf_dev, int verbose_flag, int *chan, uint32_t *access_addr, uint32_t *crc_init_internal) {
   const int guard_us = 7000;
   const int guard_us1 = 4000;
@@ -2151,12 +2016,8 @@ int receiver_controller(void *rf_dev, int verbose_flag, int *chan, uint32_t *acc
 
   switch(state) {
     case 0: // wait for track
-      //if ( receiver_status.crc_ok && receiver_status.hop!=-1 ) { //start track unless you ctrl+c
-      if ( receiver_status.hop!=-1 ) { //start track unless you ctrl+c
-        if (!receiver_status.crc_ok) {
-          printf("Warning: CRC not ok but we hop after all\n");
-        }
-
+      if ( receiver_status.crc_ok && receiver_status.hop!=-1 ) { //start track unless you ctrl+c
+      
         if ( !chm_is_full_map(receiver_status.chm) ) {
           printf("Hop: Not full ChnMap 1FFFFFFFFF! (%02x%02x%02x%02x%02x) Stay in ADV Chn\n", receiver_status.chm[0], receiver_status.chm[1], receiver_status.chm[2], receiver_status.chm[3], receiver_status.chm[4]);
           receiver_status.hop = -1;
@@ -2181,7 +2042,7 @@ int receiver_controller(void *rf_dev, int verbose_flag, int *chan, uint32_t *acc
         (*crc_init_internal) = crc_init_reorder(receiver_status.crc_init);
         (*access_addr) = receiver_status.access_addr;
         
-        printf("Hop: next ch %d freq %lldMHz access to follow=%08x crcInit=%06x\n", hop_chan, (unsigned long long)freq_hz/1000000, receiver_status.access_addr, receiver_status.crc_init);
+        printf("Hop: next ch %d freq %lldMHz access %08x crcInit %06x\n", hop_chan, freq_hz/1000000, receiver_status.access_addr, receiver_status.crc_init);
         
         state = 1;
         printf("Hop: next state %d\n", state);
@@ -2191,14 +2052,12 @@ int receiver_controller(void *rf_dev, int verbose_flag, int *chan, uint32_t *acc
       break;
     
     case 1: // wait for the 1st packet in data channel
-      if ( !receiver_status.crc_ok ) {// we capture the 1st data channel packet
-        printf("WARNING: CRC is not ok, ignoring\n");
+      if ( receiver_status.crc_ok ) {// we capture the 1st data channel packet
+        gettimeofday(&time_mark, NULL);
+        printf("Hop: 1st data pdu\n");
+        state = 2;
+        printf("Hop: next state %d\n", state);
       }
-      gettimeofday(&time_mark, NULL);
-      printf("Hop: 1st data pdu\n");
-      state = 2;
-      printf("Hop: next state %d\n", state);
-
       receiver_status.crc_ok = false;
       
       break;
@@ -2212,40 +2071,46 @@ int receiver_controller(void *rf_dev, int verbose_flag, int *chan, uint32_t *acc
         hop_chan = ((hop_chan + hop)%37);
         (*chan) = hop_chan;
         freq_hz = get_freq_by_channel_number( hop_chan );
-
+        
         if( board_set_freq(rf_dev, freq_hz) != 0 ) {
           return(-1);
         }
-
-        if (verbose_flag) printf("Hop: next ch %d freq %lldMHz\n", hop_chan, (unsigned long long)freq_hz/1000000);
+       
+        if (verbose_flag) printf("Hop: next ch %d freq %lldMHz\n", hop_chan, freq_hz/1000000);
+        
         state = 3;
         if (verbose_flag) printf("Hop: next state %d\n", state);
       }
       receiver_status.crc_ok = false;
+      
       break;
-
+    
     case 3: // wait for the 1st packet in new data channel
       if ( receiver_status.crc_ok ) {// we capture the 1st data channel packet in new data channel
-        printf("WARNING: CRC is not ok, ignoring\n");
+        gettimeofday(&time_mark, NULL);        
+        state = 2;
+        if (verbose_flag) printf("Hop: next state %d\n", state);
       }
-      gettimeofday(&time_mark, NULL);        
-      state = 2;
-      if (verbose_flag) printf("Hop: next state %d\n", state);
-
+      
       gettimeofday(&time_run, NULL);
-
       if ( TimevalDiff(&time_run, &time_mark)>target_us1 ) {
         if (verbose_flag) printf("Hop: skip\n");
+        
         gettimeofday(&time_mark, NULL);
+        
         hop_chan = ((hop_chan + hop)%37);
         (*chan) = hop_chan;
         freq_hz = get_freq_by_channel_number( hop_chan );
+        
         if( board_set_freq(rf_dev, freq_hz) != 0 ) {
           return(-1);
         }
-        if (verbose_flag) printf("Hop: next ch %d freq %lldMHz\n", hop_chan, (unsigned long long)freq_hz/1000000);
+       
+        if (verbose_flag) printf("Hop: next ch %d freq %lldMHz\n", hop_chan, freq_hz/1000000);
+        
         if (verbose_flag) printf("Hop: next state %d\n", state);
       }
+      
       receiver_status.crc_ok = false;
       break;
 
@@ -2262,31 +2127,22 @@ int receiver_controller(void *rf_dev, int verbose_flag, int *chan, uint32_t *acc
 //---------------------------for offline test--------------------------------------
 
 int main(int argc, char** argv) {
-printf("LEN_BUF=%d, LEN_BUF_MAX_NUM_PHY_SAMPLE=%d\n", LEN_BUF, LEN_BUF_MAX_NUM_PHY_SAMPLE);
-
   uint64_t freq_hz;
-  int gain, chan, verbose_flag, raw_flag, hop_flag;
+  int gain, chan, phase, rx_buf_offset_tmp, verbose_flag, raw_flag, hop_flag;
   uint32_t access_addr, access_addr_mask, crc_init, crc_init_internal;
+  bool run_flag = false;
   void* rf_dev;
   IQ_TYPE *rxp;
 
-  rx_write_index = 0;
-  rx_read_index = 0;
-
-  parse_commandline(argc, argv, &chan, &gain, &access_addr, &crc_init, &verbose_flag, &raw_flag, &freq_hz, &access_addr_mask, &hop_flag, &filename_pcap, &noclose);
-
-  if(filename_pcap != NULL)
-    init_pcap_file();
-
+  parse_commandline(argc, argv, &chan, &gain, &access_addr, &crc_init, &verbose_flag, &raw_flag, &freq_hz, &access_addr_mask, &hop_flag);
+  
   if (freq_hz == 123)
     freq_hz = get_freq_by_channel_number(chan);
   
   uint32_to_bit_array(access_addr_mask, access_bit_mask);
   
-  printf("Cmd line input: chan %d, freq %lldMHz, access addr %08x, crc init %06x raw %d verbose %d rx %ddB (%s) file=%s\n", chan, (unsigned long long)freq_hz/1000000, access_addr, crc_init, raw_flag, verbose_flag, gain, board_name, filename_pcap);
-
-  //write_dummy_entry();
-   //exit(0);
+  printf("Cmd line input: chan %d, freq %lldMHz, access addr %08x, crc init %06x raw %d verbose %d rx %ddB (%s)\n", chan, freq_hz/1000000, access_addr, crc_init, raw_flag, verbose_flag, gain, board_name);
+  
   // run cyclic recv in background
   do_exit = false;
   if ( config_run_board(freq_hz, gain, &rf_dev) != 0 ){
@@ -2316,40 +2172,38 @@ printf("LEN_BUF=%d, LEN_BUF_MAX_NUM_PHY_SAMPLE=%d\n", LEN_BUF, LEN_BUF_MAX_NUM_P
   
   // scan
   do_exit = false;
-  // TODO: BUFLEN > LEN_BUF_MAX_NUM_PHY_SAMPLE?
-  const int BUFLEN_RECEIVER = 5 * LEN_BUF_MAX_NUM_PHY_SAMPLE;
-  int read_ok = false;
-
+  phase = 0;
+  rx_buf_offset = 0;
   while(do_exit == false) { //hackrf_is_streaming(hackrf_dev) == HACKRF_TRUE?
-    // total buf len LEN_BUF =  (8*4096)*2 =  (~ 8ms); tail length MAX_NUM_PHY_SAMPLE*2=LEN_BUF_MAX_NUM_PHY_SAMPLE
-    // len(rx_buf) = LEN_BUF + LEN_BUF_MAX_NUM_PHY_SAMPLE
-    // LEN_DEMOD_BUF_ACCESS = 32
-    // LEN_BUF = 32768
-    // LEN_BUF_MAX_NUM_PHY_SAMPLE = 3008
-
-    // BUFLEN_RECEIVER*2 -> enough space as we always start at 0
-    long rx_read_index_new = rx_read_index + BUFLEN_RECEIVER;
-    long rx_read_index_new_mod = rx_read_index_new & ( LEN_BUF-1 );
-
-    // wrap around
-    if (rx_read_index_new != rx_read_index_new_mod) {
-        rx_read_index = 0;
-        rx_read_index_new = BUFLEN_RECEIVER;
+    /*
+    if ( (rx_buf_offset-rx_buf_offset_old) > 65536 || (rx_buf_offset-rx_buf_offset_old) < -65536 ) {
+      printf("%d\n", rx_buf_offset);
+      rx_buf_offset_old = rx_buf_offset;
+    }
+     * */
+    // total buf len LEN_BUF = (8*4096)*2 =  (~ 8ms); tail length MAX_NUM_PHY_SAMPLE*2=LEN_BUF_MAX_NUM_PHY_SAMPLE
+    
+    rx_buf_offset_tmp = rx_buf_offset - LEN_BUF_MAX_NUM_PHY_SAMPLE;
+    // cross point 0
+    if (rx_buf_offset_tmp>=0 && rx_buf_offset_tmp<(LEN_BUF/2) && phase==1) {
+      //printf("rx_buf_offset cross 0: %d %d %d\n", rx_buf_offset, (LEN_BUF/2), LEN_BUF_MAX_NUM_PHY_SAMPLE);
+      phase = 0;
+      
+      memcpy((void *)(rx_buf+LEN_BUF), (void *)rx_buf, LEN_BUF_MAX_NUM_PHY_SAMPLE*sizeof(IQ_TYPE));
+      rxp = (IQ_TYPE*)(rx_buf + (LEN_BUF/2));
+      run_flag = true;
     }
 
-    // don't read beyond read write
-    // ..r...w... -> ....r.w...
-    // ..w...r... -> ..w.....r.. r..w......
-    if ((rx_read_index < rx_write_index && rx_read_index_new < rx_write_index) ||
-        (rx_read_index > rx_write_index && (rx_read_index_new < LEN_BUF || rx_read_index_new < rx_write_index))) {
-        read_ok = true;
+    // cross point 1
+    if (rx_buf_offset_tmp>=(LEN_BUF/2) && phase==0) {
+      //printf("rx_buf_offset cross 1: %d %d %d\n", rx_buf_offset, (LEN_BUF/2), LEN_BUF_MAX_NUM_PHY_SAMPLE);
+      phase = 1;
+
+      rxp = (IQ_TYPE*)rx_buf;
+      run_flag = true;
     }
-
-    if (!read_ok)
-       continue;
-
-    rxp = (IQ_TYPE*)(rx_buf + rx_read_index);
-
+    
+    if (run_flag) {
       #if 0
       // ------------------------for offline test -------------------------------------
       //save_phy_sample(rx_buf+buf_sp, LEN_BUF/2, "/home/jxj/git/BTLE/matlab/sample_iq_4msps.txt");
@@ -2358,26 +2212,23 @@ printf("LEN_BUF=%d, LEN_BUF_MAX_NUM_PHY_SAMPLE=%d\n", LEN_BUF, LEN_BUF_MAX_NUM_P
       break;
       // ------------------------for offline test -------------------------------------
       #endif
-
+      
       // -----------------------------real online run--------------------------------
       //receiver(rxp, LEN_BUF_MAX_NUM_PHY_SAMPLE+(LEN_BUF/2), chan);
-      receiver(rxp, BUFLEN_RECEIVER, chan, access_addr, crc_init_internal, verbose_flag, raw_flag);
+      receiver(rxp, (LEN_DEMOD_BUF_ACCESS-1)*2*SAMPLE_PER_SYMBOL+(LEN_BUF)/2, chan, access_addr, crc_init_internal, verbose_flag, raw_flag);
       // -----------------------------real online run--------------------------------
-
+      
       if (hop_flag){
         if ( receiver_controller(rf_dev, verbose_flag, &chan, &access_addr, &crc_init_internal) != 0 )
           goto program_quit;
       }
-//usleep(1000);
-    //printf("rx_read=%d rx_read_new=%ld rx_read_new_mod=%ld LEN_BUF=%d LEN_BUF_MAX_NUM_PHY_SAMPLE=%d\n", rx_read_index,rx_read_index_new, rx_read_index_new_mod, LEN_BUF, BUFLEN_RECEIVER);
-
-     rx_read_index = rx_read_index_new;
-     read_ok = false;
-}
+      
+      run_flag = false;
+    }
+  }
 
 program_quit:
   stop_close_board(rf_dev);
-
-  if(fh_pcap_store) fclose(fh_pcap_store);
+  
   return(0);
 }

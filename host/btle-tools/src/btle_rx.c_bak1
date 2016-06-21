@@ -120,7 +120,6 @@ void sigint_callback_handler(int signum)
 {
 	fprintf(stdout, "Caught signal %d\n", signum);
 	do_exit = true;
-	exit(1);
 }
 #endif
 
@@ -196,13 +195,11 @@ void write_dummy_entry(){
 //----------------------------------some basic signal definition----------------------------------
 #define SAMPLE_PER_SYMBOL 4 // 4M sampling rate
 
-volatile int rx_write_index; // remember to initialize it!
-volatile int rx_read_index;
+volatile int rx_buf_offset; // remember to initialize it!
 
-#define LEN_BUF_IN_SAMPLE (4*4096) //4096 samples = ~1ms for 4Msps; ATTENTION each rx callback get hackrf.c:lib_device->buffer_size samples!!!
 // must be multiple of 2
-//#define LEN_BUF (LEN_BUF_IN_SAMPLE*20)
-#define LEN_BUF (LEN_BUF_IN_SAMPLE*64)
+#define LEN_BUF_IN_SAMPLE (4*4096) //4096 samples = ~1ms for 4Msps; ATTENTION each rx callback get hackrf.c:lib_device->buffer_size samples!!!
+#define LEN_BUF (LEN_BUF_IN_SAMPLE*2)
 #define LEN_BUF_IN_SYMBOL (LEN_BUF_IN_SAMPLE/SAMPLE_PER_SYMBOL)
 //----------------------------------some basic signal definition----------------------------------
 
@@ -402,35 +399,14 @@ char *board_name = "HACKRF";
 #define MAX_LNA_GAIN 40
 
 typedef int8_t IQ_TYPE;
-volatile IQ_TYPE rx_buf[LEN_BUF];
+volatile IQ_TYPE rx_buf[LEN_BUF + LEN_BUF_MAX_NUM_PHY_SAMPLE];
 
 int rx_callback(hackrf_transfer* transfer) {
   int i;
   int8_t *p = (int8_t *)transfer->buffer;
-  // LEN_BUF_MAX_NUM_PHY_SAMPLE*2 -> enough space when wrapping index
-  long rx_write_index_new = rx_write_index + LEN_BUF_MAX_NUM_PHY_SAMPLE*2;
-  long rx_write_index_new_mod = rx_write_index_new & ( LEN_BUF-1 );
-
-  //printf(".\n");
-  // don't write beyond read index
-  // ...w....r..
-  if ( (rx_write_index < rx_read_index && rx_write_index_new >= rx_read_index) ||
-  // ...r....w.. -> .w..r...... -> ....r.w....
-    (rx_write_index > rx_read_index && rx_write_index_new != rx_write_index_new_mod && rx_write_index_new_mod > rx_read_index)) {
-   printf("buffer full, not adding any data: rx_write=%d rx_write_new=%ld rx_write_new_mod=%ld LEN_BUF_MAX_NUM_PHY_SAMPLE=%d\n", rx_write_index, rx_write_index_new, rx_write_index_new_mod, LEN_BUF);
-   return(0);
-  }
-
-  //printf("%d %ld %ld\n", rx_write_index, rx_write_index_new, rx_write_index_new_mod);
-  // start writing at 0
-  if (rx_write_index_new != rx_write_index_new_mod) {
-    rx_write_index = 0;
-    //printf("resetting\n");
-  }
-
-  for( i=0; i < transfer->valid_length; ++i) {
-    rx_buf[rx_write_index] = p[i];
-    ++rx_write_index;
+  for( i=0; i<transfer->valid_length; i++) {
+    rx_buf[rx_buf_offset] = p[i];
+    rx_buf_offset = (rx_buf_offset+1)&( LEN_BUF-1 ); //cyclic buffer
   }
   //printf("%d\n", transfer->valid_length); // !!!!it is 262144 always!!!! Now it is 4096. Defined in hackrf.c lib_device->buffer_size
   return(0);
@@ -1978,7 +1954,7 @@ void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number, uint32_t access_
   static ADV_PDU_PAYLOAD_TYPE_R adv_pdu_payload;
   static LL_DATA_PDU_PAYLOAD_TYPE ll_data_pdu_payload;
   static struct timeval time_current_pkt, time_pre_pkt;
-  const int demod_buf_len = buf_len;
+  const int demod_buf_len = LEN_BUF_MAX_NUM_PHY_SAMPLE+(LEN_BUF/2); // 19392
   
   ADV_PDU_TYPE adv_pdu_type;
   LL_PDU_TYPE ll_pdu_type;
@@ -2004,13 +1980,13 @@ void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number, uint32_t access_
   //if(strstr((char*)tmp_byte2, "\xD6")) printf("\nFOUND AA!\n");
 
 
+
   while( 1 ) 
   {
     // search for pattern "access_bit", can be anywhere in symbol stream..search it!
     hit_idx = search_unique_bits(rxp, num_symbol_left, access_bit, access_bit_mask, LEN_DEMOD_BUF_ACCESS);
 
     if ( hit_idx == -1 ) {
-      //printf("nothing found...\n");
       break;
     }
     //pkt_count++;
@@ -2265,13 +2241,11 @@ int main(int argc, char** argv) {
 printf("LEN_BUF=%d, LEN_BUF_MAX_NUM_PHY_SAMPLE=%d\n", LEN_BUF, LEN_BUF_MAX_NUM_PHY_SAMPLE);
 
   uint64_t freq_hz;
-  int gain, chan, verbose_flag, raw_flag, hop_flag;
+  int gain, chan, phase, rx_buf_offset_tmp, verbose_flag, raw_flag, hop_flag;
   uint32_t access_addr, access_addr_mask, crc_init, crc_init_internal;
+  bool run_flag = false;
   void* rf_dev;
   IQ_TYPE *rxp;
-
-  rx_write_index = 0;
-  rx_read_index = 0;
 
   parse_commandline(argc, argv, &chan, &gain, &access_addr, &crc_init, &verbose_flag, &raw_flag, &freq_hz, &access_addr_mask, &hop_flag, &filename_pcap, &noclose);
 
@@ -2316,40 +2290,42 @@ printf("LEN_BUF=%d, LEN_BUF_MAX_NUM_PHY_SAMPLE=%d\n", LEN_BUF, LEN_BUF_MAX_NUM_P
   
   // scan
   do_exit = false;
-  // TODO: BUFLEN > LEN_BUF_MAX_NUM_PHY_SAMPLE?
-  const int BUFLEN_RECEIVER = 5 * LEN_BUF_MAX_NUM_PHY_SAMPLE;
-  int read_ok = false;
-
+  phase = 0;
+  rx_buf_offset = 0;
   while(do_exit == false) { //hackrf_is_streaming(hackrf_dev) == HACKRF_TRUE?
+    /*
+    if ( (rx_buf_offset-rx_buf_offset_old) > 65536 || (rx_buf_offset-rx_buf_offset_old) < -65536 ) {
+      printf("%d\n", rx_buf_offset);
+      rx_buf_offset_old = rx_buf_offset;
+    }
+     * */
     // total buf len LEN_BUF =  (8*4096)*2 =  (~ 8ms); tail length MAX_NUM_PHY_SAMPLE*2=LEN_BUF_MAX_NUM_PHY_SAMPLE
     // len(rx_buf) = LEN_BUF + LEN_BUF_MAX_NUM_PHY_SAMPLE
     // LEN_DEMOD_BUF_ACCESS = 32
     // LEN_BUF = 32768
     // LEN_BUF_MAX_NUM_PHY_SAMPLE = 3008
 
-    // BUFLEN_RECEIVER*2 -> enough space as we always start at 0
-    long rx_read_index_new = rx_read_index + BUFLEN_RECEIVER;
-    long rx_read_index_new_mod = rx_read_index_new & ( LEN_BUF-1 );
-
-    // wrap around
-    if (rx_read_index_new != rx_read_index_new_mod) {
-        rx_read_index = 0;
-        rx_read_index_new = BUFLEN_RECEIVER;
+    rx_buf_offset_tmp = rx_buf_offset - LEN_BUF_MAX_NUM_PHY_SAMPLE;
+    // cross point 0
+    if (rx_buf_offset_tmp >= 0 && rx_buf_offset_tmp < (LEN_BUF/2) && phase == 1) {
+      //printf("rx_buf_offset cross 0: %d %d %d\n", rx_buf_offset, (LEN_BUF/2), LEN_BUF_MAX_NUM_PHY_SAMPLE);
+      phase = 0;
+      
+      memcpy((void *)(rx_buf+LEN_BUF), (void *)rx_buf, LEN_BUF_MAX_NUM_PHY_SAMPLE*sizeof(IQ_TYPE));
+      rxp = (IQ_TYPE*)(rx_buf + (LEN_BUF/2));
+      run_flag = true;
     }
 
-    // don't read beyond read write
-    // ..r...w... -> ....r.w...
-    // ..w...r... -> ..w.....r.. r..w......
-    if ((rx_read_index < rx_write_index && rx_read_index_new < rx_write_index) ||
-        (rx_read_index > rx_write_index && (rx_read_index_new < LEN_BUF || rx_read_index_new < rx_write_index))) {
-        read_ok = true;
+    // cross point 1
+    if (rx_buf_offset_tmp >= (LEN_BUF/2) && phase == 0) {
+      //printf("rx_buf_offset cross 1: %d %d %d\n", rx_buf_offset, (LEN_BUF/2), LEN_BUF_MAX_NUM_PHY_SAMPLE);
+      phase = 1;
+
+      rxp = (IQ_TYPE*)rx_buf;
+      run_flag = true;
     }
-
-    if (!read_ok)
-       continue;
-
-    rxp = (IQ_TYPE*)(rx_buf + rx_read_index);
-
+    
+    if (run_flag) {
       #if 0
       // ------------------------for offline test -------------------------------------
       //save_phy_sample(rx_buf+buf_sp, LEN_BUF/2, "/home/jxj/git/BTLE/matlab/sample_iq_4msps.txt");
@@ -2358,22 +2334,20 @@ printf("LEN_BUF=%d, LEN_BUF_MAX_NUM_PHY_SAMPLE=%d\n", LEN_BUF, LEN_BUF_MAX_NUM_P
       break;
       // ------------------------for offline test -------------------------------------
       #endif
-
+      
       // -----------------------------real online run--------------------------------
       //receiver(rxp, LEN_BUF_MAX_NUM_PHY_SAMPLE+(LEN_BUF/2), chan);
-      receiver(rxp, BUFLEN_RECEIVER, chan, access_addr, crc_init_internal, verbose_flag, raw_flag);
+      receiver(rxp, (LEN_DEMOD_BUF_ACCESS-1)*2*SAMPLE_PER_SYMBOL+(LEN_BUF)/2, chan, access_addr, crc_init_internal, verbose_flag, raw_flag);
       // -----------------------------real online run--------------------------------
-
+      
       if (hop_flag){
         if ( receiver_controller(rf_dev, verbose_flag, &chan, &access_addr, &crc_init_internal) != 0 )
           goto program_quit;
       }
-//usleep(1000);
-    //printf("rx_read=%d rx_read_new=%ld rx_read_new_mod=%ld LEN_BUF=%d LEN_BUF_MAX_NUM_PHY_SAMPLE=%d\n", rx_read_index,rx_read_index_new, rx_read_index_new_mod, LEN_BUF, BUFLEN_RECEIVER);
-
-     rx_read_index = rx_read_index_new;
-     read_ok = false;
-}
+      
+      run_flag = false;
+    }
+  }
 
 program_quit:
   stop_close_board(rf_dev);
