@@ -6,6 +6,7 @@ A BTLE (Bluetooth Low energy)/BT4.0 radio packet sniffer/scanner and sender ( bu
 # News (See complete introduction section after news section):
 
 ## Nov. 2015: So excited that the HACKRF BTLE packet sniffer/scanner can follow hopping data channels automatically now! Just like TI's sniffer.
+[http://sdr-x.github.io/BTLE-SNIFFER/](http://sdr-x.github.io/BTLE-SNIFFER/)
 
 New added options:
 
