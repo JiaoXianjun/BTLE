@@ -4052,8 +4052,9 @@ int parse_input(int num_input, char** argv, int *num_repeat_return){
     printf("INFO bit:"); disp_bit_in_hex(packets[i].info_bit, packets[i].num_info_bit);
     printf(" PHY bit:"); disp_bit_in_hex(packets[i].phy_bit, packets[i].num_phy_bit);
     printf("PHY SMPL: PHY_bit_for_matlab.txt IQ_sample_for_matlab.txt IQ_sample.txt IQ_sample_byte.txt\n");
-    save_phy_sample(packets[i].phy_sample, 2*packets[i].num_phy_sample, "IQ_sample.txt");
-    save_phy_sample((char*)(packets[i].phy_sample1), 2*packets[i].num_phy_sample, "IQ_sample_byte.txt");
+    save_phy_sample((char*)(packets[i].info_byte), packets[i].num_info_byte, "info_byte.txt");
+    save_phy_sample((char*)(packets[i].phy_byte), packets[i].num_phy_byte, "phy_byte.txt");
+    save_phy_sample(packets[i].phy_sample, 2*packets[i].num_phy_sample, "phy_sample.txt");
     save_phy_sample_for_matlab(packets[i].phy_sample, 2*packets[i].num_phy_sample, "IQ_sample_for_matlab.txt");
     save_phy_sample_for_matlab(packets[i].phy_bit, packets[i].num_phy_bit, "PHY_bit_for_matlab.txt");
   }
