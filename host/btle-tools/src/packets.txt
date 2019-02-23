@@ -1,4 +1,5 @@
-# Simulate BTLE Connection establishment according to: http://processors.wiki.ti.com/index.php/BLE_sniffer_guide
+# Simulate BTLE Connection establishment according to BTLE/doc/TI-BLE-INTRODUCTION.pdf
+# Turn on your BLE sniffer dongle at channel 37 to see the procedure
 
 37-ADV_IND-TxAdd-0-RxAdd-0-AdvA-90D7EBB19299-AdvData-0201050702031802180418-Space-1000
 
