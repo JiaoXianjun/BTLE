@@ -150,7 +150,7 @@ Corresponding Command line:
 ```
 btle_tx 37-ADV_IND-TxAdd-0-RxAdd-0-AdvA-90D7EBB19299-AdvData-0201050702031802180418-Space-1      37-CONNECT_REQ-TxAdd-0-RxAdd-0-InitA-001830EA965F-AdvA-90D7EBB19299-AA-60850A1B-CRCInit-A77B22-WinSize-02-WinOffset-000F-Interval-0050-Latency-0000-Timeout-07D0-ChM-1FFFFFFFFF-Hop-9-SCA-5-Space-1     9-LL_DATA-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-DATA-XX-CRCInit-A77B22-Space-1
 ```
-Above simulates a Connection establishment procedure between device 1 and device 2. Corresponding descriptor file [BTLE/host/btle-tools/src/packets.txt](host/btle-tools/src/packets_discovery.txt).
+Above simulates a Connection establishment procedure between device 1 and device 2. Corresponding descriptor file [BTLE/host/btle-tools/src/packets.txt](host/btle-tools/src/packets.txt).
 
 The 1st packet -- device 1 sends ADV_IND packet in channel 37.
 
