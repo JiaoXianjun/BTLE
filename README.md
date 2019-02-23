@@ -15,7 +15,7 @@ Features
  * PHY and upper layer are implemented in software (C language). Full Software Defined Radio Flexibility. 
  * BLE standard 1Mbps GFSK PHY rate.
  * All ADV and DATA channel link layer packet formats in Core_V4.0 (Chapter 2&3, PartB, Volume 6) are supported.
- * Sniffer is capable to automatic parse and track channel hopping pattern, not limited to broadcasting channel or fixed channel.
+ * Sniffer is capable to parse and track channel hopping pattern automatically, not limited to broadcasting channel or fixed channel.
 
 Hardware
 --------
@@ -38,21 +38,26 @@ git clone git@github.com:JiaoXianjun/BTLE.git
 cd BTLE/host
 mkdir build
 cd build
-cmake ../      (without -DUSE_BLADERF=1 means HACKRF will be used by default)
+cmake ../
+```
+without -DUSE_BLADERF=1 means HACKRF will be used by default
+```
 make
 ./btle-tools/src/btle_rx
-  -- Sniff on channel 37. You should see many packets on screen.
-./btle-tools/src/btle_tx 37-DISCOVERY-TxAdd-1-RxAdd-0-AdvA-010203040506-LOCAL_NAME09-SDR/Bluetooth/Low/Energy r500 
-  -- Open another BLE sniffer App (such as LightBlue), You should see a device with name SDR/Bluetooth/Low/Energy
 ```
-**MAY NOT BE NECESSARY**: 
+Sniff on channel 37. You should see many packets on screen.
+```
+./btle-tools/src/btle_tx 37-DISCOVERY-TxAdd-1-RxAdd-0-AdvA-010203040506-LOCAL_NAME09-SDR/Bluetooth/Low/Energy r500 
+```
+You should see a device with name SDR/Bluetooth/Low/Energy if another BLE sniffer App (such as LightBlue) is opened.
 
-To support fast/realtime sender and scanner/sniffer, I have changed:
+( **MAY NOT BE NECESSARY**: To support fast/realtime sender and scanner/sniffer, I have changed:
 ```
 lib_device->transfer_count to 4
 lib_device->buffer_size to 4096 
 ```
-in hackrf driver: hackrf.c. You should also do that change to your driver source code and re-compile, re-install as instructed in <a href="https://github.com/mossmann/hackrf/tree/master/host">hackrf</a>
+in hackrf driver: hackrf.c. You should also do that change to your driver source code and re-compile, re-install as instructed in <a href="https://github.com/mossmann/hackrf/tree/master/host">hackrf</a> )
+
 
 btle_rx usage
 ------------------
@@ -115,7 +120,7 @@ rN
 ```
 means the sequence will be repeated for N times. If it is not specified, the sequence will only be sent once.
 
-* Format of packet descriptor "packetX"
+Format of packet descriptor "packetX"
 ```    
 channel_number-packet_type-field-value-field-value-...-Space-value
 ```
@@ -126,7 +131,7 @@ Each descriptor string starts with BTLE channel number (0~39), then followed by 
 **DO NOT** use "-" inside each field. "-" is magic character which is used to separate different fields in packet descriptor. 
 
 
-* btle_tx example: Discovery packets
+* btle_tx example: [Discovery packets](host/btle-tools/src/packets_discovery.txt)
 
 Open LightBlue APP (or other BLE sniffer) in your iPhone/device before this command:
 ```
@@ -134,7 +139,7 @@ Open LightBlue APP (or other BLE sniffer) in your iPhone/device before this comm
 ```
 You will see a device named as "SDR Bluetooth Low Energy" in your LightBlue APP.
 
-Corresponding Command line of packets_discovery.txt:
+Corresponding Command line:
 ```
 ./btle-tools/src/btle_tx 37-DISCOVERY-TxAdd-1-RxAdd-0-AdvA-010203040506-LOCAL_NAME09-SDR/Bluetooth/Low/Energy r40
 ``` 
@@ -145,7 +150,7 @@ Corresponding Command line of packets_discovery.txt:
 ```
 btle_tx 37-ADV_IND-TxAdd-0-RxAdd-0-AdvA-90D7EBB19299-AdvData-0201050702031802180418-Space-1      37-CONNECT_REQ-TxAdd-0-RxAdd-0-InitA-001830EA965F-AdvA-90D7EBB19299-AA-60850A1B-CRCInit-A77B22-WinSize-02-WinOffset-000F-Interval-0050-Latency-0000-Timeout-07D0-ChM-1FFFFFFFFF-Hop-9-SCA-5-Space-1     9-LL_DATA-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-DATA-XX-CRCInit-A77B22-Space-1
 ```
-Above simulates a Connection establishment procedure between device 1 and device 2. Corresponding descriptor file BTLE/host/btle-tools/src/packets.txt.
+Above simulates a Connection establishment procedure between device 1 and device 2. Corresponding descriptor file [BTLE/host/btle-tools/src/packets.txt](host/btle-tools/src/packets_discovery.txt).
 
 The 1st packet -- device 1 sends ADV_IND packet in channel 37.
 
@@ -160,21 +165,45 @@ Time space between packets are 1s (1000ms). Tune TI's packet sniffer to channel 
 ```
 ./btle-tools/src/btle_tx 37-iBeacon-AdvA-010203040506-UUID-B9407F30F5F8466EAFF925556B57FE6D-Major-0008-Minor-0009-TxPower-C5-Space-100     r100
 ```
-Above command sends iBeacon packet and repeats it 100 times with 100ms time space. Corresponding descriptor file BTLE/host/btle-tools/src/packets_ibeacon.txt. You can use a BLE sniffer dongle to see the packet.
+Above command sends iBeacon packet and repeats it 100 times with 100ms time space. Corresponding descriptor file [BTLE/host/btle-tools/src/packets_ibeacon.txt](host/btle-tools/src/packets_ibeacon.txt). You can use a BLE sniffer dongle to see the packet.
 
 The packet descriptor string:
 ```
 37-iBeacon-AdvA-010203040506-UUID-B9407F30F5F8466EAFF925556B57FE6D-Major-0008-Minor-0009-TxPower-C5-Space-100
-37 -- channel 37 (one of BTLE Advertising channel 37 38 39)
-iBeacon -- packet format key word which means iBeacon format. (Actually it is ADV_IND format in Core_V4.0.pdf)
-AdvA -- Advertising address (MAC address) which is set as 010203040506 (See Core_V4.0.pdf)
-UUID -- here we specify it as Estimote’s fixed UUID: B9407F30F5F8466EAFF925556B57FE6D
-Major -- major number of iBeacon format. (Here it is 0008)
-Minor -- minor number of iBeacon format. (Here it is 0009)
-Txpower -- transmit power parameter of iBeacon format (Here it is C5)
-Space -- How many millisecond will be waited after this packet sent. (Here it is 100ms)
 ```
-
+```
+37
+```
+channel 37 (one of BTLE Advertising channel 37 38 39)
+```
+iBeacon
+```
+packet format key word which means iBeacon format. (Actually it is ADV_IND format in Core_V4.0.pdf)
+```
+AdvA
+```
+Advertising address (MAC address) which is set as 010203040506 (See Core_V4.0.pdf)
+```
+UUID
+```
+here we specify it as Estimote’s fixed UUID: B9407F30F5F8466EAFF925556B57FE6D
+```
+Major
+```
+major number of iBeacon format. (Here it is 0008)
+```
+Minor
+```
+minor number of iBeacon format. (Here it is 0009)
+```
+Txpower
+```
+transmit power parameter of iBeacon format (Here it is C5)
+```
+Space
+```
+How many millisecond will be waited after this packet sent. (Here it is 100ms)
+ 
 Demos
 ------------------
 
