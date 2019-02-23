@@ -138,7 +138,7 @@ Corresponding Command line of packets_discovery.txt:
 ```
 ./btle-tools/src/btle_tx 37-DISCOVERY-TxAdd-1-RxAdd-0-AdvA-010203040506-LOCAL_NAME09-SDR/Bluetooth/Low/Energy r40
 ``` 
-**Note** space " " is replaced by "/"
+**Note** space " " is replaced by "/" because space " " is not supported in command line.
 
 
 * btle_tx example: [Connection establishment](doc/TI-BLE-INTRODUCTION.pdf)
