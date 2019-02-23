@@ -55,7 +55,7 @@ You should see a device with name "SDR/Bluetooth/Low/Energy" in another BLE snif
 
 ~~lib_device->transfer_count to 4~~
 
-~~lib_device->buffer_size to 4096 ~~
+~~lib_device->buffer_size to 4096~~
 
 ~~in hackrf driver: hackrf.c. You should also do that change to your HackRF driver source code and re-compile, re-install~~
 
