@@ -132,7 +132,7 @@ Each descriptor string starts with BTLE channel number (0~39), then followed by 
 **DO NOT** use "-" inside each field. "-" is magic character which is used to separate different fields in packet descriptor. 
 
 
-* btle_tx example: [Discovery packets](host/btle-tools/src/packets_discovery.txt)
+* **btle_tx example: [Discovery packets](host/btle-tools/src/packets_discovery.txt)**
 
 Open LightBlue APP (or other BLE sniffer) in your iPhone/device before this command:
 ```
@@ -144,10 +144,10 @@ Corresponding Command line:
 ```
 ./btle-tools/src/btle_tx 37-DISCOVERY-TxAdd-1-RxAdd-0-AdvA-010203040506-LOCAL_NAME09-SDR/Bluetooth/Low/Energy r40
 ``` 
-**Note:** space " " is replaced by "/" because space " " is not supported in command line.
+Note: space " " is replaced by "/" because space " " is not supported in command line.
 
 
-* btle_tx example: [Connection establishment](doc/TI-BLE-INTRODUCTION.pdf)
+* **btle_tx example: [Connection establishment](doc/TI-BLE-INTRODUCTION.pdf)**
 ```
 btle_tx 37-ADV_IND-TxAdd-0-RxAdd-0-AdvA-90D7EBB19299-AdvData-0201050702031802180418-Space-1      37-CONNECT_REQ-TxAdd-0-RxAdd-0-InitA-001830EA965F-AdvA-90D7EBB19299-AA-60850A1B-CRCInit-A77B22-WinSize-02-WinOffset-000F-Interval-0050-Latency-0000-Timeout-07D0-ChM-1FFFFFFFFF-Hop-9-SCA-5-Space-1     9-LL_DATA-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-DATA-XX-CRCInit-A77B22-Space-1
 ```
@@ -162,7 +162,7 @@ The 3rd packet -- device 1 send an empty Link layer data PDU in channel 9 (decid
 Time space between packets are 1s (1000ms). Tune TI's packet sniffer to channel 37, then above establishment procedure will be captured.
 
 
-* btle_tx example: [iBeacon](doc/ibeacon.pdf)
+* **btle_tx example: [iBeacon](doc/ibeacon.pdf)**
 ```
 ./btle-tools/src/btle_tx 37-iBeacon-AdvA-010203040506-UUID-B9407F30F5F8466EAFF925556B57FE6D-Major-0008-Minor-0009-TxPower-C5-Space-100     r100
 ```
