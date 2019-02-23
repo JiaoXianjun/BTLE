@@ -23,7 +23,7 @@ Hardware
  * HackRF
  * bladeRF
 
-Build Instructions
+Build and Quick test
 ------------------
 
 * Mandatory requirements: check this link https://github.com/mossmann/hackrf/tree/master/host
@@ -32,7 +32,7 @@ Build Instructions
   * HackRF:              https://github.com/mossmann/hackrf
   * BladeRF:             https://github.com/Nuand/bladeRF
 
-Download build and quick test: 
+Instructions:
 ```
 git clone git@github.com:JiaoXianjun/BTLE.git
 cd BTLE/host
@@ -53,6 +53,48 @@ lib_device->transfer_count to 4
 lib_device->buffer_size to 4096 
 ```
 in hackrf driver: hackrf.c. You should also do that change to your driver source code and re-compile, re-install as instructed in <a href="https://github.com/mossmann/hackrf/tree/master/host">hackrf</a>
+
+btle_rx usage
+------------------
+```    
+btle_rx -c chan -g gain -a access_addr -k crc_init -v -r
+```
+```
+-c chan 
+```
+Channel number. Default value 37 (one of ADV chan). Valid value 0~39 (all ADV and DATA chan).
+```
+-g gain
+```
+VGA gain. default value 6. valid value 0~62. LNA has been set to maximum 40dB internally. Gain should be tuned very carefully to ensure best performance under your circumstance. Suggest test from low gain, because high gain always causes severe distortion and get you nothing.
+```
+-a access_addr
+```
+Access address. Default 8e89bed6 for ADV channel 37 38 39. You should specify correct value for data channel according to captured connection setup procedure.
+```
+-k crc_init
+```
+Default 555555 for ADV channel. You should specify correct value for data channel according to captured connection setup procedure.
+```
+-v
+```
+Verbose mode. Print more information when there is error
+```
+-r
+```
+Raw mode. After access addr is detected, print out following raw 42 bytes (without descrambling, parsing)
+```
+-o --hop
+```
+This will turn on data channel tracking (frequency hopping) after link setup information is captured in ADV_CONNECT_REQ packet.
+```        
+-f --freq_hz (need argument)
+```
+This frequency (Hz) will override channel setting (In case someone want to work on freq other than BTLE. More general purpose).
+```
+-m --access_mask (need argument)
+```
+If a bit is 1 in this mask, corresponding bit in access address will be taken into packet existing decision (In case someone want a shorter/sparser unique word to do packet detection. More general purpose).
 
 btle_tx usage
 ------------------
@@ -83,6 +125,7 @@ Each descriptor string starts with BTLE channel number (0~39), then followed by 
 
 **DO NOT** use "-" inside each field. "-" is magic character which is used to separate different fields in packet descriptor. 
 
+
 * btle_tx example: Discovery packets
 
 Open LightBlue APP (or other BLE sniffer) in your iPhone/device before this command:
@@ -97,6 +140,7 @@ Corresponding Command line of packets_discovery.txt:
 ``` 
 **Note** space " " is replaced by "/"
 
+
 * btle_tx example: [Connection establishment](doc/TI-BLE-INTRODUCTION.pdf)
 ```
 btle_tx 37-ADV_IND-TxAdd-0-RxAdd-0-AdvA-90D7EBB19299-AdvData-0201050702031802180418-Space-1      37-CONNECT_REQ-TxAdd-0-RxAdd-0-InitA-001830EA965F-AdvA-90D7EBB19299-AA-60850A1B-CRCInit-A77B22-WinSize-02-WinOffset-000F-Interval-0050-Latency-0000-Timeout-07D0-ChM-1FFFFFFFFF-Hop-9-SCA-5-Space-1     9-LL_DATA-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-DATA-XX-CRCInit-A77B22-Space-1
@@ -110,6 +154,7 @@ The 2nd packet -- After device 2 (in scanning state) receives the ADV packet fro
 The 3rd packet -- device 1 send an empty Link layer data PDU in channel 9 (decided by hopping scheme) according to those connection request information received from device 2. ("XX" after field "DATA" means there is no data for this field )
 
 Time space between packets are 1s (1000ms). Tune TI's packet sniffer to channel 37, then above establishment procedure will be captured.
+
 
 * btle_tx example: [iBeacon](doc/ibeacon.pdf)
 ```
@@ -129,45 +174,6 @@ Minor -- minor number of iBeacon format. (Here it is 0009)
 Txpower -- transmit power parameter of iBeacon format (Here it is C5)
 Space -- How many millisecond will be waited after this packet sent. (Here it is 100ms)
 ```
-
-btle_rx usage
-------------------
-```    
-btle_rx -c chan -g gain -a access_addr -k crc_init -v -r
-```
-```
--c chan 
-```
-Channel number. Default value 37 (one of ADV chan). Valid value 0~39 (all ADV and DATA chan).
-```
--g gain
-```
-VGA gain. default value 6. valid value 0~62. LNA has been set to maximum 40dB internally. Gain should be tuned very carefully to ensure best performance under your circumstance. Suggest test from low gain, because high gain always causes severe distortion and get you nothing.
-```
--a access_addr
-```
-Access address. Default 8e89bed6 for ADV channel 37 38 39. You should specify correct value for data channel according to captured connection setup procedure.
-```
--k crc_init
-```
-Default 555555 for ADV channel. You should specify correct value for data channel according to captured connection setup procedure.
-```
--v: Verbose mode. Print more information when there is error
-
--r: Raw mode. After access addr is detected, print out following raw 42 bytes (without descrambling, parsing)
-```
-```
--o --hop
-```
-This will turn on data channel tracking (frequency hopping) after link setup information is captured in ADV_CONNECT_REQ packet.
-```        
--f --freq_hz (need argument)
-```
-This frequency (Hz) will override channel setting (In case someone want to work on freq other than BTLE. More general purpose).
-```
--m --access_mask (need argument)
-```
-If a bit is 1 in this mask, corresponding bit in access address will be taken into packet existing decision (In case someone want a shorter/sparser unique word to do packet detection. More general purpose).
 
 Demos
 ------------------
