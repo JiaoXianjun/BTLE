@@ -51,12 +51,13 @@ Sniff on channel 37. You should see many packets on screen.
 ```
 You should see a device with name "SDR/Bluetooth/Low/Energy" in another BLE sniffer App (such as LightBlue).
 
-~~**MAY NOT BE NECESSARY**: To support fast/realtime sender and scanner/sniffer, I have changed:
-```
-lib_device->transfer_count to 4
-lib_device->buffer_size to 4096 
-```
-in hackrf driver: hackrf.c. You should also do that change to your driver source code and re-compile, re-install as instructed in <a href="https://github.com/mossmann/hackrf/tree/master/host">hackrf</a>~~
+~~**MAY NOT BE NECESSARY**: To support fast/realtime sender and scanner/sniffer, I have changed:~~
+
+~~lib_device->transfer_count to 4~~
+
+~~lib_device->buffer_size to 4096 ~~
+
+~~in hackrf driver: hackrf.c. You should also do that change to your HackRF driver source code and re-compile, re-install~~
 
 
 btle_rx usage
