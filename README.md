@@ -125,7 +125,7 @@ packetX string format
 ```    
 channel_number-packet_type-field-value-field-value-...-Space-value
 ```
-Each descriptor string starts with BTLE channel number (0~39), then followed by packet_type (RAW/iBeacon/ADV_IND/ADV_DIRECT_IND/etc. See all format examples **AT THE END**), then followed by field-value pair which is packet_type specific, at last there is Space-value pair (optional) where the value specifies how many millisecond will be waited after this packet sent.
+Each descriptor string starts with BTLE channel number (0~39), then followed by packet_type (RAW/iBeacon/ADV_IND/ADV_DIRECT_IND/etc. See all format examples **AT THE END: Appendix**), then followed by field-value pair which is packet_type specific, at last there is Space-value pair (optional) where the value specifies how many millisecond will be waited after this packet sent.
 
 **DO NOT** use space character " " in a command line packet descriptor. You CAN use space in the txt file packet descriptor.
 
