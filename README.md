@@ -92,7 +92,7 @@ Raw mode. After access addr is detected, print out following raw 42 bytes (witho
 ```
 -o --hop
 ```
-This will turn on data channel tracking (frequency hopping) after link setup information is captured in ADV_CONNECT_REQ packet.
+This will turn on data channel tracking (frequency hopping) after link setup information is captured in ADV_CONNECT_REQ packet on ADV channel.
 ```        
 -f --freq_hz (need argument)
 ```
