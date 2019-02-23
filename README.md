@@ -121,11 +121,11 @@ rN
 ```
 means the sequence will be repeated for N times. If it is not specified, the sequence will only be sent once.
 
-Format of packet descriptor "packetX"
+packetX string format
 ```    
 channel_number-packet_type-field-value-field-value-...-Space-value
 ```
-Each descriptor string starts with BTLE channel number (0~39), then followed by packet_type (RAW/iBeacon/ADV_IND/ADV_DIRECT_IND/etc. See all format examples at the end), then followed by field-value pair which is packet_type specific, at last there is Space-value pair (optional) where the value specifies how many millisecond will be waited after this packet sent.
+Each descriptor string starts with BTLE channel number (0~39), then followed by packet_type (RAW/iBeacon/ADV_IND/ADV_DIRECT_IND/etc. See all format examples **AT THE END**), then followed by field-value pair which is packet_type specific, at last there is Space-value pair (optional) where the value specifies how many millisecond will be waited after this packet sent.
 
 **DO NOT** use space character " " in a command line packet descriptor. You CAN use space in the txt file packet descriptor.
 
@@ -144,7 +144,7 @@ Corresponding Command line:
 ```
 ./btle-tools/src/btle_tx 37-DISCOVERY-TxAdd-1-RxAdd-0-AdvA-010203040506-LOCAL_NAME09-SDR/Bluetooth/Low/Energy r40
 ``` 
-**Note** space " " is replaced by "/" because space " " is not supported in command line.
+**Note:** space " " is replaced by "/" because space " " is not supported in command line.
 
 
 * btle_tx example: [Connection establishment](doc/TI-BLE-INTRODUCTION.pdf)
