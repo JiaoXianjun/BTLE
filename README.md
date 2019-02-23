@@ -68,7 +68,7 @@ btle_rx -c chan -g gain -a access_addr -k crc_init -v -r
 ```
 -c chan 
 ```
-Channel number. Default value 37 (one of ADV chan). Valid value 0~39 (all ADV and DATA chan).
+Channel number. Default value 37 (one of ADV channels). Valid value 0~39 (all ADV and DATA channels).
 ```
 -g gain
 ```
@@ -219,7 +219,7 @@ RAW packets: (All bits will be sent to GFSK modulator directly)
 ```
 37-RAW-aad6be898e8dc3ce338c4cb1207730144f9474e0e15eedb378c3bc
 ```
-ADVERTISING CHANNEL packets:
+ADVERTISING CHANNEL packets (channel 37 for example):
 ```
 37-IBEACON-AdvA-010203040506-UUID-B9407F30F5F8466EAFF925556B57FE6D-Major-0008-Minor-0009-TxPower-C5
 37-ADV_IND-TxAdd-1-RxAdd-0-AdvA-010203040506-AdvData-00112233445566778899AABBCCDDEEFF
@@ -230,7 +230,7 @@ ADVERTISING CHANNEL packets:
 37-SCAN_RSP-TxAdd-1-RxAdd-0-AdvA-010203040506-ScanRspData-00112233445566778899AABBCCDDEEFF
 37-CONNECT_REQ-TxAdd-1-RxAdd-0-InitA-010203040506-AdvA-0708090A0B0C-AA-01020304-CRCInit-050607-WinSize-08-WinOffset-090A-Interval-0B0C-Latency-0D0E-Timeout-0F00-ChM-0102030405-Hop-3-SCA-4
 ```
-DATA CHANNEL packets:
+DATA CHANNEL packets (channel 9 for example):
 ```
 9-LL_DATA-AA-60850A1B-LLID-1-NESN-0-SN-0-MD-0-DATA-XX-CRCInit-A77B22
 9-LL_CONNECTION_UPDATE_REQ-AA-60850A1B-LLID-3-NESN-0-SN-0-MD-0-WinSize-02-WinOffset-0e0F-Interval-0450-Latency-0607-Timeout-07D0-Instant-eeff-CRCInit-A77B22
@@ -248,7 +248,7 @@ DATA CHANNEL packets:
 9-LL_VERSION_IND-AA-60850A1B-LLID-3-NESN-0-SN-0-MD-0-VersNr-01-CompId-0203-SubVersNr-0405-CRCInit-A77B22
 9-LL_REJECT_IND-AA-60850A1B-LLID-3-NESN-0-SN-0-MD-0-ErrorCode-00-CRCInit-A77B22
 ```
-Discovery packets: (which can show any name or services in receiver/scanner, such as LightBlue):
+Discovery packets: (which can show any name or services in scanner APP, such as LightBlue):
 ```
 37-DISCOVERY-TxAdd-1-RxAdd-0-AdvA-010203040506-FLAGS-02-LOCAL_NAME09-CA-TXPOWER-03-SERVICE03-180D1810-SERVICE_DATA-180D40-MANUF_DATA-0001FF-CONN_INTERVAL-0006 (-SERVICE_SOLI14-1811)
 
