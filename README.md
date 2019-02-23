@@ -186,7 +186,7 @@ Appendix: Packet descriptor examples of btle_tx for all formats
 ------------------
 
 RAW packets: (All bits will be sent to GFSK modulator directly)
-``
+```
 37-RAW-aad6be898e8dc3ce338c4cb1207730144f9474e0e15eedb378c3bc
 ```
 ADVERTISING CHANNEL packets:
