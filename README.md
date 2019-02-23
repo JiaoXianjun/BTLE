@@ -125,7 +125,7 @@ packetX string format
 ```    
 channel_number-packet_type-field-value-field-value-...-Space-value
 ```
-Each descriptor string starts with BTLE channel number (0~39), then followed by packet_type (RAW/iBeacon/ADV_IND/ADV_DIRECT_IND/etc. See all format examples **AT THE END: Appendix**), then followed by field-value pair which is packet_type specific, at last there is Space-value pair (optional) where the value specifies how many millisecond will be waited after this packet sent.
+Each descriptor string starts with BTLE channel number (0~39), then followed by packet_type (RAW/iBeacon/ADV_IND/ADV_DIRECT_IND/etc. See all format examples [**AT THE END: Appendix**](#Appendix: Packet descriptor examples of btle_tx for all formats) ), then followed by field-value pair which is packet_type specific, at last there is Space-value pair (optional) where the value specifies how many millisecond will be waited after this packet sent.
 
 **DO NOT** use space character " " in a command line packet descriptor. You CAN use space in the txt file packet descriptor.
 
@@ -212,7 +212,7 @@ See a comparison with TI's packet sniffer here: [http://sdr-x.github.io/BTLE-SNI
 
 See <a href="https://youtu.be/9LDPhOF2yyw">btle_rx video demo</a> (youtube) or <a href="https://vimeo.com/144574631">btle_rx video demo</a> (in China) and <a href="http://youtu.be/Y8ttV5AEb-g">btle_tx video demo 1</a> (outside China) or <a href="http://v.youku.com/v_show/id_XNzUxMDIzNzAw.html">btle_tx video demo 2</a> (inside China)
 
-Appendix: Packet descriptor examples of btle_tx for all formats
+# Appendix: Packet descriptor examples of btle_tx for all formats
 ------------------
 
 RAW packets: (All bits will be sent to GFSK modulator directly)
