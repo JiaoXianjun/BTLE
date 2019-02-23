@@ -49,7 +49,7 @@ Sniff on channel 37. You should see many packets on screen.
 ```
 ./btle-tools/src/btle_tx 37-DISCOVERY-TxAdd-1-RxAdd-0-AdvA-010203040506-LOCAL_NAME09-SDR/Bluetooth/Low/Energy r500 
 ```
-You should see a device with name SDR/Bluetooth/Low/Energy if another BLE sniffer App (such as LightBlue) is opened.
+You should see a device with name "SDR/Bluetooth/Low/Energy" in another BLE sniffer App (such as LightBlue).
 
 ( **MAY NOT BE NECESSARY**: To support fast/realtime sender and scanner/sniffer, I have changed:
 ```
