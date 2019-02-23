@@ -40,16 +40,16 @@ mkdir build
 cd build
 cmake ../
 ```
-without -DUSE_BLADERF=1 means HACKRF will be used by default
+without -DUSE_BLADERF=1 in above cmake means HACKRF will be used by default
 ```
 make
 ./btle-tools/src/btle_rx
 ```
-Sniff on channel 37. You should see many packets on screen.
+Above command sniffs on channel 37. You should see many packets on screen.
 ```
 ./btle-tools/src/btle_tx 37-DISCOVERY-TxAdd-1-RxAdd-0-AdvA-010203040506-LOCAL_NAME09-SDR/Bluetooth/Low/Energy r500 
 ```
-You should see a device with name "SDR/Bluetooth/Low/Energy" in another BLE sniffer App (such as LightBlue).
+Above command transmits discovery packets on ADV channel. You should see a device with name "SDR/Bluetooth/Low/Energy" in another BLE sniffer App (such as LightBlue).
 
 ~~**MAY NOT BE NECESSARY**: To support fast/realtime sender and scanner/sniffer, I have changed:~~
 
