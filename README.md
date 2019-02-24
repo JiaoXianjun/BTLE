@@ -38,7 +38,8 @@ git clone git@github.com:JiaoXianjun/BTLE.git
 cd BTLE/host
 mkdir build
 cd build
-cmake ../
+cmake ../                   (default. for HackRF)
+cmake ../ -DUSE_BLADERF=1   (for bladeRF)
 ```
 without -DUSE_BLADERF=1 in above cmake means HACKRF will be used by default
 ```
