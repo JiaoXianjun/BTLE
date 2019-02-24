@@ -1,3 +1,5 @@
+Following versions were tested. Not means other versions won't work.
+
 bladeRF:
 
 /usr/include/libbladeRF.h:
