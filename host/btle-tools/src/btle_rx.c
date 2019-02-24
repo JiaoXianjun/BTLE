@@ -385,6 +385,9 @@ inline int config_run_board(uint64_t freq_hz, int gain, void **rf_dev) {
     fprintf(stdout, "init stream: %s\n",
               bladerf_strerror(status));
   }
+
+  bladerf_set_stream_timeout(dev, BLADERF_MODULE_RX, 100);
+
   status = bladerf_enable_module(dev, BLADERF_MODULE_RX, true);
   if (status < 0) {
       fprintf(stderr, "Failed to enable module: %s\n",
