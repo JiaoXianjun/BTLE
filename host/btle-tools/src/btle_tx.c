@@ -314,7 +314,7 @@ inline void set_freq_by_channel_number(int channel_number) {
 
 #ifdef USE_BLADERF
 
-inline int open_board() {
+inline int init_board() {
   int status;
   unsigned int actual;
 
@@ -4167,7 +4167,7 @@ int main(int argc, char** argv) {
   }
   printf("\n");
 
-  if ( open_board() == -1 )
+  if ( init_board() == -1 )
       return(-1);
 
 #if 0
