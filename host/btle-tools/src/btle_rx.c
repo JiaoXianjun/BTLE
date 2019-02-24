@@ -410,6 +410,7 @@ void stop_close_board(struct bladerf *dev){
   int status;
 
   bladerf_deinit_stream(stream);
+  printf("bladerf_deinit_stream.\n");
 
   status = bladerf_enable_module(dev, BLADERF_MODULE_RX, false);
   if (status < 0) {
@@ -420,8 +421,10 @@ void stop_close_board(struct bladerf *dev){
   }
 
   bladerf_close(dev);
+  printf("bladerf_close.\n");
 
   pthread_join(async_task.rx_task, NULL);
+  //pthread_cancel(async_task.rx_task);
   printf("bladeRF rx thread quit.\n");
 }
 
@@ -2316,6 +2319,7 @@ int main(int argc, char** argv) {
   }
 
 program_quit:
+  printf("Exit main loop ...\n");
   stop_close_board(rf_dev);
   
   return(0);
