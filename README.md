@@ -9,6 +9,8 @@ It includes:
 
 This project is based on https://github.com/mossmann/hackrf and https://github.com/Nuand/bladeRF
 
+See [compatible version of HackRF and bladeRF libraries](compatible_hackrf_bladerf_lib.txt).
+
 Features
 ---------------
 
