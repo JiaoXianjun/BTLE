@@ -252,7 +252,7 @@ int board_set_freq(struct bladerf *dev, uint64_t freq_hz) {
     pthread_mutex_unlock(&repeater_->stderr_lock); \
 } while (0)
 
-void * rx_task_run(void *tmp)
+void *rx_task_run(void *tmp)
 {
   int status;
   struct bladerf_async_task *tmp_p = &async_task;
@@ -409,6 +409,8 @@ inline int config_run_board(uint64_t freq_hz, int gain, void **rf_dev) {
 void stop_close_board(struct bladerf *dev){
   int status;
 
+  bladerf_deinit_stream(stream);
+
   status = bladerf_enable_module(dev, BLADERF_MODULE_RX, false);
   if (status < 0) {
       fprintf(stderr, "Failed to enable module: %s\n",
@@ -417,9 +419,10 @@ void stop_close_board(struct bladerf *dev){
     fprintf(stdout, "enable module false: %s\n", bladerf_strerror(status));
   }
 
-
-  bladerf_deinit_stream(stream);
   bladerf_close(dev);
+
+  pthread_join(async_task.rx_task, NULL);
+  printf("bladeRF rx thread quit.\n");
 }
 
 #else //-----------------------------the board is HACKRF-----------------------------
@@ -1124,7 +1127,7 @@ void parse_commandline(
   uint32_t* access_mask, 
   int* hop_flag
 ) {
-  printf("BTLE/BT4.0 Scanner(NO bladeRF support so far). Xianjun Jiao. putaoshu@gmail.com\n\n");
+  printf("BLE sniffer. Xianjun Jiao. putaoshu@msn.com\n\n");
   
   // Default values
   (*chan) = DEFAULT_CHANNEL;

@@ -141,8 +141,7 @@ volatile int tx_count = 0;
 #ifdef USE_BLADERF
 #define NUM_BLADERF_BUF_SAMPLE 4096
 volatile int16_t tx_buf[NUM_BLADERF_BUF_SAMPLE*2];
-struct bladerf_devinfo *devices = NULL;
-struct bladerf *dev;
+struct bladerf *dev = NULL;
 #else
 //volatile char tx_buf[MAX_NUM_PHY_SAMPLE*2];
 #define HACKRF_ONBOARD_BUF_SIZE (32768) // in usb_bulk_buffer.h
@@ -286,7 +285,7 @@ void sigint_callback_handler(int signum)
 #endif
 
 static void usage() {
-  printf("BTLE/BT4.0 Radio packet sender. Xianjun Jiao. putaoshu@gmail.com\n\n");
+  printf("BLE packet generator. Xianjun Jiao. putaoshu@msn.com\n\n");
 	printf("Usage:\n");
 	printf("btle_tx packet1 packet2 ... packetX ...  rN\n");
 	printf("or\n");
@@ -294,12 +293,8 @@ static void usage() {
 	printf("(packets.txt contains parameters: packet1 ... packetX rN\n");
   printf("\nA packet sequence is composed by packet1 packet2 ... packetX\n");
   printf("rN means that the sequence will be repeated for N times\n");
-  printf("packetX is packet descriptor string. Its format:\n\n");
-  printf("channel_number-packet_type-field-value-field-value-...-Space-value\n\n");
-  printf("packet_type is RAW/iBeacon/ADV_IND/CONNECT_REQ/LL_CONNECTION_UPDATE_REQ/etc.\n");
-  printf("field-value pair is packet_type specific parameters.\n");
-  printf("Space-N means N millisecond will be waited after the packet sent.\n");
-  printf("\nSee README for detailed information.\n");
+  printf("packetX is packet descriptor string.\n");
+  printf("For the format, see README for detailed information.\n");
 }
 
 inline void set_freq_by_channel_number(int channel_number) {
@@ -318,153 +313,149 @@ inline void set_freq_by_channel_number(int channel_number) {
 }
 
 #ifdef USE_BLADERF
-static inline const char *backend2str(bladerf_backend b)
-{
-    switch (b) {
-        case BLADERF_BACKEND_LIBUSB:
-            return "libusb";
-        case BLADERF_BACKEND_LINUX:
-            return "Linux kernel driver";
-        default:
-            return "Unknown";
-    }
-}
 
-int init_board() {
-  int n_devices = bladerf_get_device_list(&devices);
-
-  if (n_devices < 0) {
-    if (n_devices == BLADERF_ERR_NODEV) {
-        printf("init_board: No bladeRF devices found.\n");
-    } else {
-        printf("init_board: Failed to probe for bladeRF devices: %s\n", bladerf_strerror(n_devices));
-    }
-		usage();
-		return(-1);
-  }
-
-  printf("init_board: %d bladeRF devices found! The 1st one will be used:\n", n_devices);
-  printf("    Backend:        %s\n", backend2str(devices[0].backend));
-  printf("    Serial:         %s\n", devices[0].serial);
-  printf("    USB Bus:        %d\n", devices[0].usb_bus);
-  printf("    USB Address:    %d\n", devices[0].usb_addr);
-
-  int fpga_loaded;
-  int status = bladerf_open(&dev, NULL);
-  if (status != 0) {
-    printf("init_board: Failed to open bladeRF device: %s\n",
-            bladerf_strerror(status));
-    return(-1);
-  }
-
-  fpga_loaded = bladerf_is_fpga_configured(dev);
-  if (fpga_loaded < 0) {
-      printf("init_board: Failed to check FPGA state: %s\n",
-                bladerf_strerror(fpga_loaded));
-      status = -1;
-      goto initialize_device_out_point;
-  } else if (fpga_loaded == 0) {
-      printf("init_board: The device's FPGA is not loaded. Please load it by bladeRF-cli -l /path/to/fpga/file firstly!\n");
-      status = -1;
-      goto initialize_device_out_point;
-  }
-
-  unsigned int actual_sample_rate;
-  status = bladerf_set_sample_rate(dev, BLADERF_MODULE_TX, SAMPLE_PER_SYMBOL*1000000ul, &actual_sample_rate);
-  if (status != 0) {
-      printf("init_board: Failed to set samplerate: %s\n",
-              bladerf_strerror(status));
-      goto initialize_device_out_point;
-  }
-
-  status = bladerf_set_frequency(dev, BLADERF_MODULE_TX, 2402000000ul);
-  if (status != 0) {
-      printf("init_board: Failed to set frequency: %s\n",
-              bladerf_strerror(status));
-      goto initialize_device_out_point;
-  }
-
-  unsigned int actual_frequency;
-  status = bladerf_get_frequency(dev, BLADERF_MODULE_TX, &actual_frequency);
-  if (status != 0) {
-      printf("init_board: Failed to read back frequency: %s\n",
-              bladerf_strerror(status));
-      goto initialize_device_out_point;
-  }
-
-initialize_device_out_point:
-  if (status != 0) {
-      bladerf_close(dev);
-      dev = NULL;
-      return(-1);
-  }
+inline int open_board() {
+  int status;
+  unsigned int actual;
 
   #ifdef _MSC_VER
     SetConsoleCtrlHandler( (PHANDLER_ROUTINE) sighandler, TRUE );
   #else
-    signal(SIGINT, &sigint_callback_handler);
-    signal(SIGILL, &sigint_callback_handler);
-    signal(SIGFPE, &sigint_callback_handler);
-    signal(SIGSEGV, &sigint_callback_handler);
-    signal(SIGTERM, &sigint_callback_handler);
-    signal(SIGABRT, &sigint_callback_handler);
+  if (signal(SIGINT, sigint_callback_handler) == SIG_ERR ||
+      signal(SIGTERM, sigint_callback_handler) == SIG_ERR) {
+      fprintf(stderr, "Failed to set up signal handler\n");
+      return EXIT_FAILURE;
+  }
   #endif
 
-  printf("init_board: set bladeRF to %f MHz %u sps BLADERF_LB_NONE.\n", (float)actual_frequency/1000000.0f, actual_sample_rate);
-  return(0);
-}
-
-inline int open_board() {
-  int status;
-
-  status = bladerf_set_frequency(dev, BLADERF_MODULE_TX, freq_hz);
+  status = bladerf_open(&dev, NULL);
+  if (status < 0) {
+      fprintf(stderr, "Failed to open device: %s\n", bladerf_strerror(status));
+      return EXIT_FAILURE;
+  } else  {
+    fprintf(stdout, "open device: %s\n", bladerf_strerror(status));
+  }
+  
+  status = bladerf_is_fpga_configured(dev);
+  if (status < 0) {
+      fprintf(stderr, "Failed to determine FPGA state: %s\n",
+              bladerf_strerror(status));
+      return EXIT_FAILURE;
+  } else if (status == 0) {
+      fprintf(stderr, "Error: FPGA is not loaded.\n");
+      bladerf_close(dev);
+      return EXIT_FAILURE;
+  } else  {
+    fprintf(stdout, "FPGA is loaded.\n");
+  }
+  
+  status = bladerf_set_frequency(dev, BLADERF_MODULE_TX, 2402000000ull);
   if (status != 0) {
-    printf("open_board: Failed to set frequency: %s\n",
-            bladerf_strerror(status));
-    return(-1);
+      fprintf(stderr, "Failed to set frequency: %s\n",
+              bladerf_strerror(status));
+      bladerf_close(dev);
+      return EXIT_FAILURE;
+  } else {
+      fprintf(stdout, "set frequency: %lluHz %s\n", 2402000000ull,
+              bladerf_strerror(status));
   }
 
-  status = bladerf_set_gain(dev, BLADERF_MODULE_TX, 60);
+  status = bladerf_set_sample_rate(dev, BLADERF_MODULE_TX, SAMPLE_PER_SYMBOL*1000000ul, &actual);
   if (status != 0) {
-    printf("open_board: Failed to set gain: %s\n",
-            bladerf_strerror(status));
-    return(-1);
+      fprintf(stderr, "Failed to set sample rate: %s\n",
+              bladerf_strerror(status));
+      bladerf_close(dev);
+      return EXIT_FAILURE;
+  } else {
+    fprintf(stdout, "set sample rate: %dHz %s\n", actual,
+              bladerf_strerror(status));
+  }
+  
+  status = bladerf_set_bandwidth(dev, BLADERF_MODULE_TX, SAMPLE_PER_SYMBOL*1000000ul/2, &actual);
+  if (status != 0) {
+      fprintf(stderr, "Failed to set bandwidth: %s\n",
+              bladerf_strerror(status));
+      bladerf_close(dev);
+      return EXIT_FAILURE;
+  } else {
+    fprintf(stdout, "bladerf_set_bandwidth: %d %s\n", actual,
+              bladerf_strerror(status));
+  }
+  
+  status = bladerf_set_gain(dev, BLADERF_MODULE_TX, 57);
+  if (status != 0) {
+      fprintf(stderr, "Failed to set gain: %s\n",
+              bladerf_strerror(status));
+      bladerf_close(dev);
+      return EXIT_FAILURE;
+  } else {
+    fprintf(stdout, "bladerf_set_gain: %d %s\n", 57,
+              bladerf_strerror(status));
   }
 
-  status = bladerf_sync_config(dev, BLADERF_MODULE_TX, BLADERF_FORMAT_SC16_Q11, 2, NUM_BLADERF_BUF_SAMPLE, 1, 3500);
+#if 0 // old version do not have this API
+  status = bladerf_get_gain(dev, BLADERF_MODULE_TX, &actual);
   if (status != 0) {
-     printf("open_board: Failed to configure sync interface: %s\n",
-             bladerf_strerror(status));
-     return(-1);
+      fprintf(stderr, "Failed to get gain: %s\n",
+              bladerf_strerror(status));
+      bladerf_close(dev);
+      return EXIT_FAILURE;
+  } else {
+    fprintf(stdout, "bladerf_get_gain: %d %s\n", actual,
+              bladerf_strerror(status));
+  }
+#endif
+
+  status = bladerf_sync_config(dev,
+                                BLADERF_MODULE_TX,
+                                BLADERF_FORMAT_SC16_Q11,
+                                32,
+                                NUM_BLADERF_BUF_SAMPLE,
+                                16,
+                                10);
+
+  if (status != 0) {
+      fprintf(stderr, "Failed to initialize TX sync handle: %s\n",
+                bladerf_strerror(status));
+      bladerf_close(dev);
+      return EXIT_FAILURE;
+  } else {
+    fprintf(stdout, "bladerf_sync_config: %s\n",
+              bladerf_strerror(status));
   }
 
   status = bladerf_enable_module(dev, BLADERF_MODULE_TX, true);
-  if (status != 0) {
-     printf("open_board: Failed to enable module: %s\n",
-             bladerf_strerror(status));
-     return(-1);
+  if (status < 0) {
+      fprintf(stderr, "Failed to enable module: %s\n",
+              bladerf_strerror(status));
+      bladerf_close(dev);
+      return EXIT_FAILURE;
+  } else {
+    fprintf(stdout, "enable module true: %s\n",
+              bladerf_strerror(status));
   }
 
   return(0);
 }
 
-inline int close_board() {
-  // Disable TX module, shutting down our underlying TX stream
-  int status = bladerf_enable_module(dev, BLADERF_MODULE_TX, false);
-  if (status != 0) {
-    printf("close_board: Failed to disable module: %s\n",
-             bladerf_strerror(status));
-    return(-1);
+void close_board(){
+  int status;
+
+  status = bladerf_enable_module(dev, BLADERF_MODULE_TX, false);
+  if (status < 0) {
+      fprintf(stderr, "Failed to enable module: %s\n",
+              bladerf_strerror(status));
+  } else {
+    fprintf(stdout, "enable module false: %s\n", bladerf_strerror(status));
   }
 
-  return(0);
-}
-
-void exit_board() {
   bladerf_close(dev);
-  dev = NULL;
-}
 
+  printf("bladeRF closed.\n");
+}
+void exit_board() {
+  return;
+}
 inline int tx_one_buf(char *buf, int length, int channel_number) {
   int status, i;
 
@@ -476,14 +467,8 @@ inline int tx_one_buf(char *buf, int length, int channel_number) {
     tx_buf[i] = ( (int)( buf[i-(NUM_BLADERF_BUF_SAMPLE*2-length)] ) )*16;
   }
 
-  // open the board-----------------------------------------
-  if (open_board() == -1) {
-    printf("tx_one_buf: open_board() failed\n");
-    return(-1);
-  }
-
   // Transmit samples
-  status = bladerf_sync_tx(dev, (void *)tx_buf, NUM_BLADERF_BUF_SAMPLE, NULL, 3500);
+  status = bladerf_sync_tx(dev, (void *)tx_buf, NUM_BLADERF_BUF_SAMPLE, NULL, 10);
   if (status != 0) {
     printf("tx_one_buf: Failed to TX samples 1: %s\n",
              bladerf_strerror(status));
@@ -493,12 +478,6 @@ inline int tx_one_buf(char *buf, int length, int channel_number) {
   if (do_exit)
   {
     printf("\ntx_one_buf: Exiting...\n");
-    return(-1);
-  }
-
-  // close the board---------------------------------------
-  if (close_board() == -1) {
-    printf("tx_one_buf: close_board() failed\n");
     return(-1);
   }
 
@@ -4188,7 +4167,7 @@ int main(int argc, char** argv) {
   }
   printf("\n");
 
-  if ( init_board() == -1 )
+  if ( open_board() == -1 )
       return(-1);
 
 #if 0
