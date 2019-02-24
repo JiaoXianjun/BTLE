@@ -7,7 +7,7 @@ It includes:
   * btle_rx - a complete BLE sniffer. Besides sniff broadcasting/fixed channel, it also can track channel hopping of a communication link.
   * btle_tx - a universal BLE packet generator. Besides BLE standard, it also supports raw bit mode to generate arbitrary GFSK packet. In this way, you can test private protocol or planned standard feature even before ASIC is ready.
 
-This project is based on https://github.com/mossmann/hackrf
+This project is based on https://github.com/mossmann/hackrf and https://github.com/Nuand/bladeRF
 
 Features
 ---------------
