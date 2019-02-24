@@ -20,7 +20,6 @@
 #
 
 # Based heavily upon the libftdi cmake setup.
-
 set(INSTALL_DEFAULT_BINDIR "bin" CACHE STRING "Appended to CMAKE_INSTALL_PREFIX")
 
 if(MSVC)
@@ -53,7 +52,11 @@ endif()
 
 target_link_libraries(btle_tx ${TOOLS_LINK_LIBS} m)
 
+IF (USE_BLADERF MATCHES 1)
+target_link_libraries(btle_rx ${TOOLS_LINK_LIBS} m -lpthread)
+ELSE (USE_BLADERF MATCHES 1)
 target_link_libraries(btle_rx ${TOOLS_LINK_LIBS} m)
+ENDIF (USE_BLADERF MATCHES 1)
 
 # MESSAGE(STATUS "1")
 # MESSAGE(STATUS ${LIBBLADERF_LIBRARIES})
