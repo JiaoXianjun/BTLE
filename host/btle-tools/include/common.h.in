@@ -1,7 +1,26 @@
 #ifndef HAVE_COMMON_H
 #define HAVE_COMMON_H
 
-#define @USE_RFBOARD@
+//#define @USE_RFBOARD@
+
+#define LIBHACKRF_FOUND_RESULT @LIBHACKRF_FOUND_RESULT@
+#define LIBBLADERF_FOUND_RESULT @LIBBLADERF_FOUND_RESULT@
+
+#if LIBHACKRF_FOUND_RESULT == 1
+#define HAS_HACKRF
+#elif LIBHACKRF_FOUND_RESULT == 0
+#undef HAS_HACKRF
+#else
+#error Unsupported LIBHACKRF_FOUND_RESULT setting
+#endif
+
+#if LIBBLADERF_FOUND_RESULT == 1
+#define HAS_BLADERF
+#elif LIBBLADERF_FOUND_RESULT == 0
+#undef HAS_BLADERF
+#else
+#error Unsupported LIBBLADERF_FOUND_RESULT setting
+#endif
 
 #endif
 
