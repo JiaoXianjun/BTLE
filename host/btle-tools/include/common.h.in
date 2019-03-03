@@ -5,6 +5,7 @@
 
 #define LIBHACKRF_FOUND_RESULT @LIBHACKRF_FOUND_RESULT@
 #define LIBBLADERF_FOUND_RESULT @LIBBLADERF_FOUND_RESULT@
+#define LIBUHD_FOUND_RESULT @LIBUHD_FOUND_RESULT@
 
 #if LIBHACKRF_FOUND_RESULT == 1
 #define HAS_HACKRF
@@ -20,6 +21,14 @@
 #undef HAS_BLADERF
 #else
 #error Unsupported LIBBLADERF_FOUND_RESULT setting
+#endif
+
+#if LIBUHD_FOUND_RESULT == 1
+#define HAS_UHD
+#elif LIBUHD_FOUND_RESULT == 0
+#undef HAS_UHD
+#else
+#error Unsupported LIBUHD_FOUND_RESULT setting
 #endif
 
 #endif

@@ -32,6 +32,10 @@
 #include <hackrf.h>
 #endif
 
+#ifdef HAS_UHD
+#include <uhd.h>
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -132,7 +136,7 @@ volatile int rx_buf_offset; // remember to initialize it!
 
 #define LEN_BUF_IN_SAMPLE (4*4096) //4096 samples = ~1ms for 4Msps; ATTENTION each rx callback get hackrf.c:lib_device->buffer_size samples!!!
 #define LEN_BUF (LEN_BUF_IN_SAMPLE*2)
-#define LEN_BUF_IN_SYMBOL (LEN_BUF_IN_SAMPLE/SAMPLE_PER_SYMBOL)
+//#define LEN_BUF_IN_SYMBOL (LEN_BUF_IN_SAMPLE/SAMPLE_PER_SYMBOL)
 //----------------------------------some basic signal definition----------------------------------
 
 //----------------------------------BTLE SPEC related--------------------------------
@@ -159,12 +163,188 @@ typedef int8_t IQ_TYPE;
 volatile IQ_TYPE rx_buf[LEN_BUF + LEN_BUF_MAX_NUM_PHY_SAMPLE];
 
 int (*board_tune)(void *dev, uint64_t freq_hz);
+void (*stop_close_board)(void *dev);
 
 //----------------------------------board specific operation----------------------------------
-
-#ifdef HAS_BLADERF //--------------------------------------BladeRF-----------------------
+#define USRP_DEFAULT_GAIN 30
 #define BLADERF_MAX_GAIN 60
 #define BLADERF_DEFAULT_GAIN 45
+#define HACKRF_MAX_GAIN 62
+#define HACKRF_DEFAULT_GAIN 6
+#define HACKRF_MAX_LNA_GAIN 40
+
+#ifdef HAS_USRP
+uhd_rx_streamer_handle rx_streamer;
+uhd_rx_metadata_handle md;
+uhd_tune_request_t tune_request；
+float *buff = NULL;
+pthread_t usrp_rx_task;
+
+void *usrp_rx_task_run(void *tmp)
+{
+  size_t num_rx_samps = 0;
+  uhd_rx_metadata_error_code_t error_code;
+  
+  while (!do_exit) {
+    uhd_rx_streamer_recv(rx_streamer, (void**)&buff, LEN_BUF/2, &md, 3.0, false, &num_rx_samps);
+    
+    if (uhd_rx_metadata_error_code(md, &error_code) ) {
+      fprintf(stderr, "uhd_rx_metadata_error_code return error. Aborting.\n");
+      return;
+    }
+
+    if(error_code != UHD_RX_METADATA_ERROR_CODE_NONE){
+        fprintf(stderr, "Error code 0x%x was returned during streaming. Aborting.\n", error_code);
+        return;
+    }
+
+    // Handle data
+    for(i = 0; i < num_rx_samps ; i++ ) {
+        rx_buf[rx_buf_offset] = (((*buff)>>8)&0xFF);
+        rx_buf[rx_buf_offset+1] = (((*(buff+1))>>8)&0xFF);
+        rx_buf_offset = (rx_buf_offset+2)&( LEN_BUF-1 ); //cyclic buffer
+        buff += 2 ;
+    }
+  }
+}
+
+inline int usrp_config_run_board(uint64_t freq_hz, char *device_args, int gain_input, void **rf_dev) {
+  uhd_usrp_handle usrp;
+  uhd_tune_result_t tune_result;
+  size_t channel = 0;
+  double rate = (double)SAMPLE_PER_SYMBOL*(double)1000000ul;
+  double gain = (double)gain_input;
+  double freq = (double)freq_hz;
+  double bw = rate/2;
+  size_t samps_per_buff;
+  void **buffs_ptr = NULL;
+  uhd_stream_args_t stream_args = {
+      .cpu_format = "sc16",
+      .otw_format = "sc16",
+      .args = "",
+      .channel_list = &channel,
+      .n_channels = 1
+  };
+
+  uhd_stream_cmd_t stream_cmd = {
+      .stream_mode = UHD_STREAM_MODE_START_CONTINUOUS,
+      .num_samps = LEN_BUF/2,
+      .stream_now = true
+  };
+
+  // init other necessary structs
+  tune_request.target_freq = freq;
+  tune_request.rf_freq_policy = UHD_TUNE_REQUEST_POLICY_AUTO;
+  tune_request.dsp_freq_policy = UHD_TUNE_REQUEST_POLICY_AUTO;
+
+  fprintf(stderr, "Creating USRP with args \"%s\"...\n", device_args);
+
+  // Create USRP
+  if ( uhd_usrp_make(&usrp, device_args) )
+    return(1);
+
+  // Create RX streamer
+  if (uhd_rx_streamer_make(&rx_streamer))
+    return(1);
+
+  // Create RX metadata
+  if (uhd_rx_metadata_make(&md))
+    return(1);
+
+  // Set rate
+  fprintf(stderr, "Setting RX Rate: %f...\n", rate);
+  if (uhd_usrp_set_rx_rate(usrp, rate, channel))
+    return(1);
+
+  // See what rate actually is
+  if (uhd_usrp_get_rx_rate(usrp, channel, &rate))
+    return(1);
+  fprintf(stderr, "Actual RX Rate: %f...\n", rate);
+
+  // Set gain
+  fprintf(stderr, "Setting RX Gain: %f dB...\n", gain);
+  if (uhd_usrp_set_rx_gain(usrp, gain, channel, ""))
+    return(1);
+
+  // See what gain actually is
+  if (uhd_usrp_get_rx_gain(usrp, channel, "", &gain))
+    return(1);
+  fprintf(stderr, "Actual RX Gain: %f...\n", gain);
+
+  // Set frequency
+  fprintf(stderr, "Setting RX frequency: %f MHz...\n", freq/1e6);
+  if (uhd_usrp_set_rx_freq(usrp, &tune_request, channel, &tune_result))
+    return(1);
+
+  // See what frequency actually is
+  if (uhd_usrp_get_rx_freq(usrp, channel, &freq))
+    return(1);
+  fprintf(stderr, "Actual RX frequency: %f MHz...\n", freq / 1e6);
+
+  // Set bw
+  fprintf(stderr, "Setting RX bandwidth: %f MHz...\n", bw/1e6);
+  if (uhd_usrp_set_rx_bandwidth(usrp, bw, channel))
+    return(1);
+
+  // See what bw actually is
+  if (uhd_usrp_get_rx_bandwidth(usrp, channel, &bw))
+    return(1);
+  fprintf(stderr, "Actual RX bandwidth: %f MHz...\n", bw / 1e6);
+
+  // Set up streamer
+  if (uhd_usrp_get_rx_stream(usrp, &stream_args, rx_streamer))
+    return(1);
+
+  // Set up buffer
+  if (uhd_rx_streamer_max_num_samps(rx_streamer, &samps_per_buff))
+    return(1);
+
+  fprintf(stderr, "Buffer size in samples: %zu\n", samps_per_buff);
+  buff = malloc(samps_per_buff * 2 * sizeof(int16_t));
+
+  // Issue stream command
+  fprintf(stderr, "Issuing stream command.\n");
+  if (uhd_rx_streamer_issue_stream_cmd(rx_streamer, &stream_cmd))
+    return(1);
+
+  status = pthread_create(&usrp_rx_task, NULL, usrp_rx_task_run, NULL);
+  if (status < 0) {
+      return EXIT_FAILURE;
+  }
+
+  (*rf_dev) = usrp;
+  return(0);
+}
+
+void usrp_stop_close_board(void *dev){
+  int status;
+
+  free(buff);
+
+  if (dev==NULL)
+    return;
+
+  bladerf_deinit_stream(stream);
+  printf("bladerf_deinit_stream.\n");
+
+  status = bladerf_enable_module((struct bladerf *)dev, BLADERF_MODULE_RX, false);
+  if (status < 0) {
+      fprintf(stderr, "Failed to enable module: %s\n",
+              bladerf_strerror(status));
+  } else {
+    fprintf(stdout, "enable module false: %s\n", bladerf_strerror(status));
+  }
+
+  bladerf_close((struct bladerf *)dev);
+  printf("bladerf_close.\n");
+
+  pthread_join(async_task.rx_task, NULL);
+  //pthread_cancel(async_task.rx_task);
+  printf("bladeRF rx thread quit.\n");
+}
+#endif
+
+#ifdef HAS_BLADERF //--------------------------------------BladeRF-----------------------
 typedef struct bladerf_devinfo bladerf_devinfo;
 typedef struct bladerf bladerf_device;
 //typedef int16_t IQ_TYPE;
@@ -182,7 +362,7 @@ struct bladerf_data
     size_t              num_buffers;    /* Number of buffers */
     size_t              samples_per_buffer; /* Number of samples per buffer */
     unsigned int        idx;            /* The next one that needs to go out */
-    volatile IQ_TYPE    *rx_buf;        /* rx buffer */
+//    volatile IQ_TYPE    *rx_buf;        /* rx buffer */
 //    bladerf_module      module;         /* Direction */
 //    FILE                *fout;          /* Output file (RX only) */
 //    ssize_t             samples_left;   /* Number of samples left */
@@ -277,7 +457,7 @@ inline int bladerf_config_run_board(uint64_t freq_hz, int gain, void **rf_dev) {
   rx_data.idx = 0;
   rx_data.num_buffers = 2;
   rx_data.samples_per_buffer = (LEN_BUF/2);
-  rx_data.rx_buf = rx_buf;
+//  rx_data.rx_buf = rx_buf;
 
   #ifdef _MSC_VER
     SetConsoleCtrlHandler( (PHANDLER_ROUTINE) sighandler, TRUE );
@@ -413,7 +593,7 @@ inline int bladerf_config_run_board(uint64_t freq_hz, int gain, void **rf_dev) {
   return(0);
 }
 
-void bladerf_stop_close_board(struct bladerf *dev){
+void bladerf_stop_close_board(void *dev){
   int status;
 
   if (dev==NULL)
@@ -422,7 +602,7 @@ void bladerf_stop_close_board(struct bladerf *dev){
   bladerf_deinit_stream(stream);
   printf("bladerf_deinit_stream.\n");
 
-  status = bladerf_enable_module(dev, BLADERF_MODULE_RX, false);
+  status = bladerf_enable_module((struct bladerf *)dev, BLADERF_MODULE_RX, false);
   if (status < 0) {
       fprintf(stderr, "Failed to enable module: %s\n",
               bladerf_strerror(status));
@@ -430,7 +610,7 @@ void bladerf_stop_close_board(struct bladerf *dev){
     fprintf(stdout, "enable module false: %s\n", bladerf_strerror(status));
   }
 
-  bladerf_close(dev);
+  bladerf_close((struct bladerf *)dev);
   printf("bladerf_close.\n");
 
   pthread_join(async_task.rx_task, NULL);
@@ -440,10 +620,6 @@ void bladerf_stop_close_board(struct bladerf *dev){
 #endif
 
 #ifdef HAS_HACKRF
-#define HACKRF_MAX_GAIN 62
-#define HACKRF_DEFAULT_GAIN 6
-#define HACKRF_MAX_LNA_GAIN 40
-
 int hackrf_rx_callback(hackrf_transfer* transfer) {
   int i;
   int8_t *p = (int8_t *)transfer->buffer;
@@ -600,13 +776,13 @@ inline int hackrf_config_run_board(uint64_t freq_hz, int gain, void **rf_dev) {
   return(0);
 }
 
-void hackrf_stop_close_board(hackrf_device* device){
+void hackrf_stop_close_board(void* device){
   if (device==NULL)
     return;
-  if (hackrf_close_board(device)!=0){
+  if (hackrf_close_board((hackrf_device* )device)!=0){
     return;
   }
-  hackrf_exit_board(device);
+  hackrf_exit_board((hackrf_device* )device);
 }
 
 #endif
@@ -620,7 +796,7 @@ static void print_usage() {
   printf("    -c --chan\n");
   printf("      Channel number. default 37. valid range 0~39\n");
   printf("    -g --gain\n");
-  printf("      Rx gain in dB. HACKRF rxvga default %d, valid 0~%d, LNA fixed gain %d. bladeRF default gain %d (valid 0~%d)\n", HACKRF_DEFAULT_GAIN,HACKRF_MAX_GAIN,HACKRF_MAX_LNA_GAIN, BLADERF_DEFAULT_GAIN,BLADERF_MAX_GAIN);
+printf("      Rx gain in dB. HACKRF rxvga default %d, valid 0~%d, LNA fixed gain %d. bladeRF default gain %d (valid 0~%d). USRP default gain %d\n", HACKRF_DEFAULT_GAIN,HACKRF_MAX_GAIN,HACKRF_MAX_LNA_GAIN, BLADERF_DEFAULT_GAIN,BLADERF_MAX_GAIN,USRP_DEFAULT_GAIN);
   printf("    -a --access\n");
   printf("      Access address. 4 bytes. Hex format (like 89ABCDEF). Default %08x for channel 37 38 39. For other channel you should pick correct value according to sniffed link setup procedure\n", DEFAULT_ACCESS_ADDR);
   printf("    -k --crcinit\n");
@@ -637,6 +813,8 @@ static void print_usage() {
   printf("      This will turn on data channel tracking (frequency hopping) after link setup information is captured in ADV_CONNECT_REQ packet\n");
   printf("    -b --board\n");
   printf("      Board selection. %d HackRF; %d bladeRF; %d USRP\n", HACKRF, BLADERF, USRP);
+  printf("    -s --args\n");
+  printf("      USRP args string\n");
   printf("\nSee README for detailed information.\n");
 }
 //----------------------------------print_usage----------------------------------
@@ -1143,7 +1321,8 @@ void parse_commandline(
   uint64_t* freq_hz, 
   uint32_t* access_mask, 
   int* hop_flag,
-  enum board_type *board_in_use
+  enum board_type *board_in_use,
+  char **arg_string
 ) {
   printf("BLE sniffer. Xianjun Jiao. putaoshu@msn.com\n\n");
   
@@ -1168,6 +1347,8 @@ void parse_commandline(
 
   (*board_in_use) = NOTVALID;
 
+  (*arg_string) = NULL; // need to be freed outside this function!!!
+
   while (1) {
     static struct option long_options[] = {
       {"help",         no_argument,       0, 'h'},
@@ -1181,11 +1362,12 @@ void parse_commandline(
       {"access_mask",         required_argument, 0, 'm'},
       {"hop",         no_argument, 0, 'o'},
       {"board",         required_argument, 0, 'b'},
+      {"s",         required_argument, 0, 's'},
       {0, 0, 0, 0}
     };
     /* getopt_long stores the option index here. */
     int option_index = 0;
-    int c = getopt_long (argc, argv, "hc:g:a:k:vrf:m:o:b:", // ： means parameter
+    int c = getopt_long (argc, argv, "hc:g:a:k:vrf:m:o:b:s:", // ： means parameter
                      long_options, &option_index);
 
     /* Detect the end of the options. */
@@ -1245,6 +1427,10 @@ void parse_commandline(
         (*board_in_use) = strtol(optarg,&endp,10);
         break;
 
+      case 's':
+        (*arg_string) = strdup(optarg);
+        break;
+
       case '?':
         /* getopt_long already printed an error message. */
         goto abnormal_quit;
@@ -1260,19 +1446,20 @@ void parse_commandline(
     goto abnormal_quit;
   }
   
-  if ( (*gain)<0 || (*gain)>HACKRF_MAX_GAIN ) {
-    printf("rx gain must be within 0~%d!\n", HACKRF_MAX_GAIN);
-    goto abnormal_quit;
-  }
+//  if ( (*gain)<0 || (*gain)>HACKRF_MAX_GAIN ) {
+//  if ( (*gain)<0 ) {
+//    printf("rx gain must be > 0!\n", HACKRF_MAX_GAIN);
+//    goto abnormal_quit;
+//  }
   
-  // Error if extra arguments are found on the command line
-  if (optind < argc) {
-    printf("Error: unknown/extra arguments specified on command line!\n");
+  if ( (*board_in_use)<0 || (*board_in_use)>=NOTVALID ) {
+    printf("Board type must be from %d, %d, %d.!\n", HACKRF, BLADERF, USRP);
     goto abnormal_quit;
   }
 
-  if ( (*board_in_use)<0 || (*board_in_use)>=NOTVALID ) {
-    printf("Board type must be from %d, %d, %d.!\n", HACKRF, BLADERF, USRP);
+  // Error if extra arguments are found on the command line
+  if (optind < argc) {
+    printf("Error: unknown/extra arguments specified on command line!\n");
     goto abnormal_quit;
   }
 
@@ -2244,6 +2431,68 @@ int receiver_controller(void *rf_dev, int verbose_flag, int *chan, uint32_t *acc
 //IQ_TYPE tmp_buf[2097152];
 //---------------------------for offline test--------------------------------------
 
+void probe_run_board(void **rf_dev, uint64_t freq_hz, char *arg_string, int *gain, enum board_type* board_in_use) {
+  // check board and run cyclic recv in background
+  do_exit = false;
+  if ((*board_in_use) == NOTVALID) { // NEED to detect
+    (*gain) = HACKRF_DEFAULT_GAIN;
+    if ( hackrf_config_run_board(freq_hz, (*gain), rf_dev) ){
+      hackrf_stop_close_board(*rf_dev);
+      (*gain) = BLADERF_DEFAULT_GAIN;
+      if ( bladerf_config_run_board(freq_hz, (*gain), rf_dev) ){
+        (*gain) = USRP_DEFAULT_GAIN;
+        if ( usrp_config_run_board(freq_hz, arg_string, (*gain), rf_dev) ){
+          usrp_stop_close_board(*rf_dev);
+          printf("No RF board is detected!\n");
+          if (arg_string) free(arg_string);
+          exit(-1);
+        } else
+          (*board_in_use) = USRP;
+      } else
+        (*board_in_use) = BLADERF;
+    } else
+      (*board_in_use) = HACKRF;
+  } else { //user specified the board
+    if ((*board_in_use) == HACKRF) {
+      (*gain) = HACKRF_DEFAULT_GAIN;
+      if ( hackrf_config_run_board(freq_hz, (*gain), rf_dev) ){
+        hackrf_stop_close_board(*rf_dev);
+        printf("No HackRF board is detected!\n");
+        exit(-1);
+      }
+    } else if ((*board_in_use) == BLADERF) {
+      (*gain) = BLADERF_DEFAULT_GAIN;
+      if ( bladerf_config_run_board(freq_hz, (*gain), rf_dev) ){
+        bladerf_stop_close_board(*rf_dev);
+        printf("No bladeRF board is detected!\n");
+        exit(-1);
+      }
+    } else if ((*board_in_use) == USRP) {
+      (*gain) = USRP_DEFAULT_GAIN;
+      if ( usrp_config_run_board(freq_hz, arg_string, (*gain), rf_dev) ){
+        if (arg_string) free(arg_string);
+        usrp_stop_close_board(*rf_dev);
+        printf("No USRP board is detected!\n");
+        exit(-1);
+      }
+    } 
+  }
+  
+  if ((*board_in_use) == HACKRF) {
+    board_tune = hackrf_tune;
+    stop_close_board = hackrf_stop_close_board;
+    printf("board_in_use == HACKRF\n");
+  } else if ((*board_in_use) == BLADERF) {
+    board_tune = bladerf_tune;
+    stop_close_board = bladerf_stop_close_board;
+    printf("board_in_use == BLADERF\n");
+  } else if ((*board_in_use) == USRP) {
+    board_tune = usrp_tune;
+    stop_close_board = usrp_stop_close_board;
+    printf("board_in_use == USRP\n");
+  } 
+}
+
 int main(int argc, char** argv) {
   uint64_t freq_hz;
   int gain, chan, phase, rx_buf_offset_tmp, verbose_flag, raw_flag, hop_flag;
@@ -2252,55 +2501,16 @@ int main(int argc, char** argv) {
   void* rf_dev;
   IQ_TYPE *rxp;
   enum board_type board_in_use = NOTVALID;
+  char *arg_string;
 
-  parse_commandline(argc, argv, &chan, &gain, &access_addr, &crc_init, &verbose_flag, &raw_flag, &freq_hz, &access_addr_mask, &hop_flag, &board_in_use);
+  parse_commandline(argc, argv, &chan, &gain, &access_addr, &crc_init, &verbose_flag, &raw_flag, &freq_hz, &access_addr_mask, &hop_flag, &board_in_use, &arg_string);
   
   if (freq_hz == 123)
     freq_hz = get_freq_by_channel_number(chan);
   
   uint32_to_bit_array(access_addr_mask, access_bit_mask);
   
-  // check board and run cyclic recv in background
-  do_exit = false;
-  if (board_in_use == NOTVALID) { // NEED to detect
-    gain = HACKRF_DEFAULT_GAIN;
-    if ( hackrf_config_run_board(freq_hz, gain, &rf_dev) ){
-      hackrf_stop_close_board(rf_dev);
-      gain = BLADERF_DEFAULT_GAIN;
-      if ( bladerf_config_run_board(freq_hz, gain, &rf_dev) ){
-        bladerf_stop_close_board(rf_dev);
-        printf("No RF board is detected!\n");
-        exit(-1);
-      } else
-        board_in_use = BLADERF;
-    } else
-      board_in_use = HACKRF;
-  } else { //user specified the board
-    if (board_in_use == HACKRF) {
-      gain = HACKRF_DEFAULT_GAIN;
-      if ( hackrf_config_run_board(freq_hz, gain, &rf_dev) ){
-        hackrf_stop_close_board(rf_dev);
-        printf("No HackRF board is detected!\n");
-        exit(-1);
-      }
-    } else if (board_in_use == BLADERF) {
-      gain = BLADERF_DEFAULT_GAIN;
-      if ( bladerf_config_run_board(freq_hz, gain, &rf_dev) ){
-        bladerf_stop_close_board(rf_dev);
-        printf("No bladeRF board is detected!\n");
-        exit(-1);
-      }
-    }
-  }
-  
-  if (board_in_use == HACKRF) {
-    board_tune = hackrf_tune;
-    printf("board_in_use == HACKRF\n");
-  } else if (board_in_use == BLADERF) {
-    board_tune = bladerf_tune;
-    printf("board_in_use == BLADERF\n");
-  }
-
+  probe_run_board(&rf_dev, freq_hz, arg_string, &gain, &board_in_use);
   printf("Cmd line input: chan %d, freq %ldMHz, access addr %08x, crc init %06x raw %d verbose %d rx %ddB board %d\n", chan, freq_hz/1000000, access_addr, crc_init, raw_flag, verbose_flag, gain, board_in_use);
   
   // init receiver
@@ -2378,11 +2588,8 @@ int main(int argc, char** argv) {
 
 program_quit:
   printf("Exit main loop ...\n");
-  if (board_in_use == HACKRF) {
-    hackrf_stop_close_board(rf_dev);
-  } else if (board_in_use == BLADERF) {
-    bladerf_stop_close_board(rf_dev);
-  }
+  free(arg_string);
+  stop_close_board(rf_dev);
   
   return(0);
 }
