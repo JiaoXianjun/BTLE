@@ -122,7 +122,7 @@ sighandler(int signum)
 #else
 void sigint_callback_handler(int signum)
 {
-	fprintf(stdout, "Caught signal %d\n", signum);
+	fprintf(stderr, "Caught signal %d\n", signum);
 	do_exit = true;
 }
 #endif
@@ -166,7 +166,7 @@ int (*board_tune)(void *dev, uint64_t freq_hz);
 void (*stop_close_board)(void *dev);
 
 //----------------------------------board specific operation----------------------------------
-#define USRP_DEFAULT_GAIN 30
+#define USRP_DEFAULT_GAIN 60
 #define BLADERF_MAX_GAIN 60
 #define BLADERF_DEFAULT_GAIN 45
 #define HACKRF_MAX_GAIN 62
@@ -180,6 +180,7 @@ uhd_tune_request_t usrp_tune_request;
 uhd_tune_result_t  usrp_tune_result;
 int16_t *usrp_buff = NULL;
 pthread_t usrp_rx_task;
+size_t usrp_samps_per_buff;
 char usrp_error_string[512];
 
 void *usrp_rx_task_run(void *tmp)
@@ -188,57 +189,64 @@ void *usrp_rx_task_run(void *tmp)
   size_t num_rx_samps = 0;
   uhd_rx_metadata_error_code_t error_code;
   
+  fprintf(stderr, "usrp_rx_task_run...\n");
+      
   while (!do_exit) {
-    uhd_rx_streamer_recv(usrp_rx_streamer, (void**)&usrp_buff, LEN_BUF/2, &usrp_md, 3.0, false, &num_rx_samps);
-    
+    uhd_rx_streamer_recv(usrp_rx_streamer, (void**)&usrp_buff, usrp_samps_per_buff, &usrp_md, 3.0, false, &num_rx_samps);
+    //fprintf(stderr, "usrp_rx_task_run: %d %d %d\n", num_rx_samps, LEN_BUF, rx_buf_offset);
     if (uhd_rx_metadata_error_code(usrp_md, &error_code) ) {
-      fprintf(stderr, "uhd_rx_metadata_error_code return error. Aborting.\n");
+      fprintf(stderr, "usrp_rx_task_run: uhd_rx_metadata_error_code return error. Aborting.\n");
       return(NULL);
     }
 
     if(error_code != UHD_RX_METADATA_ERROR_CODE_NONE){
-        fprintf(stderr, "Error code 0x%x was returned during streaming. Aborting.\n", error_code);
+        fprintf(stderr, "usrp_rx_task_run: Error code 0x%x was returned during streaming. Aborting.\n", error_code);
         return(NULL);
     }
 
+    #if 1
     // Handle data
-    for(i = 0; i < num_rx_samps ; i++ ) {
-        rx_buf[rx_buf_offset] = (((*usrp_buff)>>8)&0xFF);
-        rx_buf[rx_buf_offset+1] = (((*(usrp_buff+1))>>8)&0xFF);
+    for(i = 0; i < (2*num_rx_samps) ; i=i+2 ) {
+        rx_buf[rx_buf_offset] =   ( ( (*(usrp_buff+i)  )>>8)&0xFF );
+        rx_buf[rx_buf_offset+1] = ( ( (*(usrp_buff+i+1))>>8)&0xFF );
         rx_buf_offset = (rx_buf_offset+2)&( LEN_BUF-1 ); //cyclic buffer
-        usrp_buff += 2 ;
     }
+    #endif
   }
+  fprintf(stderr, "usrp_rx_task_run quit.\n");
   return(NULL);
 }
 
 void usrp_stop_close_board(void *dev){
+  fprintf(stderr, "usrp_stop_close_board...\n");
+  
+  pthread_join(usrp_rx_task, NULL);
+  //pthread_cancel(usrp_rx_task);
+  fprintf(stderr,"usrp_stop_close_board: USRP rx thread quit.\n");
+
+  free(usrp_buff);
+
   if (dev==NULL)
     return;
 
-  fprintf(stderr, "Cleaning up RX streamer.\n");
+  fprintf(stderr, "usrp_stop_close_board: Cleaning up RX streamer.\n");
   uhd_rx_streamer_free(&usrp_rx_streamer);
 
-  fprintf(stderr, "Cleaning up RX metadata.\n");
+  fprintf(stderr, "usrp_stop_close_board: Cleaning up RX metadata.\n");
   uhd_rx_metadata_free(&usrp_md);
 
   uhd_usrp_last_error(dev, usrp_error_string, 512);
-  fprintf(stderr, "USRP reported the following error: %s\n", usrp_error_string);
+  fprintf(stderr, "usrp_stop_close_board: USRP reported the following error: %s\n", usrp_error_string);
 
   uhd_usrp_free((struct uhd_usrp **)(&dev));
 
-  pthread_join(usrp_rx_task, NULL);
-  //pthread_cancel(usrp_rx_task);
-  printf("USRP rx thread quit.\n");
-
-  free(usrp_buff);
 }
 
 int usrp_tune(void *dev, uint64_t freq_hz) {
   int status;
   status = bladerf_set_frequency((struct bladerf *)dev, BLADERF_MODULE_RX, freq_hz);
   if (status != 0) {
-      fprintf(stderr, "Failed to set frequency: %s\n",
+      fprintf(stderr, "usrp_tune: Failed to set frequency: %s\n",
               bladerf_strerror(status));
       bladerf_close((struct bladerf *)dev);
       return EXIT_FAILURE;
@@ -248,7 +256,7 @@ int usrp_tune(void *dev, uint64_t freq_hz) {
   status = uhd_usrp_set_rx_freq((uhd_usrp_handle)dev, &usrp_tune_request, 0, &usrp_tune_result);
   if (status) {
     uhd_usrp_last_error((uhd_usrp_handle)dev, usrp_error_string, 512);
-    fprintf(stderr, "USRP reported the following error: %s\n", usrp_error_string);
+    fprintf(stderr, "usrp_tune: USRP reported the following error: %s\n", usrp_error_string);
     usrp_stop_close_board(dev);
     return EXIT_FAILURE;
   }
@@ -263,7 +271,6 @@ inline int usrp_config_run_board(uint64_t freq_hz, char *device_args, int gain_i
   double gain = (double)gain_input;
   double freq = (double)freq_hz;
   double bw = rate/2;
-  size_t samps_per_buff;
   uhd_error status;
   uhd_stream_args_t stream_args = {
       .cpu_format = "sc16",
@@ -361,11 +368,11 @@ inline int usrp_config_run_board(uint64_t freq_hz, char *device_args, int gain_i
     goto fail_out;
 
   // Set up buffer
-  if ( (status = uhd_rx_streamer_max_num_samps(usrp_rx_streamer, &samps_per_buff)) )
+  if ( (status = uhd_rx_streamer_max_num_samps(usrp_rx_streamer, &usrp_samps_per_buff)) )
     goto fail_out;
 
-  fprintf(stderr, "usrp_config_run_board: Buffer size in samples: %zu\n", samps_per_buff);
-  usrp_buff = malloc(samps_per_buff * 2 * sizeof(int16_t));
+  fprintf(stderr, "usrp_config_run_board: Buffer size in samples: %zu\n", usrp_samps_per_buff);
+  usrp_buff = malloc(usrp_samps_per_buff * 2 * sizeof(int16_t));
 
   // Issue stream command
   fprintf(stderr, "usrp_config_run_board: Issuing stream command.\n");
@@ -642,6 +649,12 @@ inline int bladerf_config_run_board(uint64_t freq_hz, int gain, void **rf_dev) {
 void bladerf_stop_close_board(void *dev){
   int status;
 
+  fprintf(stderr, "bladerf_stop_close_board...\n");
+  
+  pthread_join(async_task.rx_task, NULL);
+  //pthread_cancel(async_task.rx_task);
+  printf("bladerf_stop_close_board: bladeRF rx thread quit.\n");
+
   if (dev==NULL)
     return;
 
@@ -658,10 +671,6 @@ void bladerf_stop_close_board(void *dev){
 
   bladerf_close((struct bladerf *)dev);
   printf("bladerf_close.\n");
-
-  pthread_join(async_task.rx_task, NULL);
-  //pthread_cancel(async_task.rx_task);
-  printf("bladeRF rx thread quit.\n");
 }
 #endif
 
@@ -1379,7 +1388,7 @@ void parse_commandline(
   // Default values
   (*chan) = DEFAULT_CHANNEL;
 
-  (*gain) = HACKRF_DEFAULT_GAIN;
+  (*gain) = -1;
   
   (*access_addr) = DEFAULT_ACCESS_ADDR;
   
@@ -2483,59 +2492,90 @@ int receiver_controller(void *rf_dev, int verbose_flag, int *chan, uint32_t *acc
 
 void probe_run_board(void **rf_dev, uint64_t freq_hz, char *arg_string, int *gain, enum board_type* board_in_use) {
   // check board and run cyclic recv in background
+  int gain_tmp;
   do_exit = false;
   if ((*board_in_use) == NOTVALID) { // NEED to detect
     printf("probe_run_board: Start to probe avaliable board...\n");
-    (*gain) = HACKRF_DEFAULT_GAIN;
-    if ( hackrf_config_run_board(freq_hz, (*gain), rf_dev) ){
+
+    if ( (*gain)==-1 ) 
+      gain_tmp = HACKRF_DEFAULT_GAIN;
+    else
+      gain_tmp = (*gain);
+    if ( hackrf_config_run_board(freq_hz, gain_tmp, rf_dev) ){
       //printf("hhhhh%d\n",*rf_dev);
       //exit(1);
       hackrf_stop_close_board(*rf_dev);
-      (*gain) = BLADERF_DEFAULT_GAIN;
-      if ( bladerf_config_run_board(freq_hz, (*gain), rf_dev) ){
+
+      if ( (*gain)==-1 ) 
+        gain_tmp = BLADERF_DEFAULT_GAIN;
+      else
+        gain_tmp = (*gain);
+      if ( bladerf_config_run_board(freq_hz, gain_tmp, rf_dev) ){
         bladerf_stop_close_board(*rf_dev);
-        (*gain) = USRP_DEFAULT_GAIN;
-        //exit(1);
-        //printf("arg string len %d string %s gain %d\n", strlen(arg_string), arg_string, *gain);
-        //exit(1);
-        if ( usrp_config_run_board(freq_hz, arg_string, (*gain), rf_dev) ){
+
+        if ( (*gain)==-1 ) 
+          gain_tmp = USRP_DEFAULT_GAIN;
+        else
+          gain_tmp = (*gain);
+        if ( usrp_config_run_board(freq_hz, arg_string, gain_tmp, rf_dev) ){
           //exit(1);
-          usrp_stop_close_board(*rf_dev);
           printf("probe_run_board: No RF board is detected!\n");
+          usrp_stop_close_board(*rf_dev);
           if (arg_string) free(arg_string);
           exit(-1);
-        } else
+        } else {
           (*board_in_use) = USRP;
-      } else
+          (*gain) = gain_tmp;
+        }
+      } else {
         (*board_in_use) = BLADERF;
-    } else
+        (*gain) = gain_tmp;
+      }
+    } else {
       (*board_in_use) = HACKRF;
+      (*gain) = gain_tmp;
+    }
   } else { //user specified the board
     if ((*board_in_use) == HACKRF) {
       printf("probe_run_board: Try to probe HackRF...\n");
-      (*gain) = HACKRF_DEFAULT_GAIN;
-      if ( hackrf_config_run_board(freq_hz, (*gain), rf_dev) ){
+
+      if ( (*gain)==-1 ) 
+        gain_tmp = HACKRF_DEFAULT_GAIN;
+      else
+        gain_tmp = (*gain);
+      if ( hackrf_config_run_board(freq_hz, gain_tmp, rf_dev) ){
         hackrf_stop_close_board(*rf_dev);
         printf("probe_run_board: No HackRF board is detected!\n");
         exit(-1);
-      }
+      } else 
+        (*gain) = gain_tmp;
     } else if ((*board_in_use) == BLADERF) {
       printf("probe_run_board: Try to probe bladeRF...\n");
-      (*gain) = BLADERF_DEFAULT_GAIN;
-      if ( bladerf_config_run_board(freq_hz, (*gain), rf_dev) ){
+
+      if ( (*gain)==-1 ) 
+        gain_tmp = BLADERF_DEFAULT_GAIN;
+      else
+        gain_tmp = (*gain);
+      if ( bladerf_config_run_board(freq_hz, gain_tmp, rf_dev) ){
         bladerf_stop_close_board(*rf_dev);
         printf("probe_run_board: No bladeRF board is detected!\n");
         exit(-1);
-      }
+      } else 
+        (*gain) = gain_tmp;
     } else if ((*board_in_use) == USRP) {
       printf("probe_run_board: Try to probe USRP...\n");
-      (*gain) = USRP_DEFAULT_GAIN;
-      if ( usrp_config_run_board(freq_hz, arg_string, (*gain), rf_dev) ){
+
+      if ( (*gain)==-1 ) 
+        gain_tmp = USRP_DEFAULT_GAIN;
+      else
+        gain_tmp = (*gain);
+      if ( usrp_config_run_board(freq_hz, arg_string, gain_tmp, rf_dev) ){
         if (arg_string) free(arg_string);
         usrp_stop_close_board(*rf_dev);
         printf("probe_run_board: No USRP board is detected!\n");
         exit(-1);
-      }
+      } else
+        (*gain) = gain_tmp;
     } 
   }
   
@@ -2648,9 +2688,9 @@ int main(int argc, char** argv) {
   }
 
 program_quit:
-  printf("Exit main loop ...\n");
-  free(arg_string);
+  fprintf(stderr,"Exit main loop ...\n");
   stop_close_board(rf_dev);
+  free(arg_string);
   
   return(0);
 }
