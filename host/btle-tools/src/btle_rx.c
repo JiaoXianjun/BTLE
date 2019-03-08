@@ -127,17 +127,9 @@ void sigint_callback_handler(int signum)
 }
 #endif
 
-//----------------------------------some sys stuff----------------------------------
+pthread_mutex_t callback_lock;
 
-//----------------------------------some basic signal definition----------------------------------
-#define SAMPLE_PER_SYMBOL 4 // 4M sampling rate
-
-volatile int rx_buf_offset; // remember to initialize it!
-
-#define LEN_BUF_IN_SAMPLE (4*4096) //4096 samples = ~1ms for 4Msps; ATTENTION each rx callback get hackrf.c:lib_device->buffer_size samples!!!
-#define LEN_BUF (LEN_BUF_IN_SAMPLE*2)
-//#define LEN_BUF_IN_SYMBOL (LEN_BUF_IN_SAMPLE/SAMPLE_PER_SYMBOL)
-//----------------------------------some basic signal definition----------------------------------
+//-----------------------------end of some sys stuff--------------------------------
 
 //----------------------------------BTLE SPEC related--------------------------------
 #include "scramble_table.h"
@@ -147,20 +139,25 @@ volatile int rx_buf_offset; // remember to initialize it!
 #define MAX_CHANNEL_NUMBER 39
 #define MAX_NUM_INFO_BYTE (43)
 #define MAX_NUM_PHY_BYTE (47)
-//#define MAX_NUM_PHY_SAMPLE ((MAX_NUM_PHY_BYTE*8*SAMPLE_PER_SYMBOL)+(LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL))
-#define MAX_NUM_PHY_SAMPLE (MAX_NUM_PHY_BYTE*8*SAMPLE_PER_SYMBOL)
-#define LEN_BUF_MAX_NUM_PHY_SAMPLE (2*MAX_NUM_PHY_SAMPLE)
 
 #define NUM_PREAMBLE_BYTE (1)
 #define NUM_ACCESS_ADDR_BYTE (4)
 #define NUM_PREAMBLE_ACCESS_BYTE (NUM_PREAMBLE_BYTE+NUM_ACCESS_ADDR_BYTE)
-//----------------------------------BTLE SPEC related--------------------------------
+//----------------------------end of BTLE SPEC related------------------------------
 
-static void print_usage(void);
+#define SAMPLE_PER_SYMBOL 4 // 4M sampling rate
+#define LEN_BUF_IN_SAMPLE (4*4096) //4096 samples = ~1ms for 4Msps; ATTENTION each rx callback get hackrf.c:lib_device->buffer_size samples!!!
+#define LEN_BUF (LEN_BUF_IN_SAMPLE*2)
+#define MAX_NUM_PHY_SAMPLE (MAX_NUM_PHY_BYTE*8*SAMPLE_PER_SYMBOL)
+#define LEN_BUF_MAX_NUM_PHY_SAMPLE (2*MAX_NUM_PHY_SAMPLE)
+
+volatile int rx_buf_offset; // remember to initialize it!
 
 enum board_type {HACKRF=0, BLADERF=1, USRP=2, NOTVALID=3}; 
 typedef int8_t IQ_TYPE;
 volatile IQ_TYPE rx_buf[LEN_BUF + LEN_BUF_MAX_NUM_PHY_SAMPLE];
+
+static void print_usage(void);
 
 int (*board_tune)(void *dev, uint64_t freq_hz);
 void (*stop_close_board)(void *dev);
@@ -204,14 +201,16 @@ void *usrp_rx_task_run(void *tmp)
         return(NULL);
     }
 
-    #if 1
-    // Handle data
-    for(i = 0; i < (2*num_rx_samps) ; i=i+2 ) {
-        rx_buf[rx_buf_offset] =   ( ( (*(usrp_buff+i)  )>>8)&0xFF );
-        rx_buf[rx_buf_offset+1] = ( ( (*(usrp_buff+i+1))>>8)&0xFF );
-        rx_buf_offset = (rx_buf_offset+2)&( LEN_BUF-1 ); //cyclic buffer
+    if (num_rx_samps>0) {
+      pthread_mutex_lock(&callback_lock);
+      // Handle data
+      for(i = 0; i < (2*num_rx_samps) ; i=i+2 ) {
+          rx_buf[rx_buf_offset] =   ( ( (*(usrp_buff+i)  )>>8)&0xFF );
+          rx_buf[rx_buf_offset+1] = ( ( (*(usrp_buff+i+1))>>8)&0xFF );
+          rx_buf_offset = (rx_buf_offset+2)&( LEN_BUF-1 ); //cyclic buffer
+      }
+      pthread_mutex_unlock(&callback_lock);
     }
-    #endif
   }
   fprintf(stderr, "usrp_rx_task_run quit.\n");
   return(NULL);
@@ -396,33 +395,17 @@ fail_out:
 #endif
 
 #ifdef HAS_BLADERF //--------------------------------------BladeRF-----------------------
-typedef struct bladerf_devinfo bladerf_devinfo;
-typedef struct bladerf bladerf_device;
-//typedef int16_t IQ_TYPE;
-//volatile IQ_TYPE rx_buf[LEN_BUF+LEN_BUF_MAX_NUM_PHY_SAMPLE];
-
-struct bladerf_async_task
-{
-    pthread_t rx_task;
-    pthread_mutex_t stderr_lock;
-};
-
 struct bladerf_data
 {
     void                **buffers;      /* Transmit buffers */
     size_t              num_buffers;    /* Number of buffers */
     size_t              samples_per_buffer; /* Number of samples per buffer */
     unsigned int        idx;            /* The next one that needs to go out */
-//    volatile IQ_TYPE    *rx_buf;        /* rx buffer */
-//    bladerf_module      module;         /* Direction */
-//    FILE                *fout;          /* Output file (RX only) */
-//    ssize_t             samples_left;   /* Number of samples left */
 };
 
-struct bladerf_stream *stream;
-struct bladerf_async_task async_task;
-struct bladerf_data rx_data;
-//unsigned int count = 0;
+struct bladerf_stream *bladerf_rx_stream;
+pthread_t bladerf_rx_task;
+struct bladerf_data bladerf_rx_data;
 
 void *bladerf_stream_callback(struct bladerf *dev, struct bladerf_stream *stream,
                       struct bladerf_metadata *metadata, void *samples,
@@ -440,18 +423,22 @@ void *bladerf_stream_callback(struct bladerf *dev, struct bladerf_stream *stream
     //if( my_data->module == BLADERF_MODULE_RX ) {
         size_t i;
         int16_t *sample = (int16_t *)samples ;
-        for(i = 0; i < num_samples ; i++ ) {
-            //*(sample) &= 0xfff ;
-            //if( (*sample)&0x800 ) *(sample) |= 0xf000 ;
-            //*(sample+1) &= 0xfff ;
-            //if( *(sample+1)&0x800 ) *(sample+1) |= 0xf000 ;
-            //fprintf( my_data->fout, "%d, %d\n", *sample, *(sample+1) );
+        if (num_samples>0) {
+          pthread_mutex_lock(&callback_lock);
+          for(i = 0; i < num_samples ; i++ ) {
+              //*(sample) &= 0xfff ;
+              //if( (*sample)&0x800 ) *(sample) |= 0xf000 ;
+              //*(sample+1) &= 0xfff ;
+              //if( *(sample+1)&0x800 ) *(sample+1) |= 0xf000 ;
+              //fprintf( my_data->fout, "%d, %d\n", *sample, *(sample+1) );
 
-            rx_buf[rx_buf_offset] = (((*sample)>>4)&0xFF);
-            rx_buf[rx_buf_offset+1] = (((*(sample+1))>>4)&0xFF);
-            rx_buf_offset = (rx_buf_offset+2)&( LEN_BUF-1 ); //cyclic buffer
+              rx_buf[rx_buf_offset] = (((*sample)>>4)&0xFF);
+              rx_buf[rx_buf_offset+1] = (((*(sample+1))>>4)&0xFF);
+              rx_buf_offset = (rx_buf_offset+2)&( LEN_BUF-1 ); //cyclic buffer
 
-            sample += 2 ;
+              sample += 2 ;
+          }
+          pthread_mutex_unlock(&callback_lock);
         }
         //my_data->samples_left -= num_samples ;
         //if( my_data->samples_left <= 0 ) {
@@ -480,22 +467,14 @@ int bladerf_tune(void *dev, uint64_t freq_hz) {
   return(0);
 }
 
-/* Thread-safe wrapper around fprintf(stderr, ...) */
-#define print_error(repeater_, ...) do { \
-    pthread_mutex_lock(&repeater_->stderr_lock); \
-    fprintf(stderr, __VA_ARGS__); \
-    pthread_mutex_unlock(&repeater_->stderr_lock); \
-} while (0)
-
 void *bladerf_rx_task_run(void *tmp)
 {
   int status;
-  struct bladerf_async_task *tmp_p = &async_task;
 
   /* Start stream and stay there until we kill the stream */
-  status = bladerf_stream(stream, BLADERF_MODULE_RX);
+  status = bladerf_stream(bladerf_rx_stream, BLADERF_MODULE_RX);
   if (status < 0) {
-    print_error(tmp_p, "RX stream failure: %s\r\n", bladerf_strerror(status));
+    fprintf(stderr, "RX stream failure: %s\r\n", bladerf_strerror(status));
   }
   return NULL;
 }
@@ -507,10 +486,9 @@ inline int bladerf_config_run_board(uint64_t freq_hz, int gain, void **rf_dev) {
 
   (*rf_dev) = NULL;
 
-  rx_data.idx = 0;
-  rx_data.num_buffers = 2;
-  rx_data.samples_per_buffer = (LEN_BUF/2);
-//  rx_data.rx_buf = rx_buf;
+  bladerf_rx_data.idx = 0;
+  bladerf_rx_data.num_buffers = 2;
+  bladerf_rx_data.samples_per_buffer = (LEN_BUF/2);
 
   #ifdef _MSC_VER
     SetConsoleCtrlHandler( (PHANDLER_ROUTINE) sighandler, TRUE );
@@ -602,15 +580,15 @@ inline int bladerf_config_run_board(uint64_t freq_hz, int gain, void **rf_dev) {
 
   /* Initialize the stream */
   status = bladerf_init_stream(
-              &stream,
+              &bladerf_rx_stream,
               dev,
               bladerf_stream_callback,
-              &rx_data.buffers,
-              rx_data.num_buffers,
+              &bladerf_rx_data.buffers,
+              bladerf_rx_data.num_buffers,
               BLADERF_FORMAT_SC16_Q11,
-              rx_data.samples_per_buffer,
-              rx_data.num_buffers,
-              &rx_data
+              bladerf_rx_data.samples_per_buffer,
+              bladerf_rx_data.num_buffers,
+              &bladerf_rx_data
             );
 
   if (status != 0) {
@@ -629,7 +607,7 @@ inline int bladerf_config_run_board(uint64_t freq_hz, int gain, void **rf_dev) {
   if (status < 0) {
       fprintf(stderr, "bladerf_config_run_board: Failed to enable module: %s\n",
               bladerf_strerror(status));
-      bladerf_deinit_stream(stream);
+      bladerf_deinit_stream(bladerf_rx_stream);
       bladerf_close(dev);
       return EXIT_FAILURE;
   } else {
@@ -637,7 +615,7 @@ inline int bladerf_config_run_board(uint64_t freq_hz, int gain, void **rf_dev) {
               bladerf_strerror(status));
   }
 
-  status = pthread_create(&(async_task.rx_task), NULL, bladerf_rx_task_run, NULL);
+  status = pthread_create(&bladerf_rx_task, NULL, bladerf_rx_task_run, NULL);
   if (status < 0) {
       return EXIT_FAILURE;
   }
@@ -651,14 +629,14 @@ void bladerf_stop_close_board(void *dev){
 
   fprintf(stderr, "bladerf_stop_close_board...\n");
   
-  pthread_join(async_task.rx_task, NULL);
+  pthread_join(bladerf_rx_task, NULL);
   //pthread_cancel(async_task.rx_task);
   printf("bladerf_stop_close_board: bladeRF rx thread quit.\n");
 
   if (dev==NULL)
     return;
 
-  bladerf_deinit_stream(stream);
+  bladerf_deinit_stream(bladerf_rx_stream);
   printf("bladerf_deinit_stream.\n");
 
   status = bladerf_enable_module((struct bladerf *)dev, BLADERF_MODULE_RX, false);
@@ -678,9 +656,13 @@ void bladerf_stop_close_board(void *dev){
 int hackrf_rx_callback(hackrf_transfer* transfer) {
   int i;
   int8_t *p = (int8_t *)transfer->buffer;
-  for( i=0; i<transfer->valid_length; i++) {
-    rx_buf[rx_buf_offset] = p[i];
-    rx_buf_offset = (rx_buf_offset+1)&( LEN_BUF-1 ); //cyclic buffer
+  if (transfer->valid_length>0) {
+    pthread_mutex_lock(&callback_lock);
+    for( i=0; i<transfer->valid_length; i++) {
+      rx_buf[rx_buf_offset] = p[i];
+      rx_buf_offset = (rx_buf_offset+1)&( LEN_BUF-1 ); //cyclic buffer
+    }
+    pthread_mutex_unlock(&callback_lock);
   }
   //printf("%d\n", transfer->valid_length); // !!!!it is 262144 always!!!! Now it is 4096. Defined in hackrf.c lib_device->buffer_size
   return(0);
@@ -855,7 +837,7 @@ static void print_usage() {
   printf("    -c --chan\n");
   printf("      Channel number. default 37. valid range 0~39\n");
   printf("    -g --gain\n");
-printf("      Rx gain in dB. HACKRF rxvga default %d, valid 0~%d, LNA fixed gain %d. bladeRF default gain %d (valid 0~%d). USRP default gain %d\n", HACKRF_DEFAULT_GAIN,HACKRF_MAX_GAIN,HACKRF_MAX_LNA_GAIN, BLADERF_DEFAULT_GAIN,BLADERF_MAX_GAIN,USRP_DEFAULT_GAIN);
+  printf("      Rx gain in dB. HACKRF rxvga default %d, valid 0~%d, LNA fixed gain %d. bladeRF default gain %d (valid 0~%d). USRP default gain %d\n", HACKRF_DEFAULT_GAIN,HACKRF_MAX_GAIN,HACKRF_MAX_LNA_GAIN, BLADERF_DEFAULT_GAIN,BLADERF_MAX_GAIN,USRP_DEFAULT_GAIN);
   printf("    -a --access\n");
   printf("      Access address. 4 bytes. Hex format (like 89ABCDEF). Default %08x for channel 37 38 39. For other channel you should pick correct value according to sniffed link setup procedure\n", DEFAULT_ACCESS_ADDR);
   printf("    -k --crcinit\n");
@@ -2493,6 +2475,7 @@ int receiver_controller(void *rf_dev, int verbose_flag, int *chan, uint32_t *acc
 void probe_run_board(void **rf_dev, uint64_t freq_hz, char *arg_string, int *gain, enum board_type* board_in_use) {
   // check board and run cyclic recv in background
   int gain_tmp;
+  pthread_mutex_init(&callback_lock, NULL);
   do_exit = false;
   if ((*board_in_use) == NOTVALID) { // NEED to detect
     printf("probe_run_board: Start to probe avaliable board...\n");
