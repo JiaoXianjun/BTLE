@@ -6,3 +6,11 @@
 #define LEN_BUF (LEN_BUF_IN_SAMPLE*2)
 
 typedef int8_t IQ_TYPE;
+
+#ifndef bool
+typedef int bool;
+#define true 1
+#define false 0
+#endif
+
+#include "btle_lib.h"

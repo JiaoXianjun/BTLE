@@ -1,4 +1,6 @@
 #include "rf_driver_cfg.h"
+#include <pthread.h>
+#include <signal.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,8 +14,6 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
-#include <pthread.h>
-#include <signal.h>
 
 #ifdef HAS_BLADERF
 #include <libbladeRF.h>
@@ -21,7 +21,7 @@
 #include "../common_misc.h"
 
 extern pthread_mutex_t callback_lock;
-extern volatile IQ_TYPE *rx_buf;
+extern volatile IQ_TYPE rx_buf[LEN_BUF + LEN_BUF_MAX_NUM_PHY_SAMPLE];
 extern volatile int rx_buf_offset; // remember to initialize it!
 extern volatile bool do_exit;
 
@@ -55,7 +55,6 @@ void *bladerf_stream_callback(struct bladerf *dev, struct bladerf_stream *stream
               //*(sample+1) &= 0xfff ;
               //if( *(sample+1)&0x800 ) *(sample+1) |= 0xf000 ;
               //fprintf( my_data->fout, "%d, %d\n", *sample, *(sample+1) );
-
               rx_buf[rx_buf_offset] = (((*sample)>>4)&0xFF);
               rx_buf[rx_buf_offset+1] = (((*(sample+1))>>4)&0xFF);
               rx_buf_offset = (rx_buf_offset+2)&( LEN_BUF-1 ); //cyclic buffer

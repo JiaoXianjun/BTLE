@@ -92,7 +92,7 @@ endif()
 add_executable(btle_tx btle_tx.c)
 install(TARGETS btle_tx RUNTIME DESTINATION ${INSTALL_DEFAULT_BINDIR})
 
-add_executable(btle_rx btle_rx.c rf_driver/rf_driver_bladerf.c)
+add_executable(btle_rx btle_rx.c rf_driver/rf_driver_bladerf.c rf_driver/rf_driver_hackrf.c rf_driver/rf_driver_usrp.c)
 install(TARGETS btle_rx RUNTIME DESTINATION ${INSTALL_DEFAULT_BINDIR})
 
 IF (LIBBLADERF_FOUND)

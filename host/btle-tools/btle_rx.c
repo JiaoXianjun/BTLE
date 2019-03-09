@@ -26,14 +26,6 @@
 #include "rf_driver_cfg.h"
 #include "common_misc.h"
 
-#ifdef HAS_HACKRF
-#include <hackrf.h>
-#endif
-
-#ifdef HAS_UHD
-#include <uhd.h>
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -46,58 +38,13 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
-
-//----------------------------------some sys stuff----------------------------------
-#ifndef bool
-typedef int bool;
-#define true 1
-#define false 0
-#endif
-
-#ifdef _WIN32
-#include <windows.h>
-
-#ifdef _MSC_VER
-
-#ifdef _WIN64
-typedef int64_t ssize_t;
-#else
-typedef int32_t ssize_t;
-#endif
-
-#define strtoull _strtoui64
-#define snprintf _snprintf
-
-int gettimeofday(struct timeval *tv, void* ignored)
-{
-	FILETIME ft;
-	unsigned __int64 tmp = 0;
-	if (NULL != tv) {
-		GetSystemTimeAsFileTime(&ft);
-		tmp |= ft.dwHighDateTime;
-		tmp <<= 32;
-		tmp |= ft.dwLowDateTime;
-		tmp /= 10;
-		tmp -= 11644473600000000Ui64;
-		tv->tv_sec = (long)(tmp / 1000000UL);
-		tv->tv_usec = (long)(tmp % 1000000UL);
-	}
-	return 0;
-}
-
-#endif
-#endif
-
-#if defined(__GNUC__)
-#include <unistd.h>
-#include <sys/time.h>
-#endif
-
 #include <signal.h>
 
-#if defined _WIN32
-	#define sleep(a) Sleep( (a*1000) )
-#endif
+#include <unistd.h>
+#include <sys/time.h>
+
+
+//----------------------------------some sys stuff----------------------------------
 
 static inline int
 TimevalDiff(const struct timeval *a, const struct timeval *b)
@@ -106,46 +53,19 @@ TimevalDiff(const struct timeval *a, const struct timeval *b)
 }
 
 volatile bool do_exit = false;
-#ifdef _MSC_VER
-BOOL WINAPI
-sighandler(int signum)
-{
-	if (CTRL_C_EVENT == signum) {
-		fprintf(stdout, "Caught signal %d\n", signum);
-		do_exit = true;
-		return TRUE;
-	}
-	return FALSE;
-}
-#else
+
 void sigint_callback_handler(int signum)
 {
 	fprintf(stderr, "Caught signal %d\n", signum);
 	do_exit = true;
+//  exit(1);
 }
-#endif
 
 pthread_mutex_t callback_lock;
 
 //-----------------------------end of some sys stuff--------------------------------
 
-//----------------------------------BTLE SPEC related--------------------------------
 #include "scramble_table.h"
-#define DEFAULT_CHANNEL 37
-#define DEFAULT_ACCESS_ADDR (0x8E89BED6)
-#define DEFAULT_CRC_INIT (0x555555)
-#define MAX_CHANNEL_NUMBER 39
-#define MAX_NUM_INFO_BYTE (43)
-#define MAX_NUM_PHY_BYTE (47)
-
-#define NUM_PREAMBLE_BYTE (1)
-#define NUM_ACCESS_ADDR_BYTE (4)
-#define NUM_PREAMBLE_ACCESS_BYTE (NUM_PREAMBLE_BYTE+NUM_ACCESS_ADDR_BYTE)
-//----------------------------end of BTLE SPEC related------------------------------
-
-#define SAMPLE_PER_SYMBOL 4 // 4M sampling rate
-#define MAX_NUM_PHY_SAMPLE (MAX_NUM_PHY_BYTE*8*SAMPLE_PER_SYMBOL)
-#define LEN_BUF_MAX_NUM_PHY_SAMPLE (2*MAX_NUM_PHY_SAMPLE)
 
 volatile int rx_buf_offset; // remember to initialize it!
 
@@ -163,410 +83,14 @@ void (*stop_close_rf)(void *dev);
 #include "rf_driver_bladerf.h"
 #endif
 
-#define USRP_DEFAULT_GAIN 60
-#define HACKRF_MAX_GAIN 62
-#define HACKRF_DEFAULT_GAIN 6
-#define HACKRF_MAX_LNA_GAIN 40
+#ifdef HAS_HACKRF
+#include "rf_driver_hackrf.h"
+#endif
 
 #ifdef HAS_UHD
-uhd_rx_streamer_handle usrp_rx_streamer;
-uhd_rx_metadata_handle usrp_md;
-uhd_tune_request_t usrp_tune_request;
-uhd_tune_result_t  usrp_tune_result;
-int16_t *usrp_buff = NULL;
-pthread_t usrp_rx_task;
-size_t usrp_samps_per_buff;
-char usrp_error_string[512];
-
-void *usrp_rx_task_run(void *tmp)
-{
-  int i;
-  size_t num_rx_samps = 0;
-  uhd_rx_metadata_error_code_t error_code;
-  
-  fprintf(stderr, "usrp_rx_task_run...\n");
-      
-  while (!do_exit) {
-    uhd_rx_streamer_recv(usrp_rx_streamer, (void**)&usrp_buff, usrp_samps_per_buff, &usrp_md, 3.0, false, &num_rx_samps);
-    //fprintf(stderr, "usrp_rx_task_run: %d %d %d\n", num_rx_samps, LEN_BUF, rx_buf_offset);
-    if (uhd_rx_metadata_error_code(usrp_md, &error_code) ) {
-      fprintf(stderr, "usrp_rx_task_run: uhd_rx_metadata_error_code return error. Aborting.\n");
-      return(NULL);
-    }
-
-    if(error_code != UHD_RX_METADATA_ERROR_CODE_NONE){
-        fprintf(stderr, "usrp_rx_task_run: Error code 0x%x was returned during streaming. Aborting.\n", error_code);
-        return(NULL);
-    }
-
-    if (num_rx_samps>0) {
-      pthread_mutex_lock(&callback_lock);
-      // Handle data
-      for(i = 0; i < (2*num_rx_samps) ; i=i+2 ) {
-          rx_buf[rx_buf_offset] =   ( ( (*(usrp_buff+i)  )>>8)&0xFF );
-          rx_buf[rx_buf_offset+1] = ( ( (*(usrp_buff+i+1))>>8)&0xFF );
-          rx_buf_offset = (rx_buf_offset+2)&( LEN_BUF-1 ); //cyclic buffer
-      }
-      pthread_mutex_unlock(&callback_lock);
-    }
-  }
-  fprintf(stderr, "usrp_rx_task_run quit.\n");
-  return(NULL);
-}
-
-void usrp_stop_close_board(void *dev){
-  fprintf(stderr, "usrp_stop_close_board...\n");
-  
-  pthread_join(usrp_rx_task, NULL);
-  //pthread_cancel(usrp_rx_task);
-  fprintf(stderr,"usrp_stop_close_board: USRP rx thread quit.\n");
-
-  free(usrp_buff);
-
-  if (dev==NULL)
-    return;
-
-  fprintf(stderr, "usrp_stop_close_board: Cleaning up RX streamer.\n");
-  uhd_rx_streamer_free(&usrp_rx_streamer);
-
-  fprintf(stderr, "usrp_stop_close_board: Cleaning up RX metadata.\n");
-  uhd_rx_metadata_free(&usrp_md);
-
-  uhd_usrp_last_error(dev, usrp_error_string, 512);
-  fprintf(stderr, "usrp_stop_close_board: USRP reported the following error: %s\n", usrp_error_string);
-
-  uhd_usrp_free((struct uhd_usrp **)(&dev));
-
-}
-
-int usrp_tune(void *dev, uint64_t freq_hz) {
-  int status;
-
-  usrp_tune_request.target_freq = freq_hz;
-  status = uhd_usrp_set_rx_freq((uhd_usrp_handle)dev, &usrp_tune_request, 0, &usrp_tune_result);
-  if (status) {
-    uhd_usrp_last_error((uhd_usrp_handle)dev, usrp_error_string, 512);
-    fprintf(stderr, "usrp_tune: USRP reported the following error: %s\n", usrp_error_string);
-    usrp_stop_close_board(dev);
-    return EXIT_FAILURE;
-  }
-
-  return(0);
-}
-
-inline int usrp_config_run_board(uint64_t freq_hz, char *device_args, int gain_input, void **rf_dev) {
-  uhd_usrp_handle usrp;
-  size_t channel = 0;
-  double rate = (double)SAMPLE_PER_SYMBOL*(double)1000000ul;
-  double gain = (double)gain_input;
-  double freq = (double)freq_hz;
-  double bw = rate/2;
-  uhd_error status;
-  uhd_stream_args_t stream_args = {
-      .cpu_format = "sc16",
-      .otw_format = "sc16",
-      .args = "",
-      .channel_list = &channel,
-      .n_channels = 1
-  };
-
-  uhd_stream_cmd_t stream_cmd = {
-      .stream_mode = UHD_STREAM_MODE_START_CONTINUOUS,
-      .num_samps = LEN_BUF/2,
-      .stream_now = true
-  };
-
-  (*rf_dev) = NULL;
-  // init other necessary structs
-  usrp_tune_request.target_freq = freq;
-  usrp_tune_request.rf_freq_policy = UHD_TUNE_REQUEST_POLICY_AUTO;
-  usrp_tune_request.dsp_freq_policy = UHD_TUNE_REQUEST_POLICY_AUTO;
-
-  #if 1
-  #ifdef _MSC_VER
-    SetConsoleCtrlHandler( (PHANDLER_ROUTINE) sighandler, TRUE );
-  #else
-    if (signal(SIGINT, sigint_callback_handler)==SIG_ERR ||
-        signal(SIGILL, sigint_callback_handler)==SIG_ERR ||
-        signal(SIGFPE, sigint_callback_handler)==SIG_ERR ||
-        signal(SIGSEGV,sigint_callback_handler)==SIG_ERR ||
-        signal(SIGTERM,sigint_callback_handler)==SIG_ERR ||
-        signal(SIGABRT,sigint_callback_handler)==SIG_ERR) {
-          fprintf(stderr, "usrp_config_run_board: Failed to set up signal handler\n");
-          return EXIT_FAILURE;
-        }
-  #endif
-  #endif
-
-  fprintf(stderr, "usrp_config_run_board: Creating USRP with args \"%s\"...\n", device_args);
-
-  // Create USRP
-  if ( (status = uhd_usrp_make(&usrp, device_args)) )
-    goto fail_out;
-
-  //exit(1);
-  // Create RX streamer
-  if ( (status = uhd_rx_streamer_make(&usrp_rx_streamer)) ) 
-    goto fail_out;
-
-  // Create RX metadata
-  if ( (status = uhd_rx_metadata_make(&usrp_md)) )
-     goto fail_out;
-
-  // Set rate
-  fprintf(stderr, "usrp_config_run_board: Setting RX Rate: %f...\n", rate);
-  if ( (status = uhd_usrp_set_rx_rate(usrp, rate, channel)) )
-    goto fail_out;
-
-  // See what rate actually is
-  if ( (status = uhd_usrp_get_rx_rate(usrp, channel, &rate)) )
-    goto fail_out;
-  fprintf(stderr, "usrp_config_run_board: Actual RX Rate: %f...\n", rate);
-
-  // Set gain
-  fprintf(stderr, "usrp_config_run_board: Setting RX Gain: %f dB...\n", gain);
-  if ( (status = uhd_usrp_set_rx_gain(usrp, gain, channel, "")) )
-    goto fail_out;
-
-  // See what gain actually is
-  if ( (status = uhd_usrp_get_rx_gain(usrp, channel, "", &gain)) )
-    goto fail_out;
-
-  fprintf(stderr, "usrp_config_run_board: Actual RX Gain: %f...\n", gain);
-
-  // Set frequency
-  fprintf(stderr, "usrp_config_run_board: Setting RX frequency: %f MHz...\n", freq/1e6);
-  if ( (status = uhd_usrp_set_rx_freq(usrp, &usrp_tune_request, channel, &usrp_tune_result)) )
-    goto fail_out;
-
-
-  // See what frequency actually is
-  if ( (status = uhd_usrp_get_rx_freq(usrp, channel, &freq)) )
-    goto fail_out;
-
-  fprintf(stderr, "usrp_config_run_board: Actual RX frequency: %f MHz...\n", freq / 1e6);
-
-  // Set bw
-  fprintf(stderr, "usrp_config_run_board: Setting RX bandwidth: %f MHz...\n", bw/1e6);
-  if ( (status = uhd_usrp_set_rx_bandwidth(usrp, bw, channel)) )
-    goto fail_out;
-
-  // See what bw actually is
-  if ( (status = uhd_usrp_get_rx_bandwidth(usrp, channel, &bw)) )
-    goto fail_out;
-
-  fprintf(stderr, "usrp_config_run_board: Actual RX bandwidth: %f MHz...\n", bw / 1e6);
-
-  // Set up streamer
-  if ( (status = uhd_usrp_get_rx_stream(usrp, &stream_args, usrp_rx_streamer)) )
-    goto fail_out;
-
-  // Set up buffer
-  if ( (status = uhd_rx_streamer_max_num_samps(usrp_rx_streamer, &usrp_samps_per_buff)) )
-    goto fail_out;
-
-  fprintf(stderr, "usrp_config_run_board: Buffer size in samples: %zu\n", usrp_samps_per_buff);
-  usrp_buff = malloc(usrp_samps_per_buff * 2 * sizeof(int16_t));
-
-  // Issue stream command
-  fprintf(stderr, "usrp_config_run_board: Issuing stream command.\n");
-  if ( (status = uhd_rx_streamer_issue_stream_cmd(usrp_rx_streamer, &stream_cmd)) )
-    goto fail_out;
-
-  if ( pthread_create(&usrp_rx_task, NULL, usrp_rx_task_run, NULL) )
-      return EXIT_FAILURE;
-
-  (*rf_dev) = usrp;
-  return(0);
-
-fail_out:
-  fprintf(stderr, "usrp_config_run_board: status %d\n", status);
-  if (usrp!=NULL) {
-  uhd_usrp_last_error(usrp, usrp_error_string, 512);
-  fprintf(stderr, "usrp_config_run_board: USRP reported the following error: %s\n", usrp_error_string);
-  }
-  return(1);
-}
+#include "rf_driver_usrp.h"
 #endif
 
-#ifdef HAS_HACKRF
-int hackrf_rx_callback(hackrf_transfer* transfer) {
-  int i;
-  int8_t *p = (int8_t *)transfer->buffer;
-  if (transfer->valid_length>0) {
-    pthread_mutex_lock(&callback_lock);
-    for( i=0; i<transfer->valid_length; i++) {
-      rx_buf[rx_buf_offset] = p[i];
-      rx_buf_offset = (rx_buf_offset+1)&( LEN_BUF-1 ); //cyclic buffer
-    }
-    pthread_mutex_unlock(&callback_lock);
-  }
-  //printf("%d\n", transfer->valid_length); // !!!!it is 262144 always!!!! Now it is 4096. Defined in hackrf.c lib_device->buffer_size
-  return(0);
-}
-
-int hackrf_init_board() {
-	int result = hackrf_init();
-	if( result != HACKRF_SUCCESS ) {
-		fprintf(stderr,"hackrf_init_board: hackrf_init() failed: %s (%d)\n", hackrf_error_name(result), result);
-		print_usage();
-		return(EXIT_FAILURE);
-	}
-
-  #ifdef _MSC_VER
-    SetConsoleCtrlHandler( (PHANDLER_ROUTINE) sighandler, TRUE );
-  #else
-    if (signal(SIGINT, sigint_callback_handler)==SIG_ERR ||
-        signal(SIGILL, sigint_callback_handler)==SIG_ERR ||
-        signal(SIGFPE, sigint_callback_handler)==SIG_ERR ||
-        signal(SIGSEGV,sigint_callback_handler)==SIG_ERR ||
-        signal(SIGTERM,sigint_callback_handler)==SIG_ERR ||
-        signal(SIGABRT,sigint_callback_handler)==SIG_ERR) {
-          fprintf(stderr, "hackrf_init_board: Failed to set up signal handler\n");
-          return EXIT_FAILURE;
-        }
-  #endif
-
-  return(0);
-}
-
-int hackrf_tune(void *device, uint64_t freq_hz) {
-  int result = hackrf_set_freq((hackrf_device*)device, freq_hz);
-  if( result != HACKRF_SUCCESS ) {
-    fprintf(stderr,"hackrf_tune: hackrf_set_freq() failed: %s (%d)\n", hackrf_error_name(result), result);
-    return(-1);
-  }
-  return(HACKRF_SUCCESS);
-}
-
-inline int hackrf_open_board(uint64_t freq_hz, int gain, hackrf_device** device) {
-  int result;
-
-	result = hackrf_open(device);
-	if( result != HACKRF_SUCCESS ) {
-		printf("hackrf_open_board: hackrf_open() failed: %s (%d)\n", hackrf_error_name(result), result);
- //   print_usage();
-		return(-1);
-	}
-
-  result = hackrf_set_freq(*device, freq_hz);
-  if( result != HACKRF_SUCCESS ) {
-    printf("hackrf_open_board: hackrf_set_freq() failed: %s (%d)\n", hackrf_error_name(result), result);
- //   print_usage();
-    return(-1);
-  }
-
-  result = hackrf_set_sample_rate(*device, SAMPLE_PER_SYMBOL*1000000ul);
-  if( result != HACKRF_SUCCESS ) {
-    printf("hackrf_open_board: hackrf_set_sample_rate() failed: %s (%d)\n", hackrf_error_name(result), result);
- //   print_usage();
-    return(-1);
-  }
-  
-  result = hackrf_set_baseband_filter_bandwidth(*device, SAMPLE_PER_SYMBOL*1000000ul/2);
-  if( result != HACKRF_SUCCESS ) {
-    printf("hackrf_open_board: hackrf_set_baseband_filter_bandwidth() failed: %s (%d)\n", hackrf_error_name(result), result);
- //   print_usage();
-    return(-1);
-  }
-  
-  result = hackrf_set_vga_gain(*device, gain);
-	result |= hackrf_set_lna_gain(*device, HACKRF_MAX_LNA_GAIN);
-  if( result != HACKRF_SUCCESS ) {
-    printf("hackrf_open_board: hackrf_set_txvga_gain() failed: %s (%d)\n", hackrf_error_name(result), result);
-//    print_usage();
-    return(-1);
-  }
-
-  return(0);
-}
-
-void hackrf_exit_board(hackrf_device *device) {
-	if(device != NULL)
-	{
-		hackrf_exit();
-		printf("hackrf_exit() done\n");
-	}
-}
-
-inline int hackrf_close_board(hackrf_device *device) {
-  int result;
-
-	if(device != NULL)
-	{
-    result = hackrf_stop_rx(device);
-    if( result != HACKRF_SUCCESS ) {
-      printf("close_board: hackrf_stop_rx() failed: %s (%d)\n", hackrf_error_name(result), result);
-      return(-1);
-    }
-
-		result = hackrf_close(device);
-		if( result != HACKRF_SUCCESS )
-		{
-			printf("close_board: hackrf_close() failed: %s (%d)\n", hackrf_error_name(result), result);
-			return(-1);
-		}
-
-    return(0);
-	} else {
-	  return(-1);
-	}
-}
-
-inline int hackrf_run_board(hackrf_device* device) {
-  int result;
-
-	result = hackrf_stop_rx(device);
-	if( result != HACKRF_SUCCESS ) {
-		printf("run_board: hackrf_stop_rx() failed: %s (%d)\n", hackrf_error_name(result), result);
-		return(-1);
-	}
-  
-  result = hackrf_start_rx(device, hackrf_rx_callback, NULL);
-  if( result != HACKRF_SUCCESS ) {
-    printf("run_board: hackrf_start_rx() failed: %s (%d)\n", hackrf_error_name(result), result);
-    return(-1);
-  }
-
-  return(0);
-}
-
-inline int hackrf_config_run_board(uint64_t freq_hz, int gain, void **rf_dev) {
-  hackrf_device *dev = NULL;
-  
-  (*rf_dev) = NULL;
-  
-  if (hackrf_init_board() != 0) {
-    return(-1);
-  }
-  
-  if ( hackrf_open_board(freq_hz, gain, &dev) != 0 ) {
- //   (*rf_dev) = dev;
-    return(-1);
-  }
-
-//  (*rf_dev) = dev;
-  if ( hackrf_run_board(dev) != 0 ) {
-    return(-1);
-  }
-  
-  (*rf_dev) = dev;
-  return(0);
-}
-
-void hackrf_stop_close_board(void* device){
-  //printf("afdafdsa%d\n",device);
-  if (device==NULL)
-    return;
-  //printf("afdafdsa%d\n",device);
-  //exit(1);
-  if (hackrf_close_board((hackrf_device* )device)!=0){
-    return;
-  }
-  hackrf_exit_board((hackrf_device* )device);
-}
-
-#endif
 //----------------------------------RF specific operation----------------------------------
 
 //----------------------------------print_usage----------------------------------
@@ -1966,7 +1490,7 @@ void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number, uint32_t access_
   int num_symbol_left = buf_len/(SAMPLE_PER_SYMBOL*2); //2 for IQ
   bool crc_flag;
   bool adv_flag = (channel_number==37 || channel_number==38 || channel_number==39);
-  
+
   if (pkt_count == 0) { // the 1st time run
     gettimeofday(&time_current_pkt, NULL);
     time_pre_pkt = time_current_pkt;
@@ -2023,7 +1547,7 @@ void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number, uint32_t access_
       
       continue;
     }
-    
+
     if (adv_flag)
     {
       parse_adv_pdu_header_byte(tmp_byte, &adv_pdu_type, &adv_tx_add, &adv_rx_add, &payload_len);
@@ -2371,7 +1895,6 @@ int main(int argc, char** argv) {
     if (rx_buf_offset_tmp>=0 && rx_buf_offset_tmp<(LEN_BUF/2) && phase==1) {
       //printf("rx_buf_offset cross 0: %d %d %d\n", rx_buf_offset, (LEN_BUF/2), LEN_BUF_MAX_NUM_PHY_SAMPLE);
       phase = 0;
-      
       memcpy((void *)(rx_buf+LEN_BUF), (void *)rx_buf, LEN_BUF_MAX_NUM_PHY_SAMPLE*sizeof(IQ_TYPE));
       rxp = (IQ_TYPE*)(rx_buf + (LEN_BUF/2));
       run_flag = true;
@@ -2381,7 +1904,6 @@ int main(int argc, char** argv) {
     if (rx_buf_offset_tmp>=(LEN_BUF/2) && phase==0) {
       //printf("rx_buf_offset cross 1: %d %d %d\n", rx_buf_offset, (LEN_BUF/2), LEN_BUF_MAX_NUM_PHY_SAMPLE);
       phase = 1;
-
       rxp = (IQ_TYPE*)rx_buf;
       run_flag = true;
     }
@@ -2395,7 +1917,6 @@ int main(int argc, char** argv) {
       break;
       // ------------------------for offline test -------------------------------------
       #endif
-      
       // -----------------------------real online run--------------------------------
       //receiver(rxp, LEN_BUF_MAX_NUM_PHY_SAMPLE+(LEN_BUF/2), chan);
       receiver(rxp, (LEN_DEMOD_BUF_ACCESS-1)*2*SAMPLE_PER_SYMBOL+(LEN_BUF)/2, chan, access_addr, crc_init_internal, verbose_flag, raw_flag);
