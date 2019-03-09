@@ -43,6 +43,8 @@
 #include <fcntl.h>
 #include <errno.h>
 
+#include <netinet/in.h>
+
 //----------------------------------some sys stuff----------------------------------
 #ifndef bool
 typedef int bool;
@@ -120,6 +122,70 @@ void sigint_callback_handler(int signum)
 	do_exit = true;
 }
 #endif
+
+/* File handling for pcap + BTLE, don't use btbb as it's too buggy and slow.
+   We don't need full blown feature rich pcap/pcapng file handling. */
+// TCPDUMP_MAGIC (Big Endian, usec resolution) PCAP_VERSION_MAJOR PCAP_VERSION_MINOR thiszone sigfigs snaplen linktype (DLT_BLUETOOTH_LE_LL_WITH_PHDR)
+// 0xa1b2c3d4 \x00\x02 \x00\x04 \x00\x00\x00\x00 \x00\x00\x00\x00 \x00\x00\x05\xDC \x00\x00\x01\x00
+const char* PCAP_HDR_TCPDUMP = "\xA1\xB2\xC3\xD4\x00\x02\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\xDC\x00\x00\x01\x00";
+const int PCAP_HDR_TCPDUMP_LEN = 24;
+//const char* PCAP_FILE_NAME = "btle_store.pcap";
+char* filename_pcap = NULL;
+FILE *fh_pcap_store = NULL;
+
+// return -- 0 on success, 1 on error
+int init_pcap_file() {
+    fh_pcap_store = fopen(filename_pcap, "wb");
+    fwrite(PCAP_HDR_TCPDUMP, 1, PCAP_HDR_TCPDUMP_LEN, fh_pcap_store);
+
+    if(fh_pcap_store == NULL)
+       printf("Could not open pcap file for storing\n");
+    return fh_pcap_store != NULL ? 0 : 1;
+}
+
+typedef struct {
+    int sec;
+    int usec;
+    int caplen;
+    int len;
+} header_pcap;
+uint8_t header_btle[10] = {0, 0, 0, 0, 0, 0, 0, 0, 1, 0};
+
+const uint8_t BTLE_HEADER_LEN = 10;
+
+// http://www.whiterocker.com/bt/LINKTYPE_BLUETOOTH_LE_LL_WITH_PHDR.html
+// num_demod_byte -- LE packet: header + data
+void write_packet_to_file(FILE *fh, int packet_len, uint8_t *packet, struct timeval *tv, uint8_t channel, uint32_t access_addr){
+   // flags: 0x0001 indicates the LE Packet is de-whitened
+   // pcap header: tv_sec tv_usec caplen len
+   header_pcap header_pcap_;
+   header_pcap_.sec = htonl(tv->tv_sec);
+   header_pcap_.usec = htonl(tv->tv_usec);
+   header_pcap_.caplen = htonl(BTLE_HEADER_LEN + 4 + packet_len);
+   header_pcap_.len = htonl(BTLE_HEADER_LEN + 4 + packet_len);
+   fwrite(&header_pcap_, 16, 1, fh_pcap_store);
+   // BTLE header: RF_Channel:1 Signal_Power:1 Noise_Power:1 Access_address_off:1 Reference_access_address (receiver):4 flags:2 packet
+   // just set channel and ignore the rest
+   header_btle[0] = channel;
+   fwrite(header_btle, 1, 10, fh);
+   fwrite(&access_addr, 1, 4, fh);
+   fwrite(packet, 1, packet_len, fh);
+}
+void write_dummy_entry(){
+    printf("Writing dummy entry\n");
+    uint8_t pkt[10] = {7,7,7,7,7,7,7,7,7,7};
+    struct timeval tv;
+    tv.tv_sec = 0;
+    tv.tv_usec = 0;
+    write_packet_to_file(fh_pcap_store, 10, pkt, &tv, 1, 0xFFFFFFF1);
+    tv.tv_sec = 1;
+    tv.tv_usec = 200;
+    write_packet_to_file(fh_pcap_store, 10, pkt, &tv, 2, 0xFFFFFFF2);
+    tv.tv_sec = 2;
+    tv.tv_usec = 400;
+    write_packet_to_file(fh_pcap_store, 10, pkt, &tv, 3, 0xFFFFFFF3);
+}
+
 
 //----------------------------------some sys stuff----------------------------------
 
@@ -1131,7 +1197,8 @@ void parse_commandline(
   int* raw_flag,
   uint64_t* freq_hz, 
   uint32_t* access_mask, 
-  int* hop_flag
+  int* hop_flag,
+  char** filename_pcap
 ) {
   printf("BLE sniffer. Xianjun Jiao. putaoshu@msn.com\n\n");
   
@@ -1153,6 +1220,8 @@ void parse_commandline(
   (*access_mask) = 0xFFFFFFFF;
   
   (*hop_flag) = 0;
+  
+  (*filename_pcap) = 0;
 
   while (1) {
     static struct option long_options[] = {
@@ -1166,11 +1235,12 @@ void parse_commandline(
       {"freq_hz",           required_argument, 0, 'f'},
       {"access_mask",         required_argument, 0, 'm'},
       {"hop",         no_argument, 0, 'o'},
+      {"filename",         required_argument, 0, 's'},
       {0, 0, 0, 0}
     };
     /* getopt_long stores the option index here. */
     int option_index = 0;
-    int c = getopt_long (argc, argv, "hc:g:a:k:vrf:m:o",
+    int c = getopt_long (argc, argv, "hc:g:a:k:vrf:m:os:",
                      long_options, &option_index);
 
     /* Detect the end of the options. */
@@ -1224,6 +1294,10 @@ void parse_commandline(
         
       case 'k':
         (*crc_init) = strtol(optarg,&endp,16);
+        break;
+
+      case 's':
+        (*filename_pcap) = (char*)optarg;
         break;
         
       case '?':
@@ -1959,6 +2033,7 @@ void print_adv_pdu_payload(void *adv_pdu_payload, ADV_PDU_TYPE pdu_type, int pay
     printf(" CRC%d\n", crc_flag);
 }
 
+// demodulates and parses a packet
 void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number, uint32_t access_addr, uint32_t crc_init, int verbose_flag, int raw_flag) {
   static int pkt_count = 0;
   static ADV_PDU_PAYLOAD_TYPE_R adv_pdu_payload;
@@ -2011,6 +2086,7 @@ void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number, uint32_t access_
     }
 
     demod_byte(rxp, num_demod_byte, tmp_byte);
+
     if(!raw_flag) scramble_byte(tmp_byte, num_demod_byte, scramble_table[channel_number], tmp_byte);
     rxp = rxp_in + buf_len_eaten;
     num_symbol_left = (buf_len-buf_len_eaten)/(SAMPLE_PER_SYMBOL*2);
@@ -2047,6 +2123,7 @@ void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number, uint32_t access_
       parse_ll_pdu_header_byte(tmp_byte, &ll_pdu_type, &ll_nesn, &ll_sn, &ll_md, &payload_len);
     }
     
+
     //num_pdu_payload_crc_bits = (payload_len+3)*8;
     num_demod_byte = (payload_len+3);
     buf_len_eaten = buf_len_eaten + 8*num_demod_byte*2*SAMPLE_PER_SYMBOL;
@@ -2070,7 +2147,11 @@ void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number, uint32_t access_
     time_diff = TimevalDiff(&time_current_pkt, &time_pre_pkt);
     time_pre_pkt = time_current_pkt;
     
-    printf("%dus Pkt%d Ch%d AA:%08x ", time_diff, pkt_count, channel_number, access_addr);
+    printf("%07dus Pkt%03d Ch%d AA:%08x ", time_diff, pkt_count, channel_number, access_addr);
+
+    if(fh_pcap_store != NULL) {
+        write_packet_to_file(fh_pcap_store, payload_len+2, tmp_byte, &time_current_pkt, channel_number, access_addr);
+    }
     
     if (adv_flag) {
       printf("ADV_PDU_t%d:%s T%d R%d PloadL%d ", adv_pdu_type, ADV_PDU_TYPE_STR[adv_pdu_type], adv_tx_add, adv_rx_add, payload_len);
@@ -2099,6 +2180,7 @@ bool chm_is_full_map(uint8_t *chm) {
   return(false);
 }
 
+// state machine
 int receiver_controller(void *rf_dev, int verbose_flag, int *chan, uint32_t *access_addr, uint32_t *crc_init_internal) {
   const int guard_us = 7000;
   const int guard_us1 = 4000;
@@ -2228,15 +2310,20 @@ int main(int argc, char** argv) {
   void* rf_dev;
   IQ_TYPE *rxp;
 
-  parse_commandline(argc, argv, &chan, &gain, &access_addr, &crc_init, &verbose_flag, &raw_flag, &freq_hz, &access_addr_mask, &hop_flag);
-  
+  parse_commandline(argc, argv, &chan, &gain, &access_addr, &crc_init, &verbose_flag, &raw_flag, &freq_hz, &access_addr_mask, &hop_flag, &filename_pcap);
+
+  if(filename_pcap != NULL)
+    init_pcap_file();
+
   if (freq_hz == 123)
     freq_hz = get_freq_by_channel_number(chan);
   
   uint32_to_bit_array(access_addr_mask, access_bit_mask);
   
-  printf("Cmd line input: chan %d, freq %lldMHz, access addr %08x, crc init %06x raw %d verbose %d rx %ddB (%s)\n", chan, freq_hz/1000000, access_addr, crc_init, raw_flag, verbose_flag, gain, board_name);
-  
+  printf("Cmd line input: chan %d, freq %lldMHz, access addr %08x, crc init %06x raw %d verbose %d rx %ddB (%s) file=%s\n", chan, freq_hz/1000000, access_addr, crc_init, raw_flag, verbose_flag, gain, board_name, filename_pcap);
+
+  //write_dummy_entry();
+   //exit(0);
   // run cyclic recv in background
   do_exit = false;
   if ( config_run_board(freq_hz, gain, &rf_dev) != 0 ){
@@ -2324,6 +2411,7 @@ int main(int argc, char** argv) {
 program_quit:
   printf("Exit main loop ...\n");
   stop_close_board(rf_dev);
-  
+
+  if(fh_pcap_store) fclose(fh_pcap_store);
   return(0);
 }
