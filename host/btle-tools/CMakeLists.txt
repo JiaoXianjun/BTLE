@@ -38,19 +38,6 @@ add_definitions(-Wall)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu90")
 endif()
 
-# Find needed packages.
-# IF (USE_BLADERF MATCHES 1)
-#   MESSAGE(STATUS "Use BLADERF")
-#   find_package(LIBBLADERF REQUIRED)
-#   include_directories(${LIBBLADERF_INCLUDE_DIR})
-#   set(USE_RFBOARD "USE_BLADERF")
-# ELSE (USE_BLADERF MATCHES 1)
-#   MESSAGE(STATUS "Use HACKRF")
-#   find_package(LIBHACKRF REQUIRED)
-#   include_directories(${LIBHACKRF_INCLUDE_DIR})
-#   set(USE_RFBOARD "USE_HACKRF")
-# ENDIF (USE_BLADERF MATCHES 1)
-
 MESSAGE(STATUS "Checking BLADERF lib ...")
 find_package(LIBBLADERF)
 IF (LIBBLADERF_FOUND)
@@ -85,11 +72,55 @@ ELSE (LIBUHD_FOUND)
 ENDIF (LIBUHD_FOUND)
 
 CONFIGURE_FILE (
-  "${PROJECT_SOURCE_DIR}/include/common.h.in"
-  "${PROJECT_SOURCE_DIR}/src/common.h"
+  "${PROJECT_SOURCE_DIR}/rf_driver/rf_driver.h.in"
+  "${PROJECT_SOURCE_DIR}/rf_driver/rf_driver_cfg.h"
 )
 
-add_subdirectory(src)
+include_directories(${PROJECT_SOURCE_DIR}/rf_driver)
+include_directories(${PROJECT_SOURCE_DIR}/btle_lib)
+########################################################################
+# compile setup
+########################################################################
+set(INSTALL_DEFAULT_BINDIR "bin" CACHE STRING "Appended to CMAKE_INSTALL_PREFIX")
+
+if(MSVC)
+add_library(libgetopt_static STATIC
+    ../getopt/getopt.c
+)
+endif()
+
+add_executable(btle_tx btle_tx.c)
+install(TARGETS btle_tx RUNTIME DESTINATION ${INSTALL_DEFAULT_BINDIR})
+
+add_executable(btle_rx btle_rx.c)
+install(TARGETS btle_rx RUNTIME DESTINATION ${INSTALL_DEFAULT_BINDIR})
+
+IF (LIBBLADERF_FOUND)
+    include_directories(${LIBBLADERF_INCLUDE_DIR})
+    LIST(APPEND TOOLS_LINK_LIBS ${LIBBLADERF_LIBRARIES})
+ENDIF (LIBBLADERF_FOUND)
+
+IF (LIBHACKRF_FOUND)
+    include_directories(${LIBHACKRF_INCLUDE_DIR})
+    LIST(APPEND TOOLS_LINK_LIBS ${LIBHACKRF_LIBRARIES})
+ENDIF (LIBHACKRF_FOUND)
+
+IF (LIBUHD_FOUND)
+    include_directories(${UHD_INCLUDE_DIRS})
+    LIST(APPEND TOOLS_LINK_LIBS ${UHD_LIBRARIES})
+ENDIF (LIBUHD_FOUND)
+
+IF(NOT DEFINED C_INLINE)
+   ADD_DEFINITIONS("-Dinline=")
+ENDIF(NOT DEFINED C_INLINE)
+
+if(MSVC)
+LIST(APPEND TOOLS_LINK_LIBS libgetopt_static)
+endif()
+
+target_link_libraries(btle_tx ${TOOLS_LINK_LIBS} m -lpthread)
+
+target_link_libraries(btle_rx ${TOOLS_LINK_LIBS} m -lpthread)
 
 ########################################################################
 # Create uninstall target

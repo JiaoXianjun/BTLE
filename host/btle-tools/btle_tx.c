@@ -22,7 +22,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#include "common.h"
+#include "rf_driver_cfg.h"
 
 #ifdef USE_BLADERF
 #include <libbladeRF.h>

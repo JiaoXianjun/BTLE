@@ -153,16 +153,16 @@ pthread_mutex_t callback_lock;
 
 volatile int rx_buf_offset; // remember to initialize it!
 
-enum board_type {HACKRF=0, BLADERF=1, USRP=2, NOTVALID=3}; 
+enum rf_type {HACKRF=0, BLADERF=1, USRP=2, NOTVALID=3}; 
 typedef int8_t IQ_TYPE;
 volatile IQ_TYPE rx_buf[LEN_BUF + LEN_BUF_MAX_NUM_PHY_SAMPLE];
 
 static void print_usage(void);
 
-int (*board_tune)(void *dev, uint64_t freq_hz);
-void (*stop_close_board)(void *dev);
+int (*rf_tune)(void *dev, uint64_t freq_hz);
+void (*stop_close_rf)(void *dev);
 
-//----------------------------------board specific operation----------------------------------
+//----------------------------------RF specific operation----------------------------------
 #define USRP_DEFAULT_GAIN 60
 #define BLADERF_MAX_GAIN 60
 #define BLADERF_DEFAULT_GAIN 45
@@ -295,11 +295,15 @@ inline int usrp_config_run_board(uint64_t freq_hz, char *device_args, int gain_i
   #ifdef _MSC_VER
     SetConsoleCtrlHandler( (PHANDLER_ROUTINE) sighandler, TRUE );
   #else
-  if (signal(SIGINT, sigint_callback_handler) == SIG_ERR ||
-      signal(SIGTERM, sigint_callback_handler) == SIG_ERR) {
-      fprintf(stderr, "usrp_config_run_board: Failed to set up signal handler\n");
-      return EXIT_FAILURE;
-  }
+    if (signal(SIGINT, sigint_callback_handler)==SIG_ERR ||
+        signal(SIGILL, sigint_callback_handler)==SIG_ERR ||
+        signal(SIGFPE, sigint_callback_handler)==SIG_ERR ||
+        signal(SIGSEGV,sigint_callback_handler)==SIG_ERR ||
+        signal(SIGTERM,sigint_callback_handler)==SIG_ERR ||
+        signal(SIGABRT,sigint_callback_handler)==SIG_ERR) {
+          fprintf(stderr, "usrp_config_run_board: Failed to set up signal handler\n");
+          return EXIT_FAILURE;
+        }
   #endif
   #endif
 
@@ -493,11 +497,15 @@ inline int bladerf_config_run_board(uint64_t freq_hz, int gain, void **rf_dev) {
   #ifdef _MSC_VER
     SetConsoleCtrlHandler( (PHANDLER_ROUTINE) sighandler, TRUE );
   #else
-  if (signal(SIGINT, sigint_callback_handler) == SIG_ERR ||
-      signal(SIGTERM, sigint_callback_handler) == SIG_ERR) {
-      fprintf(stderr, "bladerf_config_run_board: Failed to set up signal handler\n");
-      return EXIT_FAILURE;
-  }
+    if (signal(SIGINT, sigint_callback_handler)==SIG_ERR ||
+        signal(SIGILL, sigint_callback_handler)==SIG_ERR ||
+        signal(SIGFPE, sigint_callback_handler)==SIG_ERR ||
+        signal(SIGSEGV,sigint_callback_handler)==SIG_ERR ||
+        signal(SIGTERM,sigint_callback_handler)==SIG_ERR ||
+        signal(SIGABRT,sigint_callback_handler)==SIG_ERR) {
+          fprintf(stderr, "bladerf_config_run_board: Failed to set up signal handler\n");
+          return EXIT_FAILURE;
+      }
   #endif
 
   status = bladerf_open(&dev, NULL);
@@ -671,20 +679,23 @@ int hackrf_rx_callback(hackrf_transfer* transfer) {
 int hackrf_init_board() {
 	int result = hackrf_init();
 	if( result != HACKRF_SUCCESS ) {
-		printf("open_board: hackrf_init() failed: %s (%d)\n", hackrf_error_name(result), result);
+		fprintf(stderr,"hackrf_init_board: hackrf_init() failed: %s (%d)\n", hackrf_error_name(result), result);
 		print_usage();
-		return(-1);
+		return(EXIT_FAILURE);
 	}
 
   #ifdef _MSC_VER
     SetConsoleCtrlHandler( (PHANDLER_ROUTINE) sighandler, TRUE );
   #else
-    signal(SIGINT, &sigint_callback_handler);
-    signal(SIGILL, &sigint_callback_handler);
-    signal(SIGFPE, &sigint_callback_handler);
-    signal(SIGSEGV, &sigint_callback_handler);
-    signal(SIGTERM, &sigint_callback_handler);
-    signal(SIGABRT, &sigint_callback_handler);
+    if (signal(SIGINT, sigint_callback_handler)==SIG_ERR ||
+        signal(SIGILL, sigint_callback_handler)==SIG_ERR ||
+        signal(SIGFPE, sigint_callback_handler)==SIG_ERR ||
+        signal(SIGSEGV,sigint_callback_handler)==SIG_ERR ||
+        signal(SIGTERM,sigint_callback_handler)==SIG_ERR ||
+        signal(SIGABRT,sigint_callback_handler)==SIG_ERR) {
+          fprintf(stderr, "hackrf_init_board: Failed to set up signal handler\n");
+          return EXIT_FAILURE;
+        }
   #endif
 
   return(0);
@@ -693,7 +704,7 @@ int hackrf_init_board() {
 int hackrf_tune(void *device, uint64_t freq_hz) {
   int result = hackrf_set_freq((hackrf_device*)device, freq_hz);
   if( result != HACKRF_SUCCESS ) {
-    printf("hackrf_tune: hackrf_set_freq() failed: %s (%d)\n", hackrf_error_name(result), result);
+    fprintf(stderr,"hackrf_tune: hackrf_set_freq() failed: %s (%d)\n", hackrf_error_name(result), result);
     return(-1);
   }
   return(HACKRF_SUCCESS);
@@ -827,7 +838,7 @@ void hackrf_stop_close_board(void* device){
 }
 
 #endif
-//----------------------------------board specific operation----------------------------------
+//----------------------------------RF specific operation----------------------------------
 
 //----------------------------------print_usage----------------------------------
 static void print_usage() {
@@ -1362,7 +1373,7 @@ void parse_commandline(
   uint64_t* freq_hz, 
   uint32_t* access_mask, 
   int* hop_flag,
-  enum board_type *board_in_use,
+  enum rf_type *rf_in_use,
   char **arg_string
 ) {
   printf("BLE sniffer. Xianjun Jiao. putaoshu@msn.com\n\n");
@@ -1386,7 +1397,7 @@ void parse_commandline(
   
   (*hop_flag) = 0;
 
-  (*board_in_use) = NOTVALID;
+  (*rf_in_use) = NOTVALID;
 
   (*arg_string) = strdup("");; // need to be freed outside this function!!!
 
@@ -1465,7 +1476,7 @@ void parse_commandline(
         break;
 
       case 'b':
-        (*board_in_use) = strtol(optarg,&endp,10);
+        (*rf_in_use) = strtol(optarg,&endp,10);
         break;
 
       case 's':
@@ -1493,7 +1504,7 @@ void parse_commandline(
 //    goto abnormal_quit;
 //  }
   
-  if ( (*board_in_use)<0 || (*board_in_use)>NOTVALID ) {
+  if ( (*rf_in_use)<0 || (*rf_in_use)>NOTVALID ) {
     printf("Board type must be from %d, %d, %d, %d.!\n", HACKRF, BLADERF, USRP, NOTVALID);
     goto abnormal_quit;
   }
@@ -2381,7 +2392,7 @@ int receiver_controller(void *rf_dev, int verbose_flag, int *chan, uint32_t *acc
         (*chan) = hop_chan;
         freq_hz = get_freq_by_channel_number( hop_chan );
         
-        if( board_tune(rf_dev, freq_hz) != 0 ) {
+        if( rf_tune(rf_dev, freq_hz) != 0 ) {
           return(-1);
         }
         
@@ -2418,7 +2429,7 @@ int receiver_controller(void *rf_dev, int verbose_flag, int *chan, uint32_t *acc
         (*chan) = hop_chan;
         freq_hz = get_freq_by_channel_number( hop_chan );
         
-        if( board_tune(rf_dev, freq_hz) != 0 ) {
+        if( rf_tune(rf_dev, freq_hz) != 0 ) {
           return(-1);
         }
        
@@ -2448,7 +2459,7 @@ int receiver_controller(void *rf_dev, int verbose_flag, int *chan, uint32_t *acc
         (*chan) = hop_chan;
         freq_hz = get_freq_by_channel_number( hop_chan );
         
-        if( board_tune(rf_dev, freq_hz) != 0 ) {
+        if( rf_tune(rf_dev, freq_hz) != 0 ) {
           return(-1);
         }
        
@@ -2472,13 +2483,13 @@ int receiver_controller(void *rf_dev, int verbose_flag, int *chan, uint32_t *acc
 //IQ_TYPE tmp_buf[2097152];
 //---------------------------for offline test--------------------------------------
 
-void probe_run_board(void **rf_dev, uint64_t freq_hz, char *arg_string, int *gain, enum board_type* board_in_use) {
+void probe_run_rf(void **rf_dev, uint64_t freq_hz, char *arg_string, int *gain, enum rf_type* rf_in_use) {
   // check board and run cyclic recv in background
   int gain_tmp;
   pthread_mutex_init(&callback_lock, NULL);
   do_exit = false;
-  if ((*board_in_use) == NOTVALID) { // NEED to detect
-    printf("probe_run_board: Start to probe avaliable board...\n");
+  if ((*rf_in_use) == NOTVALID) { // NEED to detect
+    printf("probe_run_rf: Start to probe avaliable board...\n");
 
     if ( (*gain)==-1 ) 
       gain_tmp = HACKRF_DEFAULT_GAIN;
@@ -2502,25 +2513,25 @@ void probe_run_board(void **rf_dev, uint64_t freq_hz, char *arg_string, int *gai
           gain_tmp = (*gain);
         if ( usrp_config_run_board(freq_hz, arg_string, gain_tmp, rf_dev) ){
           //exit(1);
-          printf("probe_run_board: No RF board is detected!\n");
+          printf("probe_run_rf: No RF board is detected!\n");
           usrp_stop_close_board(*rf_dev);
           if (arg_string) free(arg_string);
           exit(-1);
         } else {
-          (*board_in_use) = USRP;
+          (*rf_in_use) = USRP;
           (*gain) = gain_tmp;
         }
       } else {
-        (*board_in_use) = BLADERF;
+        (*rf_in_use) = BLADERF;
         (*gain) = gain_tmp;
       }
     } else {
-      (*board_in_use) = HACKRF;
+      (*rf_in_use) = HACKRF;
       (*gain) = gain_tmp;
     }
   } else { //user specified the board
-    if ((*board_in_use) == HACKRF) {
-      printf("probe_run_board: Try to probe HackRF...\n");
+    if ((*rf_in_use) == HACKRF) {
+      printf("probe_run_rf: Try to probe HackRF...\n");
 
       if ( (*gain)==-1 ) 
         gain_tmp = HACKRF_DEFAULT_GAIN;
@@ -2528,12 +2539,12 @@ void probe_run_board(void **rf_dev, uint64_t freq_hz, char *arg_string, int *gai
         gain_tmp = (*gain);
       if ( hackrf_config_run_board(freq_hz, gain_tmp, rf_dev) ){
         hackrf_stop_close_board(*rf_dev);
-        printf("probe_run_board: No HackRF board is detected!\n");
+        printf("probe_run_rf: No HackRF board is detected!\n");
         exit(-1);
       } else 
         (*gain) = gain_tmp;
-    } else if ((*board_in_use) == BLADERF) {
-      printf("probe_run_board: Try to probe bladeRF...\n");
+    } else if ((*rf_in_use) == BLADERF) {
+      printf("probe_run_rf: Try to probe bladeRF...\n");
 
       if ( (*gain)==-1 ) 
         gain_tmp = BLADERF_DEFAULT_GAIN;
@@ -2541,12 +2552,12 @@ void probe_run_board(void **rf_dev, uint64_t freq_hz, char *arg_string, int *gai
         gain_tmp = (*gain);
       if ( bladerf_config_run_board(freq_hz, gain_tmp, rf_dev) ){
         bladerf_stop_close_board(*rf_dev);
-        printf("probe_run_board: No bladeRF board is detected!\n");
+        printf("probe_run_rf: No bladeRF board is detected!\n");
         exit(-1);
       } else 
         (*gain) = gain_tmp;
-    } else if ((*board_in_use) == USRP) {
-      printf("probe_run_board: Try to probe USRP...\n");
+    } else if ((*rf_in_use) == USRP) {
+      printf("probe_run_rf: Try to probe USRP...\n");
 
       if ( (*gain)==-1 ) 
         gain_tmp = USRP_DEFAULT_GAIN;
@@ -2555,25 +2566,25 @@ void probe_run_board(void **rf_dev, uint64_t freq_hz, char *arg_string, int *gai
       if ( usrp_config_run_board(freq_hz, arg_string, gain_tmp, rf_dev) ){
         if (arg_string) free(arg_string);
         usrp_stop_close_board(*rf_dev);
-        printf("probe_run_board: No USRP board is detected!\n");
+        printf("probe_run_rf: No USRP board is detected!\n");
         exit(-1);
       } else
         (*gain) = gain_tmp;
     } 
   }
   
-  if ((*board_in_use) == HACKRF) {
-    board_tune = hackrf_tune;
-    stop_close_board = hackrf_stop_close_board;
-    printf("board_in_use == HACKRF\n");
-  } else if ((*board_in_use) == BLADERF) {
-    board_tune = bladerf_tune;
-    stop_close_board = bladerf_stop_close_board;
-    printf("board_in_use == BLADERF\n");
-  } else if ((*board_in_use) == USRP) {
-    board_tune = usrp_tune;
-    stop_close_board = usrp_stop_close_board;
-    printf("board_in_use == USRP\n");
+  if ((*rf_in_use) == HACKRF) {
+    rf_tune = hackrf_tune;
+    stop_close_rf = hackrf_stop_close_board;
+    printf("rf_in_use == HACKRF\n");
+  } else if ((*rf_in_use) == BLADERF) {
+    rf_tune = bladerf_tune;
+    stop_close_rf = bladerf_stop_close_board;
+    printf("rf_in_use == BLADERF\n");
+  } else if ((*rf_in_use) == USRP) {
+    rf_tune = usrp_tune;
+    stop_close_rf = usrp_stop_close_board;
+    printf("rf_in_use == USRP\n");
   } 
 }
 
@@ -2584,18 +2595,18 @@ int main(int argc, char** argv) {
   bool run_flag = false;
   void* rf_dev=NULL;
   IQ_TYPE *rxp;
-  enum board_type board_in_use = NOTVALID;
+  enum rf_type rf_in_use = NOTVALID;
   char *arg_string;
 
-  parse_commandline(argc, argv, &chan, &gain, &access_addr, &crc_init, &verbose_flag, &raw_flag, &freq_hz, &access_addr_mask, &hop_flag, &board_in_use, &arg_string);
+  parse_commandline(argc, argv, &chan, &gain, &access_addr, &crc_init, &verbose_flag, &raw_flag, &freq_hz, &access_addr_mask, &hop_flag, &rf_in_use, &arg_string);
   //printf("arg string %d\n", arg_string);
   if (freq_hz == 123)
     freq_hz = get_freq_by_channel_number(chan);
   
   uint32_to_bit_array(access_addr_mask, access_bit_mask);
   
-  probe_run_board(&rf_dev, freq_hz, arg_string, &gain, &board_in_use);
-  printf("Cmd line input: chan %d, freq %ldMHz, access addr %08x, crc init %06x raw %d verbose %d rx %ddB board %d\n", chan, freq_hz/1000000, access_addr, crc_init, raw_flag, verbose_flag, gain, board_in_use);
+  probe_run_rf(&rf_dev, freq_hz, arg_string, &gain, &rf_in_use);
+  printf("Cmd line input: chan %d, freq %ldMHz, access addr %08x, crc init %06x raw %d verbose %d rx %ddB RF %d\n", chan, freq_hz/1000000, access_addr, crc_init, raw_flag, verbose_flag, gain, rf_in_use);
   
   // init receiver
   receiver_status.pkt_avaliable = 0;
@@ -2672,7 +2683,7 @@ int main(int argc, char** argv) {
 
 program_quit:
   fprintf(stderr,"Exit main loop ...\n");
-  stop_close_board(rf_dev);
+  stop_close_rf(rf_dev);
   free(arg_string);
   
   return(0);
