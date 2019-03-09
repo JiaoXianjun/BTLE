@@ -72,12 +72,12 @@ ELSE (LIBUHD_FOUND)
 ENDIF (LIBUHD_FOUND)
 
 CONFIGURE_FILE (
-  "${PROJECT_SOURCE_DIR}/rf_driver/rf_driver.h.in"
+  "${PROJECT_SOURCE_DIR}/rf_driver/rf_driver_cfg.h.in"
   "${PROJECT_SOURCE_DIR}/rf_driver/rf_driver_cfg.h"
 )
 
-include_directories(${PROJECT_SOURCE_DIR}/rf_driver)
-include_directories(${PROJECT_SOURCE_DIR}/btle_lib)
+include_directories(rf_driver)
+include_directories(btle_lib)
 ########################################################################
 # compile setup
 ########################################################################
@@ -92,7 +92,7 @@ endif()
 add_executable(btle_tx btle_tx.c)
 install(TARGETS btle_tx RUNTIME DESTINATION ${INSTALL_DEFAULT_BINDIR})
 
-add_executable(btle_rx btle_rx.c)
+add_executable(btle_rx btle_rx.c rf_driver/rf_driver_bladerf.c)
 install(TARGETS btle_rx RUNTIME DESTINATION ${INSTALL_DEFAULT_BINDIR})
 
 IF (LIBBLADERF_FOUND)
