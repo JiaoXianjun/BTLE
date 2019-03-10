@@ -1,7 +1,4 @@
 
-#define BLADERF_MAX_GAIN 60
-#define BLADERF_DEFAULT_GAIN 45
-
 struct bladerf_data
 {
     void                **buffers;      /* Transmit buffers */

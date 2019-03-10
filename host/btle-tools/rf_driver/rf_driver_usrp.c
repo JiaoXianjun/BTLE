@@ -1,4 +1,6 @@
 #include "rf_driver_cfg.h"
+
+#ifdef HAS_UHD
 #include <pthread.h>
 #include <signal.h>
 
@@ -15,13 +17,12 @@
 #include <fcntl.h>
 #include <errno.h>
 
-#ifdef HAS_UHD
 #include <uhd.h>
 #include "rf_driver_usrp.h"
 #include "../common_misc.h"
 
 extern pthread_mutex_t callback_lock;
-extern volatile IQ_TYPE rx_buf[LEN_BUF + LEN_BUF_MAX_NUM_PHY_SAMPLE];
+extern volatile IQ_TYPE rx_buf[];
 extern volatile int rx_buf_offset; // remember to initialize it!
 extern volatile bool do_exit;
 
@@ -139,22 +140,6 @@ inline int usrp_config_run_board(uint64_t freq_hz, char *device_args, int gain_i
   usrp_tune_request.target_freq = freq;
   usrp_tune_request.rf_freq_policy = UHD_TUNE_REQUEST_POLICY_AUTO;
   usrp_tune_request.dsp_freq_policy = UHD_TUNE_REQUEST_POLICY_AUTO;
-
-  #if 1
-  #ifdef _MSC_VER
-    SetConsoleCtrlHandler( (PHANDLER_ROUTINE) sighandler, TRUE );
-  #else
-    if (signal(SIGINT, sigint_callback_handler)==SIG_ERR ||
-        signal(SIGILL, sigint_callback_handler)==SIG_ERR ||
-        signal(SIGFPE, sigint_callback_handler)==SIG_ERR ||
-        signal(SIGSEGV,sigint_callback_handler)==SIG_ERR ||
-        signal(SIGTERM,sigint_callback_handler)==SIG_ERR ||
-        signal(SIGABRT,sigint_callback_handler)==SIG_ERR) {
-          fprintf(stderr, "usrp_config_run_board: Failed to set up signal handler\n");
-          return EXIT_FAILURE;
-        }
-  #endif
-  #endif
 
   fprintf(stderr, "usrp_config_run_board: Creating USRP with args \"%s\"...\n", device_args);
 

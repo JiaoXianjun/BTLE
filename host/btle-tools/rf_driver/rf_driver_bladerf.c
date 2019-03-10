@@ -1,4 +1,6 @@
 #include "rf_driver_cfg.h"
+
+#ifdef HAS_BLADERF
 #include <pthread.h>
 #include <signal.h>
 
@@ -15,13 +17,12 @@
 #include <fcntl.h>
 #include <errno.h>
 
-#ifdef HAS_BLADERF
 #include <libbladeRF.h>
 #include "rf_driver_bladerf.h"
 #include "../common_misc.h"
 
 extern pthread_mutex_t callback_lock;
-extern volatile IQ_TYPE rx_buf[LEN_BUF + LEN_BUF_MAX_NUM_PHY_SAMPLE];
+extern volatile IQ_TYPE rx_buf[];
 extern volatile int rx_buf_offset; // remember to initialize it!
 extern volatile bool do_exit;
 
@@ -112,20 +113,6 @@ inline int bladerf_config_run_board(uint64_t freq_hz, int gain, void **rf_dev) {
   bladerf_rx_data.idx = 0;
   bladerf_rx_data.num_buffers = 2;
   bladerf_rx_data.samples_per_buffer = (LEN_BUF/2);
-
-  #ifdef _MSC_VER
-    SetConsoleCtrlHandler( (PHANDLER_ROUTINE) sighandler, TRUE );
-  #else
-    if (signal(SIGINT, sigint_callback_handler)==SIG_ERR ||
-        signal(SIGILL, sigint_callback_handler)==SIG_ERR ||
-        signal(SIGFPE, sigint_callback_handler)==SIG_ERR ||
-        signal(SIGSEGV,sigint_callback_handler)==SIG_ERR ||
-        signal(SIGTERM,sigint_callback_handler)==SIG_ERR ||
-        signal(SIGABRT,sigint_callback_handler)==SIG_ERR) {
-          fprintf(stderr, "bladerf_config_run_board: Failed to set up signal handler\n");
-          return EXIT_FAILURE;
-      }
-  #endif
 
   status = bladerf_open(&dev, NULL);
   if (status < 0) {

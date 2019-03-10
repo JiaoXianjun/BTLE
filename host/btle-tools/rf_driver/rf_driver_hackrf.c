@@ -1,4 +1,6 @@
 #include "rf_driver_cfg.h"
+
+#ifdef HAS_HACKRF
 #include <pthread.h>
 #include <signal.h>
 
@@ -15,13 +17,14 @@
 #include <fcntl.h>
 #include <errno.h>
 
-#ifdef HAS_HACKRF
 #include <hackrf.h>
 #include "rf_driver_hackrf.h"
 #include "../common_misc.h"
 
+#include "rf_driver_top.h"
+
 extern pthread_mutex_t callback_lock;
-extern volatile IQ_TYPE rx_buf[LEN_BUF + LEN_BUF_MAX_NUM_PHY_SAMPLE];
+extern volatile IQ_TYPE rx_buf[];
 extern volatile int rx_buf_offset; // remember to initialize it!
 extern volatile bool do_exit;
 
@@ -49,20 +52,6 @@ int hackrf_init_board() {
 		//print_usage();
 		return(EXIT_FAILURE);
 	}
-
-  #ifdef _MSC_VER
-    SetConsoleCtrlHandler( (PHANDLER_ROUTINE) sighandler, TRUE );
-  #else
-    if (signal(SIGINT, sigint_callback_handler)==SIG_ERR ||
-        signal(SIGILL, sigint_callback_handler)==SIG_ERR ||
-        signal(SIGFPE, sigint_callback_handler)==SIG_ERR ||
-        signal(SIGSEGV,sigint_callback_handler)==SIG_ERR ||
-        signal(SIGTERM,sigint_callback_handler)==SIG_ERR ||
-        signal(SIGABRT,sigint_callback_handler)==SIG_ERR) {
-          fprintf(stderr, "hackrf_init_board: Failed to set up signal handler\n");
-          return EXIT_FAILURE;
-        }
-  #endif
 
   return(0);
 }
