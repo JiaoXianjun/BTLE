@@ -192,5 +192,252 @@ void hackrf_stop_close_board(void* device){
   hackrf_exit_board((hackrf_device* )device);
 }
 
+//---------------------------FROM TX-------------
+
+
+#else
+int init_board() {
+	int result = hackrf_init();
+	if( result != HACKRF_SUCCESS ) {
+		printf("open_board: hackrf_init() failed: %s (%d)\n", hackrf_error_name(result), result);
+		usage();
+		return(-1);
+	}
+
+  #ifdef _MSC_VER
+    SetConsoleCtrlHandler( (PHANDLER_ROUTINE) sighandler, TRUE );
+  #else
+    signal(SIGINT, &sigint_callback_handler);
+    signal(SIGILL, &sigint_callback_handler);
+    signal(SIGFPE, &sigint_callback_handler);
+    signal(SIGSEGV, &sigint_callback_handler);
+    signal(SIGTERM, &sigint_callback_handler);
+    signal(SIGABRT, &sigint_callback_handler);
+  #endif
+
+  return(0);
+}
+
+inline int open_board() {
+  int result;
+
+	result = hackrf_open(&device);
+	if( result != HACKRF_SUCCESS ) {
+		printf("open_board: hackrf_open() failed: %s (%d)\n", hackrf_error_name(result), result);
+		return(-1);
+	}
+
+  result = hackrf_set_freq(device, freq_hz);
+  if( result != HACKRF_SUCCESS ) {
+    printf("open_board: hackrf_set_freq() failed: %s (%d)\n", hackrf_error_name(result), result);
+    return(-1);
+  }
+
+  result = hackrf_set_sample_rate(device, SAMPLE_PER_SYMBOL*1000000ul);
+  if( result != HACKRF_SUCCESS ) {
+    printf("open_board: hackrf_set_sample_rate() failed: %s (%d)\n", hackrf_error_name(result), result);
+    return(-1);
+  }
+
+  /* range 0-47 step 1db */
+  result = hackrf_set_txvga_gain(device, 47);
+  if( result != HACKRF_SUCCESS ) {
+    printf("open_board: hackrf_set_txvga_gain() failed: %s (%d)\n", hackrf_error_name(result), result);
+    return(-1);
+  }
+
+  #if 0
+  result = hackrf_set_antenna_enable(device, 1);
+  if( result != HACKRF_SUCCESS ) {
+    printf("open_board: hackrf_set_antenna_enable() failed: %s (%d)\n", hackrf_error_name(result), result);
+    return(-1);
+  }
+  #endif
+
+  return(0);
+}
+
+void exit_board() {
+	if(device != NULL)
+	{
+		hackrf_exit();
+		printf("hackrf_exit() done\n");
+	}
+}
+
+inline int close_board() {
+  int result;
+
+	if(device != NULL)
+	{
+    result = hackrf_stop_tx(device);
+    if( result != HACKRF_SUCCESS ) {
+      printf("close_board: hackrf_stop_tx() failed: %s (%d)\n", hackrf_error_name(result), result);
+      return(-1);
+    }
+
+		result = hackrf_close(device);
+		if( result != HACKRF_SUCCESS )
+		{
+			printf("close_board: hackrf_close() failed: %s (%d)\n", hackrf_error_name(result), result);
+			return(-1);
+		}
+
+    return(0);
+	} else {
+	  return(-1);
+	}
+}
+
+inline int tx_one_buf(char *buf, int length, int channel_number) {
+  int result;
+
+  set_freq_by_channel_number(channel_number);
+
+  //tx_buf = tx_zeros;
+  //tx_len = HACKRF_USB_BUF_SIZE-NUM_PRE_SEND_DATA;
+  tx_buf = buf;
+  tx_len = length;
+
+  // open the board-----------------------------------------
+  if (open_board() == -1) {
+    printf("tx_one_buf: open_board() failed\n");
+    return(-1);
+  }
+
+  // first round TX---------------------------------
+  stop_tx = 0;
+
+  result = hackrf_start_tx(device, tx_callback, NULL);
+  if( result != HACKRF_SUCCESS ) {
+    printf("tx_one_buf: hackrf_start_tx() failed: %s (%d)\n", hackrf_error_name(result), result);
+    return(-1);
+  }
+
+  while( (hackrf_is_streaming(device) == HACKRF_TRUE) &&
+      (do_exit == false) )
+  {
+    if (stop_tx>=9) {
+      break;
+    }
+  }
+
+  if (do_exit)
+  {
+    printf("\ntx_one_buf: Exiting...\n");
+    return(-1);
+  }
+
+  result = hackrf_stop_tx(device);
+  if( result != HACKRF_SUCCESS ) {
+    printf("tx_one_buf: hackrf_stop_tx() failed: %s (%d)\n", hackrf_error_name(result), result);
+    return(-1);
+  }
+
+#if 0
+  do_exit = false;
+  
+  // second round TX-----------------------------------
+  tx_buf = tx_zeros;
+  tx_len = HACKRF_USB_BUF_SIZE-NUM_PRE_SEND_DATA;
+  //tx_buf = buf;
+  //tx_len = length;
+
+  stop_tx = 0;
+
+  result = hackrf_start_tx(device, tx_callback, NULL);
+  if( result != HACKRF_SUCCESS ) {
+    printf("tx_one_buf: hackrf_start_tx() failed: %s (%d)\n", hackrf_error_name(result), result);
+    return(-1);
+  }
+
+  while( (hackrf_is_streaming(device) == HACKRF_TRUE) &&
+      (do_exit == false) )
+  {
+    if (stop_tx==1) {
+      break;
+    }
+  }
+
+  if (do_exit)
+  {
+    printf("\ntx_one_buf: Exiting...\n");
+    return(-1);
+  }
+  
+  result = hackrf_stop_tx(device);
+  if( result != HACKRF_SUCCESS ) {
+    printf("tx_one_buf: hackrf_stop_tx() failed: %s (%d)\n", hackrf_error_name(result), result);
+    return(-1);
+  }
+
+  do_exit = false;
+
+  // another round to flush ------------------------------
+  stop_tx = 0;
+
+  result = hackrf_start_tx(device, tx_callback, NULL);
+  if( result != HACKRF_SUCCESS ) {
+    printf("tx_one_buf: hackrf_start_tx() failed: %s (%d)\n", hackrf_error_name(result), result);
+    return(-1);
+  }
+
+  while( (hackrf_is_streaming(device) == HACKRF_TRUE) &&
+      (do_exit == false) )
+  {
+    if (stop_tx==1) {
+      break;
+    }
+  }
+
+  if (do_exit)
+  {
+    printf("\ntx_one_buf: Exiting...\n");
+    return(-1);
+  }
+
+  result = hackrf_stop_tx(device);
+  if( result != HACKRF_SUCCESS ) {
+    printf("tx_one_buf: hackrf_stop_tx() failed: %s (%d)\n", hackrf_error_name(result), result);
+    return(-1);
+  }
+
+  do_exit = false;
+
+  // another round to flush ------------------------------
+  stop_tx = 0;
+
+  result = hackrf_start_tx(device, tx_callback, NULL);
+  if( result != HACKRF_SUCCESS ) {
+    printf("tx_one_buf: hackrf_start_tx() failed: %s (%d)\n", hackrf_error_name(result), result);
+    return(-1);
+  }
+
+  while( (hackrf_is_streaming(device) == HACKRF_TRUE) &&
+      (do_exit == false) )
+  {
+    if (stop_tx==1) {
+      break;
+    }
+  }
+
+  if (do_exit)
+  {
+    printf("\ntx_one_buf: Exiting...\n");
+    return(-1);
+  }
 #endif
-//----------------------------------RF specific operation----------------------------------
+
+  // close the board---------------------------------------
+  if (close_board() == -1) {
+    printf("tx_one_buf: close_board() failed\n");
+    return(-1);
+  }
+
+  do_exit = false;
+
+  return(0);
+}
+
+#endif
+
