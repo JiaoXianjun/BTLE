@@ -36,6 +36,22 @@ volatile int stop_tx = 1;
 volatile int tx_len;
 
 
+int hackrf_tx_callback(hackrf_transfer* transfer) {
+  int size_left;
+  if (stop_tx == 0) {
+    memset(transfer->buffer, 0, NUM_PRE_SEND_DATA);
+    memcpy(transfer->buffer+NUM_PRE_SEND_DATA, (char *)(tx_buf), tx_len);
+
+    size_left = (transfer->valid_length - tx_len - NUM_PRE_SEND_DATA);
+    memset(transfer->buffer+NUM_PRE_SEND_DATA+tx_len, 0, size_left);
+  } else {
+    memset(transfer->buffer, 0, transfer->valid_length);
+  }
+  stop_tx++;
+ 
+  return(0);
+}
+
 int hackrf_rx_callback(hackrf_transfer* transfer) {
   int i;
   int8_t *p = (int8_t *)transfer->buffer;

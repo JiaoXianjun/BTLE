@@ -345,7 +345,7 @@ inline int init_board() {
                                 BLADERF_MODULE_TX,
                                 BLADERF_FORMAT_SC16_Q11,
                                 32,
-                                NUM_BLADERF_BUF_SAMPLE,
+                                NUM_BLADERF_BUF_SAMPLE_TX,
                                 16,
                                 10);
 
@@ -396,14 +396,14 @@ inline int tx_one_buf(char *buf, int length, int channel_number) {
 
   set_freq_by_channel_number(channel_number);
 
-  memset( (void *)tx_buf, 0, NUM_BLADERF_BUF_SAMPLE*2*sizeof(tx_buf[0]) );
+  memset( (void *)tx_buf, 0, NUM_BLADERF_BUF_SAMPLE_TX*2*sizeof(tx_buf[0]) );
 
-  for (i=(NUM_BLADERF_BUF_SAMPLE*2-length); i<(NUM_BLADERF_BUF_SAMPLE*2); i++) {
-    tx_buf[i] = ( (int)( buf[i-(NUM_BLADERF_BUF_SAMPLE*2-length)] ) )*16;
+  for (i=(NUM_BLADERF_BUF_SAMPLE_TX*2-length); i<(NUM_BLADERF_BUF_SAMPLE_TX*2); i++) {
+    tx_buf[i] = ( (int)( buf[i-(NUM_BLADERF_BUF_SAMPLE_TX*2-length)] ) )*16;
   }
 
   // Transmit samples
-  status = bladerf_sync_tx(dev, (void *)tx_buf, NUM_BLADERF_BUF_SAMPLE, NULL, 10);
+  status = bladerf_sync_tx(dev, (void *)tx_buf, NUM_BLADERF_BUF_SAMPLE_TX, NULL, 10);
   if (status != 0) {
     printf("tx_one_buf: Failed to TX samples 1: %s\n",
              bladerf_strerror(status));

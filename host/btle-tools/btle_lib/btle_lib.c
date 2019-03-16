@@ -73,6 +73,47 @@ char *ADV_PDU_TYPE_STR[] = {
     "RESERVED8"
 };
 
+
+char *AD_TYPE_STR[] = {
+    "FLAGS",
+    "LOCAL_NAME08",
+    "LOCAL_NAME09",
+    "TXPOWER",
+    "SERVICE02",
+    "SERVICE03",
+    "SERVICE04",
+    "SERVICE05",
+    "SERVICE06",
+    "SERVICE07",
+    "SERVICE_SOLI14",
+    "SERVICE_SOLI15",
+    "SERVICE_DATA",
+    "MANUF_DATA",
+    "CONN_INTERVAL",
+    "SPACE"
+};
+
+const int AD_TYPE_VAL[] = {
+    0x01,  //"FLAGS",
+    0x08,  //"LOCAL_NAME08",
+    0x09,  //"LOCAL_NAME09",
+    0x0A,  //"TXPOWER",
+    0x02,  //"SERVICE02",
+    0x03,  //"SERVICE03",
+    0x04,  //"SERVICE04",
+    0x05,  //"SERVICE05",
+    0x06,  //"SERVICE06",
+    0x07,  //"SERVICE07",
+    0x14,  //"SERVICE_SOLI14",
+    0x15,  //"SERVICE_SOLI15",
+    0x16,  //"SERVICE_DATA",
+    0xFF,  //"MANUF_DATA",
+    0x12   //"CONN_INTERVAL",
+};
+
+char tmp_str[MAX_NUM_CHAR_CMD];
+float tmp_phy_bit_over_sampling[MAX_NUM_PHY_SAMPLE_TX + 2*LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL];
+
 /**
  * Static table used for the table_driven implementation.
  *****************************************************************************/
@@ -1174,7 +1215,6 @@ int gen_sample_from_phy_bit(char *bit, char *sample, int num_bit) {
   int num_sample = (num_bit*SAMPLE_PER_SYMBOL)+(LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL);
 
   int8_t *tmp_phy_bit_over_sampling_int8 = (int8_t *)tmp_phy_bit_over_sampling;
-  //int16_t *tmp_phy_bit_over_sampling1_int16 = (int16_t *)tmp_phy_bit_over_sampling1;
 
   int i, j;
 
