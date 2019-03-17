@@ -79,11 +79,23 @@ void *bladerf_stream_callback(struct bladerf *dev, struct bladerf_stream *stream
     }
 }
 
-int bladerf_tune(void *dev, uint64_t freq_hz) {
+int bladerf_tune_rx(void *dev, uint64_t freq_hz) {
   int status;
   status = bladerf_set_frequency((struct bladerf *)dev, BLADERF_MODULE_RX, freq_hz);
   if (status != 0) {
-      fprintf(stderr, "Failed to set frequency: %s\n",
+      fprintf(stderr, "bladerf_tune_rx: Failed to set frequency: %s\n",
+              bladerf_strerror(status));
+      bladerf_close((struct bladerf *)dev);
+      return EXIT_FAILURE;
+  }
+  return(0);
+}
+
+int bladerf_tune_tx(void *dev, uint64_t freq_hz) {
+  int status;
+  status = bladerf_set_frequency((struct bladerf *)dev, BLADERF_MODULE_TX, freq_hz);
+  if (status != 0) {
+      fprintf(stderr, "bladerf_tune_tx: Failed to set frequency: %s\n",
               bladerf_strerror(status));
       bladerf_close((struct bladerf *)dev);
       return EXIT_FAILURE;
@@ -388,9 +400,11 @@ void close_board(){
 
   printf("bladeRF closed.\n");
 }
+
 void exit_board() {
   return;
 }
+
 inline int tx_one_buf(char *buf, int length, int channel_number) {
   int status, i;
 

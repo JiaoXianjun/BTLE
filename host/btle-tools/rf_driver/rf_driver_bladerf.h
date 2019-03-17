@@ -9,4 +9,5 @@ struct bladerf_data
 
 inline int bladerf_config_run_board(uint64_t freq_hz, int gain, void **rf_dev);
 void bladerf_stop_close_board(void *dev);
-int bladerf_tune(void *dev, uint64_t freq_hz);
+int bladerf_tune_rx(void *dev, uint64_t freq_hz);
+int bladerf_tune_tx(void *dev, uint64_t freq_hz);

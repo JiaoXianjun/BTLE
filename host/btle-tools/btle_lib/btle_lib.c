@@ -4,28 +4,28 @@
 #include <time.h>
 #include <ctype.h>
 #include <math.h>
-// #include <getopt.h>
 
 #include <sys/time.h>
-
-// #include <sys/types.h>
-// #include <sys/stat.h>
-// #include <fcntl.h>
-// #include <errno.h>
 
 #include "../common_misc.h"
 #include "scramble_table.h"
 #include "btle_lib.h"
 #include "rf_driver_top.h"
 
+#include "gauss_cos_sin_table.h"
+#include "scramble_table_ch37.h"
+
 //static uint8_t demod_buf_preamble_access[SAMPLE_PER_SYMBOL][LEN_DEMOD_BUF_PREAMBLE_ACCESS];
-static uint8_t demod_buf_access[SAMPLE_PER_SYMBOL][LEN_DEMOD_BUF_ACCESS];
+uint8_t demod_buf_access[SAMPLE_PER_SYMBOL][LEN_DEMOD_BUF_ACCESS];
 //uint8_t preamble_access_byte[NUM_PREAMBLE_ACCESS_BYTE] = {0xAA, 0xD6, 0xBE, 0x89, 0x8E};
 uint8_t access_byte[NUM_ACCESS_ADDR_BYTE] = {0xD6, 0xBE, 0x89, 0x8E};
 //uint8_t preamble_access_bit[NUM_PREAMBLE_ACCESS_BYTE*8];
 uint8_t access_bit[NUM_ACCESS_ADDR_BYTE*8];
 uint8_t access_bit_mask[NUM_ACCESS_ADDR_BYTE*8];
 uint8_t tmp_byte[2+37+3]; // header length + maximum payload length 37 + 3 octets CRC
+
+int btle_tx_ch_driver_internal = 0;
+int btle_rx_ch_driver_internal = 0;
 
 RECV_STATUS receiver_status;
 
@@ -1080,7 +1080,7 @@ int receiver_controller(void *rf_dev, int verbose_flag, int *chan, uint32_t *acc
         (*chan) = hop_chan;
         freq_hz = get_freq_by_channel_number( hop_chan );
         
-        if( rf_tune(rf_dev, freq_hz) != 0 ) {
+        if( rf_tune_rx(rf_dev, freq_hz) != 0 ) {
           return(-1);
         }
         
@@ -1117,7 +1117,7 @@ int receiver_controller(void *rf_dev, int verbose_flag, int *chan, uint32_t *acc
         (*chan) = hop_chan;
         freq_hz = get_freq_by_channel_number( hop_chan );
         
-        if( rf_tune(rf_dev, freq_hz) != 0 ) {
+        if( rf_tune_rx(rf_dev, freq_hz) != 0 ) {
           return(-1);
         }
        
@@ -1147,7 +1147,7 @@ int receiver_controller(void *rf_dev, int verbose_flag, int *chan, uint32_t *acc
         (*chan) = hop_chan;
         freq_hz = get_freq_by_channel_number( hop_chan );
         
-        if( rf_tune(rf_dev, freq_hz) != 0 ) {
+        if( rf_tune_rx(rf_dev, freq_hz) != 0 ) {
           return(-1);
         }
        
@@ -1168,7 +1168,7 @@ int receiver_controller(void *rf_dev, int verbose_flag, int *chan, uint32_t *acc
 }
 
 //--------------------TX-------------------------------
-
+#if 0
 int gen_sample_from_phy_byte(uint8_t *byte,  int8_t *sample, int num_byte) {
   int num_bit = num_byte*8;
   int num_sample = (num_bit*SAMPLE_PER_SYMBOL)+(LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL);
@@ -1210,6 +1210,7 @@ int gen_sample_from_phy_byte(uint8_t *byte,  int8_t *sample, int num_byte) {
 
   return(num_sample);
 }
+#endif
 
 int gen_sample_from_phy_bit(char *bit, char *sample, int num_bit) {
   int num_sample = (num_bit*SAMPLE_PER_SYMBOL)+(LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL);
@@ -1793,7 +1794,7 @@ int calculate_sample_for_DISCOVERY(char *pkt_str, PKT_INFO*pkt) {
   printf("num_phy_bit %d\n", pkt->num_phy_bit);
 
   pkt->num_phy_sample = gen_sample_from_phy_bit(pkt->phy_bit, pkt->phy_sample, pkt->num_phy_bit);
-  gen_sample_from_phy_byte(pkt->phy_byte, pkt->phy_sample1, pkt->num_phy_byte);
+//  gen_sample_from_phy_byte(pkt->phy_byte, pkt->phy_sample1, pkt->num_phy_byte);
   printf("num_phy_sample %d\n", pkt->num_phy_sample);
 
 // get space value
@@ -3595,7 +3596,6 @@ int calculate_sample_from_pkt_type(char *type_str, char *pkt_str, PKT_INFO *pkt)
   return(0);
 }
 
-
 int calculate_pkt_info( PKT_INFO *pkt ){
   char *cmd_str = pkt->cmd_str;
   char *next_p;
@@ -3642,4 +3642,21 @@ int calculate_pkt_info( PKT_INFO *pkt ){
   }
 
   return(0);
+}
+
+int tx_one_buf_btle_ch(void *dev, int btle_ch, char *buf, int length) {
+  if (btle_ch<0 || btle_ch>39) {
+    fprintf(stderr, "tx_one_buf_btle_ch: Invalid channel number! Should be 0~39!");
+    return (-1);
+  }
+
+  if (btle_ch!=btle_tx_ch_driver_internal) {
+    uint64_t freq_hz;
+    btle_tx_ch_driver_internal = btle_ch;
+    freq_hz = get_freq_by_channel_number(btle_ch);
+    if (rf_tune_tx(dev, freq_hz)!=0)
+      return(-1);
+  }
+
+  return( tx_one_buf_direct(dev, buf, length) );
 }

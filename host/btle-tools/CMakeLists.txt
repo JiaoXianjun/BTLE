@@ -89,7 +89,7 @@ add_library(libgetopt_static STATIC
 )
 endif()
 
-add_executable(btle_tx btle_tx.c)
+add_executable(btle_tx btle_tx.c common_misc.c rf_driver/rf_driver_bladerf.c rf_driver/rf_driver_hackrf.c rf_driver/rf_driver_usrp.c rf_driver/rf_driver_top.c btle_lib/btle_lib.c)
 install(TARGETS btle_tx RUNTIME DESTINATION ${INSTALL_DEFAULT_BINDIR})
 
 add_executable(btle_rx btle_rx.c common_misc.c rf_driver/rf_driver_bladerf.c rf_driver/rf_driver_hackrf.c rf_driver/rf_driver_usrp.c rf_driver/rf_driver_top.c btle_lib/btle_lib.c)

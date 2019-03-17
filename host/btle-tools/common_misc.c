@@ -297,7 +297,7 @@ int read_items_from_file(int *num_items, char **items_buf, int num_row, char *fi
 
     if (file_line[0] != '#') {
       if ( (file_line[0] >= 48 && file_line[0] <= 57) || file_line[0] ==114 || file_line[0] == 82 ) { // valid line
-        if (strlen(file_line) > (MAX_NUM_CHAR_CMD-1) ) {
+        if (strlen(file_line) >= MAX_NUM_CHAR_CMD) {
           printf("A line is too long!\n");
           fclose(fp);
           return(-1);
@@ -878,7 +878,6 @@ char *get_next_field_name_bit(char *input_p, char *name, char *out_bit, int *num
   return(next_p);
 }
 
-
 int get_num_repeat(char *input_str, int *repeat_specific){
   int num_repeat;
 
@@ -912,4 +911,23 @@ int get_num_repeat(char *input_str, int *repeat_specific){
   }
 
   return(num_repeat);
+}
+
+int get_word(char *base, char **target, int max_num_word, int max_len_word)
+{
+  char *token;
+  int i = 0;
+  for(token = strtok(base, " "); token != NULL; token = strtok(NULL, " ")) {
+    if (strlen(token)>=max_len_word) {
+      fprintf(stderr, "get_word: strlen(token)>=max_len_word\n");
+      return(-1);
+    } else {
+      strcpy(target[i],token);
+      i++;
+      if (i>=max_num_word) {
+        fprintf(stderr, "get_word: Warning! reach %d words!\n", i);
+      }
+    }
+  }
+  return(0);
 }

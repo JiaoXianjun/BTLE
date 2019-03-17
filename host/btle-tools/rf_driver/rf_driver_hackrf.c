@@ -35,7 +35,6 @@ extern void sigint_callback_handler(int signum);
 volatile int stop_tx = 1;
 volatile int tx_len;
 
-
 int hackrf_tx_callback(hackrf_transfer* transfer) {
   int size_left;
   if (stop_tx == 0) {

@@ -239,12 +239,13 @@ typedef struct
 
     int num_phy_sample;
     char phy_sample[2*MAX_NUM_PHY_SAMPLE_TX]; // GFSK output to D/A (hackrf board)
-    int8_t phy_sample1[2*MAX_NUM_PHY_SAMPLE_TX]; // GFSK output to D/A (hackrf board)
+//    int8_t phy_sample1[2*MAX_NUM_PHY_SAMPLE_TX]; // GFSK output to D/A (hackrf board)
 
     int space; // how many millisecond null signal shouwl be padded after this packet
 } PKT_INFO;
 
-uint64_t get_freq_by_channel_number(int channel_number);
-void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number, uint32_t access_addr, uint32_t crc_init, int verbose_flag, int raw_flag);
-int receiver_controller(void *rf_dev, int verbose_flag, int *chan, uint32_t *access_addr, uint32_t *crc_init_internal);
+inline uint64_t get_freq_by_channel_number(int channel_number);
+inline void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number, uint32_t access_addr, uint32_t crc_init, int verbose_flag, int raw_flag);
+inline int receiver_controller(void *rf_dev, int verbose_flag, int *chan, uint32_t *access_addr, uint32_t *crc_init_internal);
 inline int receiver_init(uint32_t access_addr_mask, uint32_t crc_init);
+inline int tx_one_buf_btle_ch(void *dev, int btle_ch, char *buf, int length)；

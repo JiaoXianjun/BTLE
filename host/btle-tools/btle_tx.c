@@ -45,17 +45,11 @@
 
 #include "btle_lib.h"
 
-#include "gauss_cos_sin_table.h"
-
-#include "scramble_table_ch37.h"
-
 volatile bool do_exit = false;
-
 volatile void *tx_buf; // for bladerf should be int16_t tx_buf[NUM_BLADERF_BUF_SAMPLE*2]; for harckrf should be char *
-
 PKT_INFO packets[MAX_NUM_PACKET];
 
-static void usage() {
+static void print_usage() {
   printf("BLE packet generator. Xianjun Jiao. putaoshu@msn.com\n\n");
 	printf("Usage:\n");
 	printf("btle_tx packet1 packet2 ... packetX ...  rN\n");
@@ -68,7 +62,7 @@ static void usage() {
   printf("For the format, see README for detailed information.\n");
 }
 
-int parse_input(int num_input, char** argv, int *num_repeat_return){
+int parse_packet_seq(int num_input, char** argv, int *num_repeat_return){
   int repeat_specific = 0;
 
   int num_repeat = get_num_repeat(argv[num_input-1], &repeat_specific);
@@ -91,7 +85,7 @@ int parse_input(int num_input, char** argv, int *num_repeat_return){
   int i;
   for (i=0; i<num_packet; i++) {
 
-    if (strlen(argv[1+i]) > MAX_NUM_CHAR_CMD-1) {
+    if (strlen(argv[1+i]) >= MAX_NUM_CHAR_CMD) {
       printf("Too long packet descriptor of packet %d! Maximum allowed are %d characters\n", i, MAX_NUM_CHAR_CMD-1);
       return(-2);
     }
@@ -114,17 +108,126 @@ int parse_input(int num_input, char** argv, int *num_repeat_return){
   return(num_packet);
 }
 
+void parse_commandline(
+  // Inputs
+  int argc,
+  char * const argv[],
+  // Outputs
+  int* gain,
+  enum rf_type *rf_in_use,
+  char *arg_string,
+  char **descriptor
+) {
+  char *filename=NULL;
+  char *descriptor_raw=NULL;
+
+  printf("BLE sniffer. Xianjun Jiao. putaoshu@msn.com\n\n");
+  
+  (*gain) = -1;
+  
+  (*rf_in_use) = NOTVALID;
+
+  strcpy(arg_string,"");
+
+  while (1) {
+    static struct option long_options[] = {
+      {"help",       no_argument,       0, 'h'},
+      {"gain",       required_argument, 0, 'g'},
+      {"board",      required_argument, 0, 'b'},
+      {"descriptor", required_argument, 0, 'd'},
+      {"filename",   required_argument, 0, 'i'},
+      {"s",          required_argument, 0, 's'},
+      {0, 0, 0, 0}
+    };
+    /* getopt_long stores the option index here. */
+    int option_index = 0;
+    int c = getopt_long (argc, argv, "hg:b:d:i:s:", // ： means parameter
+                     long_options, &option_index);
+
+    /* Detect the end of the options. */
+    if (c == -1)
+      break;
+
+    switch (c) {
+      char * endp;
+      case 0:
+        // Code should only get here if a long option was given a non-null
+        // flag value.
+        printf("Check code!\n");
+        goto abnormal_quit;
+        break;
+
+      case 'h':
+        goto abnormal_quit;
+        break;
+
+      case 'g':
+        (*gain) = strtol(optarg,&endp,10);
+        break;
+      
+      case 'b':
+        (*rf_in_use) = strtol(optarg,&endp,10);
+        break;
+
+      case 'd':
+        descriptor_raw = strdup(optarg);
+        break;
+
+      case 'i':
+        filename = strdup(optarg);
+        break;
+
+      case 's':
+        if (strlen(optarg)>=MAX_NUM_CHAR_CMD) {
+          fprintf(stderr,"Error: USRP argument string is too long. Should < %d!\n",MAX_NUM_CHAR_CMD);
+          goto abnormal_quit;
+        }
+        else
+          strcpy(arg_string,optarg);
+        break;
+
+      case '?':
+        /* getopt_long already printed an error message. */
+        goto abnormal_quit;
+        
+      default:
+        goto abnormal_quit;
+    }
+    
+  }
+
+  if ( (*rf_in_use)<0 || (*rf_in_use)>NOTVALID ) {
+    printf("Board type must be from %d, %d, %d, %d.!\n", HACKRF, BLADERF, USRP, NOTVALID);
+    goto abnormal_quit;
+  }
+
+  if (filename) free(filename);
+  if (descriptor_raw) free(descriptor_raw);
+  return;
+  
+abnormal_quit:
+  print_usage();
+  if (filename) free(filename);
+  if (descriptor_raw) free(descriptor_raw);
+  exit(-1);
+}
+
 int main(int argc, char** argv) {
-  int num_packet, i, j, num_items;
+  int num_packet, i, j, num_items, gain;
   int num_repeat = 0; // -1: inf; 0: 1; other: specific
+  void* rf_dev=NULL;
+  enum rf_type rf_in_use = NOTVALID;
+  char arg_string[MAX_NUM_CHAR_CMD];
+  char **descriptor = malloc_2d(MAX_NUM_PACKET+2, MAX_NUM_CHAR_CMD);
+ 
+  parse_commandline(argc, argv, &gain, &rf_in_use, arg_string, descriptor);
 
   if (argc < 2) {
-    usage();
+    print_usage();
     return(0);
   } else if ( (argc-1-1) > MAX_NUM_PACKET ){
     printf("Too many packets input! Maximum allowed is %d\n", MAX_NUM_PACKET);
   } else if (argc == 2 && ( strstr(argv[1], ".txt")!=NULL || strstr(argv[1], ".TXT")!=NULL) ) {  // from file
-    char **items = malloc_2d(MAX_NUM_PACKET+2, MAX_NUM_CHAR_CMD);
     if (items == NULL) {
       printf("malloc failed!\n");
       return(-1);
@@ -134,7 +237,7 @@ int main(int argc, char** argv) {
       release_2d(items, MAX_NUM_PACKET+2);
       return(-1);
     }
-    num_packet = parse_input(num_items, items, &num_repeat);
+    num_packet = parse_packet_seq(num_items, items, &num_repeat);
 
     release_2d(items, MAX_NUM_PACKET+2);
 
@@ -142,15 +245,16 @@ int main(int argc, char** argv) {
       return(-1);
     }
   } else { // from command line
-    num_packet = parse_input(argc, argv, &num_repeat);
+    num_packet = parse_packet_seq(argc, argv, &num_repeat);
     if ( num_repeat == -2 ){
       return(-1);
     }
   }
+
+  release_2d(descriptor, MAX_NUM_PACKET+2);
   printf("\n");
 
-  if ( init_board() == -1 )
-      return(-1);
+  probe_run_rf(&rf_dev, get_freq_by_channel_number(37), "", &gain, &rf_in_use);
 
   struct timeval time_tmp, time_current_pkt, time_pre_pkt;
   gettimeofday(&time_current_pkt, NULL);
@@ -159,7 +263,7 @@ int main(int argc, char** argv) {
       time_pre_pkt = time_current_pkt;
       gettimeofday(&time_current_pkt, NULL);
 
-      if ( tx_one_buf(packets[i].phy_sample, 2*packets[i].num_phy_sample, packets[i].channel_number) == -1 ){
+      if ( tx_one_buf_btle_ch(packets[i].phy_sample, 2*packets[i].num_phy_sample, packets[i].channel_number) == -1 ){
         close_board();
         goto main_out;
       }

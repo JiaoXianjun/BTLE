@@ -79,7 +79,7 @@ void parse_commandline(
   uint32_t* access_mask, 
   int* hop_flag,
   enum rf_type *rf_in_use,
-  char **arg_string
+  char *arg_string
 ) {
   printf("BLE sniffer. Xianjun Jiao. putaoshu@msn.com\n\n");
   
@@ -104,7 +104,7 @@ void parse_commandline(
 
   (*rf_in_use) = NOTVALID;
 
-  (*arg_string) = strdup("");; // need to be freed outside this function!!!
+  strcpy(arg_string,"");
 
   while (1) {
     static struct option long_options[] = {
@@ -185,7 +185,12 @@ void parse_commandline(
         break;
 
       case 's':
-        (*arg_string) = strdup(optarg);
+        if (strlen(optarg)>=MAX_NUM_CHAR_CMD) {
+          fprintf(stderr,"Error: USRP argument string is too long. Should < %d!\n",MAX_NUM_CHAR_CMD);
+          goto abnormal_quit;
+        }
+        else
+          strcpy(arg_string,optarg);
         break;
 
       case '?':
@@ -199,7 +204,7 @@ void parse_commandline(
   }
 
   if ( (*chan)<0 || (*chan)>MAX_CHANNEL_NUMBER ) {
-    printf("channel number must be within 0~%d!\n", MAX_CHANNEL_NUMBER);
+    fprintf(stderr,"Error: Channel number must be within 0~%d!\n", MAX_CHANNEL_NUMBER);
     goto abnormal_quit;
   }
   
@@ -210,15 +215,18 @@ void parse_commandline(
 //  }
   
   if ( (*rf_in_use)<0 || (*rf_in_use)>NOTVALID ) {
-    printf("Board type must be from %d, %d, %d, %d.!\n", HACKRF, BLADERF, USRP, NOTVALID);
+    fprintf(stderr,"Error: Board type must be from %d, %d, %d, %d.!\n", HACKRF, BLADERF, USRP, NOTVALID);
     goto abnormal_quit;
   }
 
   // Error if extra arguments are found on the command line
   if (optind < argc) {
-    printf("Error: unknown/extra arguments specified on command line!\n");
+    fprintf(stderr,"Error: Unknown/extra arguments specified on command line!\n");
     goto abnormal_quit;
   }
+
+  if ( (*freq_hz) == 123)
+    (*freq_hz) = get_freq_by_channel_number((*chan));
 
   return;
   
@@ -235,12 +243,10 @@ int main(int argc, char** argv) {
   void* rf_dev=NULL;
   IQ_TYPE *rxp;
   enum rf_type rf_in_use = NOTVALID;
-  char *arg_string;
+  char arg_string[MAX_NUM_CHAR_CMD];
 
-  parse_commandline(argc, argv, &chan, &gain, &access_addr, &crc_init, &verbose_flag, &raw_flag, &freq_hz, &access_addr_mask, &hop_flag, &rf_in_use, &arg_string);
+  parse_commandline(argc, argv, &chan, &gain, &access_addr, &crc_init, &verbose_flag, &raw_flag, &freq_hz, &access_addr_mask, &hop_flag, &rf_in_use, arg_string);
   //printf("arg string %d\n", arg_string);
-  if (freq_hz == 123)
-    freq_hz = get_freq_by_channel_number(chan);
 
   probe_run_rf(&rf_dev, freq_hz, arg_string, &gain, &rf_in_use);
   printf("Cmd line input: chan %d, freq %ldMHz, access addr %08x, crc init %06x raw %d verbose %d rx %ddB RF %d\n", chan, freq_hz/1000000, access_addr, crc_init, raw_flag, verbose_flag, gain, rf_in_use);
@@ -303,7 +309,6 @@ int main(int argc, char** argv) {
 program_quit:
   fprintf(stderr,"Exit main loop ...\n");
   stop_close_rf(rf_dev);
-  free(arg_string);
   
   return(0);
 }

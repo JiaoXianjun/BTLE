@@ -11,6 +11,7 @@
 
 enum rf_type {HACKRF=0, BLADERF=1, USRP=2, NOTVALID=3}; 
 
-int rf_tune(void *dev, uint64_t freq_hz);
+int rf_tune_rx(void *dev, uint64_t freq_hz);
+int rf_tune_tx(void *dev, uint64_t freq_hz);
 void stop_close_rf(void *dev);
 void probe_run_rf(void **rf_dev, uint64_t freq_hz, char *arg_string, int *gain, enum rf_type* rf_in_use);

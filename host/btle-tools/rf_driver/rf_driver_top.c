@@ -24,7 +24,12 @@ extern volatile bool do_exit;
 
 pthread_mutex_t callback_lock;
 
-int (*rf_tune_internal)(void *dev, uint64_t freq_hz);
+uint64_t freq_hz_tx_driver_internal = 0;
+uint64_t freq_hz_rx_driver_internal = 0;
+
+int (*tx_one_buf_internal)(void *dev, char *buf, int length);
+int (*rf_tune_rx_internal)(void *dev, uint64_t freq_hz);
+int (*rf_tune_tx_internal)(void *dev, uint64_t freq_hz);
 void (*stop_close_rf_internal)(void *dev);
 
 void sigint_callback_handler(int signum)
@@ -34,8 +39,43 @@ void sigint_callback_handler(int signum)
 //  exit(1);
 }
 
-int rf_tune(void *dev, uint64_t freq_hz){
-  return( (*rf_tune_internal)(dev, freq_hz) );
+int rf_tune_rx_direct(void *dev, uint64_t freq_hz){
+  freq_hz_rx_driver_internal = freq_hz;
+  return( (*rf_tune_rx_internal)(dev, freq_hz_rx_driver_internal) );
+}
+
+int rf_tune_rx(void *dev, uint64_t freq_hz){
+  if (freq_hz!=freq_hz_rx_driver_internal) {
+    freq_hz_rx_driver_internal = freq_hz;
+  } else
+    return(0);
+
+  return( (*rf_tune_rx_internal)(dev, freq_hz_rx_driver_internal) );
+}
+
+int rf_tune_tx_direct(void *dev, uint64_t freq_hz){
+  freq_hz_tx_driver_internal = freq_hz;
+  return( (*rf_tune_tx_internal)(dev, freq_hz_tx_driver_internal) );
+}
+
+int rf_tune_tx(void *dev, uint64_t freq_hz){
+  if (freq_hz!=freq_hz_tx_driver_internal) {
+    freq_hz_tx_driver_internal = freq_hz;
+  } else
+    return(0);
+    
+  return( (*rf_tune_tx_internal)(dev, freq_hz_tx_driver_internal) );
+}
+
+int tx_one_buf_direct(void *dev, char *buf, int length) {
+  return( (*tx_one_buf_internal)(dev, buf, length) );
+}
+
+int tx_one_buf_freq(void *dev, uint64_t freq_hz, char *buf, int length) {
+  if (rf_tune_tx(dev, freq_hz) != 0)
+    return(-1);
+
+  return( (*tx_one_buf_internal)(dev, buf,length) );
 }
 
 void stop_close_rf(void *dev){
@@ -89,7 +129,6 @@ void probe_run_rf(void **rf_dev, uint64_t freq_hz, char *arg_string, int *gain, 
           //exit(1);
           printf("probe_run_rf: No RF board is detected!\n");
           usrp_stop_close_board(*rf_dev);
-          if (arg_string) free(arg_string);
           exit(-1);
         } else {
           (*rf_in_use) = USRP;
@@ -138,7 +177,6 @@ void probe_run_rf(void **rf_dev, uint64_t freq_hz, char *arg_string, int *gain, 
       else
         gain_tmp = (*gain);
       if ( usrp_config_run_board(freq_hz, arg_string, gain_tmp, rf_dev) ){
-        if (arg_string) free(arg_string);
         usrp_stop_close_board(*rf_dev);
         printf("probe_run_rf: No USRP board is detected!\n");
         exit(-1);
@@ -148,15 +186,21 @@ void probe_run_rf(void **rf_dev, uint64_t freq_hz, char *arg_string, int *gain, 
   }
   
   if ((*rf_in_use) == HACKRF) {
-    rf_tune_internal = hackrf_tune;
+    rf_tune_rx_internal = hackrf_tune;
+    rf_tune_tx_internal = hackrf_tune;
+    tx_one_buf_internal = hackrf_tx_one_buf;
     stop_close_rf_internal = hackrf_stop_close_board;
     printf("rf_in_use == HACKRF\n");
   } else if ((*rf_in_use) == BLADERF) {
-    rf_tune_internal = bladerf_tune;
+    rf_tune_rx_internal = bladerf_tune_rx;
+    rf_tune_tx_internal = bladerf_tune_tx;
+    tx_one_buf_internal = bladerf_tx_one_buf;
     stop_close_rf_internal = bladerf_stop_close_board;
     printf("rf_in_use == BLADERF\n");
   } else if ((*rf_in_use) == USRP) {
-    rf_tune_internal = usrp_tune;
+    rf_tune_rx_internal = usrp_tune_rx;
+    rf_tune_tx_internal = usrp_tune_tx;
+    tx_one_buf_internal = usrp_tx_one_buf;
     stop_close_rf_internal = usrp_stop_close_board;
     printf("rf_in_use == USRP\n");
   } 

@@ -98,14 +98,29 @@ void usrp_stop_close_board(void *dev){
 
 }
 
-int usrp_tune(void *dev, uint64_t freq_hz) {
+int usrp_tune_rx(void *dev, uint64_t freq_hz) {
   int status;
 
   usrp_tune_request.target_freq = freq_hz;
   status = uhd_usrp_set_rx_freq((uhd_usrp_handle)dev, &usrp_tune_request, 0, &usrp_tune_result);
   if (status) {
     uhd_usrp_last_error((uhd_usrp_handle)dev, usrp_error_string, 512);
-    fprintf(stderr, "usrp_tune: USRP reported the following error: %s\n", usrp_error_string);
+    fprintf(stderr, "usrp_tune_rx: USRP reported the following error: %s\n", usrp_error_string);
+    usrp_stop_close_board(dev);
+    return EXIT_FAILURE;
+  }
+
+  return(0);
+}
+
+int usrp_tune_tx(void *dev, uint64_t freq_hz) {
+  int status;
+
+  usrp_tune_request.target_freq = freq_hz;
+  status = uhd_usrp_set_tx_freq((uhd_usrp_handle)dev, &usrp_tune_request, 0, &usrp_tune_result);
+  if (status) {
+    uhd_usrp_last_error((uhd_usrp_handle)dev, usrp_error_string, 512);
+    fprintf(stderr, "usrp_tune_tx: USRP reported the following error: %s\n", usrp_error_string);
     usrp_stop_close_board(dev);
     return EXIT_FAILURE;
   }
