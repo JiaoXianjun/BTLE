@@ -267,28 +267,32 @@ void save_phy_sample_for_matlab(char *IQ_sample, int num_IQ_sample, char *filena
   fclose(fp);
 }
 
-int read_items_from_file(int *num_items, char **items_buf, int num_row, char *filename){
-
-  FILE *fp = fopen(filename, "r");
-
-  char file_line[MAX_NUM_CHAR_CMD*2];
-
-  if (fp == NULL) {
-    printf("fopen failed!\n");
-    return(-1);
-  }
+int read_items_from_file(char *filename, int num_row, int num_col, int *num_items, char **items_buf){
 
   int num_lines = 0;
   char *p = (char *)12345;
+  char *file_line;
+  FILE *fp;
+  
+  fp = fopen(filename, "r");
+  if (fp == NULL) {
+    fprintf(stderr, "read_items_from_file: fopen failed!\n");
+    goto abnormal_quit;
+  }
+
+  file_line = malloc(num_col*2);
+  if (file_line==NULL) {
+    fprintf(stderr, "read_items_from_file: malloc failed!\n");
+    goto abnormal_quit;
+  }
 
   while( 1 ) {
-    memset(file_line, 0, MAX_NUM_CHAR_CMD*2);
-    p = fgets(file_line,  (MAX_NUM_CHAR_CMD*2), fp );
+    memset(file_line, 0, num_col*2);
+    p = fgets(file_line,  (num_col*2), fp );
 
-    if ( file_line[(MAX_NUM_CHAR_CMD*2)-1] != 0 ) {
-      printf("A line is too long!\n");
-      fclose(fp);
-      return(-1);
+    if ( file_line[(num_col*2)-1] != 0 ) {
+      fprintf(stderr, "read_items_from_file: Line %d is too long!\n", num_lines);
+      goto abnormal_quit;
     }
 
     if ( p==NULL ) {
@@ -297,20 +301,19 @@ int read_items_from_file(int *num_items, char **items_buf, int num_row, char *fi
 
     if (file_line[0] != '#') {
       if ( (file_line[0] >= 48 && file_line[0] <= 57) || file_line[0] ==114 || file_line[0] == 82 ) { // valid line
-        if (strlen(file_line) >= MAX_NUM_CHAR_CMD) {
-          printf("A line is too long!\n");
-          fclose(fp);
-          return(-1);
+        if (strlen(file_line) >= num_col) {
+          fprintf(stderr, "read_items_from_file: Line %d is too long!\n", num_lines);
+          goto abnormal_quit;
         } else {
 
-          if (num_lines == (num_row-1) ) {
-            printf("Too many lines!\n");
-            fclose(fp);
-            return(-1);
+          strcpy(items_buf[num_lines], file_line);
+          num_lines++;
+
+          if (num_lines >= num_row ) {
+            fprintf(stderr, "read_items_from_file: Reach %d lines!\n", num_lines);
+            break;
           }
 
-          strcpy(items_buf[num_lines + 1], file_line);
-          num_lines++;
         }
       }
     }
@@ -320,11 +323,17 @@ int read_items_from_file(int *num_items, char **items_buf, int num_row, char *fi
     }
   }
 
-  fclose(fp);
 
-  (*num_items) = num_lines + 1;
-
+  (*num_items) = num_lines;
+  if(fp) fclose(fp);
+  if(file_line) free(file_line);
   return(0);
+
+abnormal_quit:
+  (*num_items) = 0;
+  if(fp) fclose(fp);
+  if(file_line) free(file_line);
+  return(-1);
 }
 
 char ** malloc_2d(int num_row, int num_col) {
@@ -913,7 +922,7 @@ int get_num_repeat(char *input_str, int *repeat_specific){
   return(num_repeat);
 }
 
-int get_word(char *base, char **target, int max_num_word, int max_len_word)
+int get_word(char *base, int max_num_word, int max_len_word, int *num_item, char **target)
 {
   char *token;
   int i = 0;
@@ -926,8 +935,12 @@ int get_word(char *base, char **target, int max_num_word, int max_len_word)
       i++;
       if (i>=max_num_word) {
         fprintf(stderr, "get_word: Warning! reach %d words!\n", i);
+        break;
       }
     }
   }
+
+  (*num_item) = i;
+
   return(0);
 }

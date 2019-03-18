@@ -299,15 +299,15 @@ int main(int argc, char** argv) {
       
       if (hop_flag){
         if ( receiver_controller(rf_dev, verbose_flag, &chan, &access_addr, &crc_init_internal) != 0 )
-          goto program_quit;
+          goto main_out;
       }
       
       run_flag = false;
     }
   }
 
-program_quit:
-  fprintf(stderr,"Exit main loop ...\n");
+main_out:
+  fprintf(stderr,"Exit ...\n");
   stop_close_rf(rf_dev);
   
   return(0);

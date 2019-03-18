@@ -72,9 +72,9 @@ int parse_packet_seq(int num_input, char** argv, int *num_repeat_return){
 
   int num_packet = 0;
   if (repeat_specific == 1){
-    num_packet = num_input - 2;
-  } else {
     num_packet = num_input - 1;
+  } else {
+    num_packet = num_input - 0;
   }
 
   printf("num_repeat %d\n", num_repeat);
@@ -85,14 +85,14 @@ int parse_packet_seq(int num_input, char** argv, int *num_repeat_return){
   int i;
   for (i=0; i<num_packet; i++) {
 
-    if (strlen(argv[1+i]) >= MAX_NUM_CHAR_CMD) {
-      printf("Too long packet descriptor of packet %d! Maximum allowed are %d characters\n", i, MAX_NUM_CHAR_CMD-1);
+    if (strlen(argv[i]) >= MAX_NUM_CHAR_CMD) {
+      fprintf(stderr, "parse_packet_seq: Too long packet descriptor of packet %d! Maximum allowed are %d characters\n", i, MAX_NUM_CHAR_CMD-1);
       return(-2);
     }
-    strcpy(packets[i].cmd_str, argv[1+i]);
+    strcpy(packets[i].cmd_str, argv[i]);
     printf("\npacket %d\n", i);
     if (calculate_pkt_info( &(packets[i]) ) == -1){
-      printf("failed!\n");
+      fprintf(stderr, "parse_packet_seq: calculate_pkt_info failed!\n");
       return(-2);
     }
     printf("INFO bit:"); disp_bit_in_hex(packets[i].info_bit, packets[i].num_info_bit);
@@ -108,7 +108,7 @@ int parse_packet_seq(int num_input, char** argv, int *num_repeat_return){
   return(num_packet);
 }
 
-void parse_commandline(
+int parse_commandline(
   // Inputs
   int argc,
   char * const argv[],
@@ -116,6 +116,7 @@ void parse_commandline(
   int* gain,
   enum rf_type *rf_in_use,
   char *arg_string,
+  int *num_item,
   char **descriptor
 ) {
   char *filename=NULL;
@@ -197,64 +198,56 @@ void parse_commandline(
   }
 
   if ( (*rf_in_use)<0 || (*rf_in_use)>NOTVALID ) {
-    printf("Board type must be from %d, %d, %d, %d.!\n", HACKRF, BLADERF, USRP, NOTVALID);
+    fprintf(stderr,"Board type must be from %d, %d, %d, %d.!\n", HACKRF, BLADERF, USRP, NOTVALID);
+    goto abnormal_quit;
+  }
+
+  if (descriptor_raw) {//if user input a string
+    if (get_word(descriptor_raw, MAX_NUM_PACKET, MAX_NUM_CHAR_CMD, num_item, descriptor))
+      goto abnormal_quit;
+  } else if (filename) {//if user specify a file
+    if ( read_items_from_file(filename, MAX_NUM_PACKET, MAX_NUM_CHAR_CMD, num_item, descriptor) )
+      goto abnormal_quit;
+  } else {
+    fprintf(stderr,"Please specify packet descriptor string or a description file!\n");
     goto abnormal_quit;
   }
 
   if (filename) free(filename);
   if (descriptor_raw) free(descriptor_raw);
-  return;
+  return(0);
   
 abnormal_quit:
   print_usage();
   if (filename) free(filename);
   if (descriptor_raw) free(descriptor_raw);
-  exit(-1);
+  return(-1);
 }
 
 int main(int argc, char** argv) {
-  int num_packet, i, j, num_items, gain;
+  int num_packet, num_item, i, j, num_items, gain;
   int num_repeat = 0; // -1: inf; 0: 1; other: specific
   void* rf_dev=NULL;
   enum rf_type rf_in_use = NOTVALID;
   char arg_string[MAX_NUM_CHAR_CMD];
-  char **descriptor = malloc_2d(MAX_NUM_PACKET+2, MAX_NUM_CHAR_CMD);
+  char **descriptor = malloc_2d(MAX_NUM_PACKET, MAX_NUM_CHAR_CMD);
  
-  parse_commandline(argc, argv, &gain, &rf_in_use, arg_string, descriptor);
-
-  if (argc < 2) {
-    print_usage();
-    return(0);
-  } else if ( (argc-1-1) > MAX_NUM_PACKET ){
-    printf("Too many packets input! Maximum allowed is %d\n", MAX_NUM_PACKET);
-  } else if (argc == 2 && ( strstr(argv[1], ".txt")!=NULL || strstr(argv[1], ".TXT")!=NULL) ) {  // from file
-    if (items == NULL) {
-      printf("malloc failed!\n");
-      return(-1);
-    }
-
-    if ( read_items_from_file(&num_items, items, MAX_NUM_PACKET+2, argv[1]) == -1 ) {
-      release_2d(items, MAX_NUM_PACKET+2);
-      return(-1);
-    }
-    num_packet = parse_packet_seq(num_items, items, &num_repeat);
-
-    release_2d(items, MAX_NUM_PACKET+2);
-
-    if ( num_repeat == -2 ){
-      return(-1);
-    }
-  } else { // from command line
-    num_packet = parse_packet_seq(argc, argv, &num_repeat);
-    if ( num_repeat == -2 ){
-      return(-1);
-    }
+  if (descriptor==NULL) {
+    fprintf(stderr, "malloc_2d failed!\n");
+    exit(-1);
   }
 
-  release_2d(descriptor, MAX_NUM_PACKET+2);
+  if ( parse_commandline(argc, argv, &gain, &rf_in_use, arg_string, &num_item, descriptor) )
+    goto main_out;
+
+  num_packet = parse_packet_seq(num_item, descriptor, &num_repeat);
+  if ( num_repeat == -2 )
+    goto main_out;
+
+  release_2d(descriptor, MAX_NUM_PACKET);
   printf("\n");
 
-  probe_run_rf(&rf_dev, get_freq_by_channel_number(37), "", &gain, &rf_in_use);
+  probe_run_rf(&rf_dev, get_freq_by_channel_number(37), arg_string, &gain, &rf_in_use);
 
   struct timeval time_tmp, time_current_pkt, time_pre_pkt;
   gettimeofday(&time_current_pkt, NULL);
@@ -279,8 +272,8 @@ int main(int argc, char** argv) {
   printf("\n");
 
 main_out:
-  exit_board();
-	printf("exit\n");
-
+  fprintf(stderr,"Exit ...\n");
+  if (descriptor) release_2d(descriptor, MAX_NUM_PACKET);
+  stop_close_rf(rf_dev);
 	return(0);
 }

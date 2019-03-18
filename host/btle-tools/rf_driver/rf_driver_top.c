@@ -79,7 +79,8 @@ int tx_one_buf_freq(void *dev, uint64_t freq_hz, char *buf, int length) {
 }
 
 void stop_close_rf(void *dev){
-  (*stop_close_rf_internal)(dev);
+  if (dev)
+    (*stop_close_rf_internal)(dev);
 }
 
 void probe_run_rf(void **rf_dev, uint64_t freq_hz, char *arg_string, int *gain, enum rf_type* rf_in_use) {
