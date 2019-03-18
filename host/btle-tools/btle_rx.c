@@ -298,7 +298,7 @@ int main(int argc, char** argv) {
       // -----------------------------real online run--------------------------------
       
       if (hop_flag){
-        if ( receiver_controller(rf_dev, verbose_flag, &chan, &access_addr, &crc_init_internal) != 0 )
+        if ( receiver_controller(rf_dev, verbose_flag, &chan, &access_addr, &crc_init_internal) )
           goto main_out;
       }
       

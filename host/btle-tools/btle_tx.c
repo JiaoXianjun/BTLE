@@ -256,10 +256,8 @@ int main(int argc, char** argv) {
       time_pre_pkt = time_current_pkt;
       gettimeofday(&time_current_pkt, NULL);
 
-      if ( tx_one_buf_btle_ch(packets[i].phy_sample, 2*packets[i].num_phy_sample, packets[i].channel_number) == -1 ){
-        close_board();
+      if ( tx_one_buf_btle_ch(rf_dev, packets[i].channel_number, packets[i].phy_sample, 2*packets[i].num_phy_sample) )
         goto main_out;
-      }
 
       printf("r%d p%d at %dus\n", j, i,  TimevalDiff(&time_current_pkt, &time_pre_pkt) );
 
