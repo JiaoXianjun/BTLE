@@ -30,7 +30,7 @@ uint64_t freq_hz_rx_driver_internal = 0;
 int (*tx_one_buf_internal)(void *dev, char *buf, int length);
 int (*rf_tune_rx_internal)(void *dev, uint64_t freq_hz);
 int (*rf_tune_tx_internal)(void *dev, uint64_t freq_hz);
-void (*stop_close_rf_internal)(void *dev);
+void (*stop_close_rf_internal)(void *dev, bool trx_flag);
 
 void sigint_callback_handler(int signum)
 {
@@ -83,7 +83,7 @@ void stop_close_rf(void *dev){
     (*stop_close_rf_internal)(dev);
 }
 
-void probe_run_rf(void **rf_dev, uint64_t freq_hz, char *arg_string, int *gain, enum rf_type* rf_in_use) {
+void probe_run_rf(void **rf_dev, uint64_t freq_hz, char *arg_string, int *gain, enum rf_type* rf_in_use, bool trx_flag) {
   // check board and run cyclic recv in background
   int gain_tmp;
   pthread_mutex_init(&callback_lock, NULL);
@@ -110,26 +110,26 @@ void probe_run_rf(void **rf_dev, uint64_t freq_hz, char *arg_string, int *gain, 
       gain_tmp = HACKRF_DEFAULT_GAIN;
     else
       gain_tmp = (*gain);
-    if ( hackrf_config_run_board(freq_hz, gain_tmp, rf_dev) ){
+    if ( hackrf_config_run_board(freq_hz, gain_tmp, rf_dev, trx_flag) ){
       //printf("hhhhh%d\n",*rf_dev);
       //exit(1);
-      hackrf_stop_close_board(*rf_dev);
+      hackrf_stop_close_board(*rf_dev, trx_flag);
 
       if ( (*gain)==-1 ) 
         gain_tmp = BLADERF_DEFAULT_GAIN;
       else
         gain_tmp = (*gain);
-      if ( bladerf_config_run_board(freq_hz, gain_tmp, rf_dev) ){
-        bladerf_stop_close_board(*rf_dev);
+      if ( bladerf_config_run_board(freq_hz, gain_tmp, rf_dev, trx_flag) ){
+        bladerf_stop_close_board(*rf_dev, trx_flag);
 
         if ( (*gain)==-1 ) 
           gain_tmp = USRP_DEFAULT_GAIN;
         else
           gain_tmp = (*gain);
-        if ( usrp_config_run_board(freq_hz, arg_string, gain_tmp, rf_dev) ){
+        if ( usrp_config_run_board(freq_hz, arg_string, gain_tmp, rf_dev, trx_flag) ){
           //exit(1);
           printf("probe_run_rf: No RF board is detected!\n");
-          usrp_stop_close_board(*rf_dev);
+          usrp_stop_close_board(*rf_dev, trx_flag);
           exit(-1);
         } else {
           (*rf_in_use) = USRP;
@@ -151,8 +151,8 @@ void probe_run_rf(void **rf_dev, uint64_t freq_hz, char *arg_string, int *gain, 
         gain_tmp = HACKRF_DEFAULT_GAIN;
       else
         gain_tmp = (*gain);
-      if ( hackrf_config_run_board(freq_hz, gain_tmp, rf_dev) ){
-        hackrf_stop_close_board(*rf_dev);
+      if ( hackrf_config_run_board(freq_hz, gain_tmp, rf_dev, trx_flag) ){
+        hackrf_stop_close_board(*rf_dev, trx_flag);
         printf("probe_run_rf: No HackRF board is detected!\n");
         exit(-1);
       } else 
@@ -164,8 +164,8 @@ void probe_run_rf(void **rf_dev, uint64_t freq_hz, char *arg_string, int *gain, 
         gain_tmp = BLADERF_DEFAULT_GAIN;
       else
         gain_tmp = (*gain);
-      if ( bladerf_config_run_board(freq_hz, gain_tmp, rf_dev) ){
-        bladerf_stop_close_board(*rf_dev);
+      if ( bladerf_config_run_board(freq_hz, gain_tmp, rf_dev, trx_flag) ){
+        bladerf_stop_close_board(*rf_dev, trx_flag);
         printf("probe_run_rf: No bladeRF board is detected!\n");
         exit(-1);
       } else 
@@ -177,8 +177,8 @@ void probe_run_rf(void **rf_dev, uint64_t freq_hz, char *arg_string, int *gain, 
         gain_tmp = USRP_DEFAULT_GAIN;
       else
         gain_tmp = (*gain);
-      if ( usrp_config_run_board(freq_hz, arg_string, gain_tmp, rf_dev) ){
-        usrp_stop_close_board(*rf_dev);
+      if ( usrp_config_run_board(freq_hz, arg_string, gain_tmp, rf_dev, trx_flag) ){
+        usrp_stop_close_board(*rf_dev, trx_flag);
         printf("probe_run_rf: No USRP board is detected!\n");
         exit(-1);
       } else

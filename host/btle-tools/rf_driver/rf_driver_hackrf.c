@@ -32,21 +32,22 @@ extern void sigint_callback_handler(int signum);
 
 //---------------------for TX---------------------------
 
-volatile int stop_tx = 1;
-volatile int tx_len;
+volatile int hackrf_stop_tx = 1;
+volatile int hackrf_tx_len;
+volatile void *hackrf_tx_len;
 
 int hackrf_tx_callback(hackrf_transfer* transfer) {
   int size_left;
-  if (stop_tx == 0) {
+  if (hackrf_stop_tx == 0) {
     memset(transfer->buffer, 0, NUM_PRE_SEND_DATA);
-    memcpy(transfer->buffer+NUM_PRE_SEND_DATA, (char *)(tx_buf), tx_len);
+    memcpy(transfer->buffer+NUM_PRE_SEND_DATA, (char *)(hackrf_tx_len), hackrf_tx_len);
 
-    size_left = (transfer->valid_length - tx_len - NUM_PRE_SEND_DATA);
-    memset(transfer->buffer+NUM_PRE_SEND_DATA+tx_len, 0, size_left);
+    size_left = (transfer->valid_length - hackrf_tx_len - NUM_PRE_SEND_DATA);
+    memset(transfer->buffer+NUM_PRE_SEND_DATA+hackrf_tx_len, 0, size_left);
   } else {
     memset(transfer->buffer, 0, transfer->valid_length);
   }
-  stop_tx++;
+  hackrf_stop_tx++;
  
   return(0);
 }
@@ -66,6 +67,15 @@ int hackrf_rx_callback(hackrf_transfer* transfer) {
   return(0);
 }
 
+int hackrf_tune(void *device, uint64_t freq_hz) {
+  int result = hackrf_set_freq((hackrf_device*)device, freq_hz);
+  if( result != HACKRF_SUCCESS ) {
+    fprintf(stderr,"hackrf_tune: hackrf_set_freq() failed: %s (%d)\n", hackrf_error_name(result), result);
+    return(-1);
+  }
+  return(HACKRF_SUCCESS);
+}
+
 int hackrf_init_board() {
 	int result = hackrf_init();
 	if( result != HACKRF_SUCCESS ) {
@@ -75,15 +85,6 @@ int hackrf_init_board() {
 	}
 
   return(0);
-}
-
-int hackrf_tune(void *device, uint64_t freq_hz) {
-  int result = hackrf_set_freq((hackrf_device*)device, freq_hz);
-  if( result != HACKRF_SUCCESS ) {
-    fprintf(stderr,"hackrf_tune: hackrf_set_freq() failed: %s (%d)\n", hackrf_error_name(result), result);
-    return(-1);
-  }
-  return(HACKRF_SUCCESS);
 }
 
 inline int hackrf_open_board(uint64_t freq_hz, int gain, hackrf_device** device) {
@@ -128,6 +129,47 @@ inline int hackrf_open_board(uint64_t freq_hz, int gain, hackrf_device** device)
   return(0);
 }
 
+inline int hackrf_run_board(hackrf_device* device) {
+  int result;
+
+	result = hackrf_stop_rx(device);
+	if( result != HACKRF_SUCCESS ) {
+		printf("run_board: hackrf_stop_rx() failed: %s (%d)\n", hackrf_error_name(result), result);
+		return(-1);
+	}
+  
+  result = hackrf_start_rx(device, hackrf_rx_callback, NULL);
+  if( result != HACKRF_SUCCESS ) {
+    printf("run_board: hackrf_start_rx() failed: %s (%d)\n", hackrf_error_name(result), result);
+    return(-1);
+  }
+
+  return(0);
+}
+
+inline int hackrf_config_run_board(uint64_t freq_hz, int gain, void **rf_dev, bool trx_flag) {
+  hackrf_device *dev = NULL;
+  
+  (*rf_dev) = NULL;
+  
+  if (hackrf_init_board() != 0) {
+    return(-1);
+  }
+  
+  if ( hackrf_open_board(freq_hz, gain, &dev) != 0 ) {
+ //   (*rf_dev) = dev;
+    return(-1);
+  }
+
+//  (*rf_dev) = dev;
+  if ( hackrf_run_board(dev) != 0 ) {
+    return(-1);
+  }
+  
+  (*rf_dev) = dev;
+  return(0);
+}
+
 void hackrf_exit_board(hackrf_device *device) {
 	if(device != NULL)
 	{
@@ -160,48 +202,7 @@ inline int hackrf_close_board(hackrf_device *device) {
 	}
 }
 
-inline int hackrf_run_board(hackrf_device* device) {
-  int result;
-
-	result = hackrf_stop_rx(device);
-	if( result != HACKRF_SUCCESS ) {
-		printf("run_board: hackrf_stop_rx() failed: %s (%d)\n", hackrf_error_name(result), result);
-		return(-1);
-	}
-  
-  result = hackrf_start_rx(device, hackrf_rx_callback, NULL);
-  if( result != HACKRF_SUCCESS ) {
-    printf("run_board: hackrf_start_rx() failed: %s (%d)\n", hackrf_error_name(result), result);
-    return(-1);
-  }
-
-  return(0);
-}
-
-inline int hackrf_config_run_board(uint64_t freq_hz, int gain, void **rf_dev) {
-  hackrf_device *dev = NULL;
-  
-  (*rf_dev) = NULL;
-  
-  if (hackrf_init_board() != 0) {
-    return(-1);
-  }
-  
-  if ( hackrf_open_board(freq_hz, gain, &dev) != 0 ) {
- //   (*rf_dev) = dev;
-    return(-1);
-  }
-
-//  (*rf_dev) = dev;
-  if ( hackrf_run_board(dev) != 0 ) {
-    return(-1);
-  }
-  
-  (*rf_dev) = dev;
-  return(0);
-}
-
-void hackrf_stop_close_board(void* device){
+void hackrf_stop_close_board(void* device, bool trx_flag){
   //printf("afdafdsa%d\n",device);
   if (device==NULL)
     return;
@@ -218,8 +219,8 @@ void hackrf_stop_close_board(void* device){
 inline int hackrf_tx_one_buf(void *dev, char *buf, int length) {
   int result;
 
-  tx_buf = buf;
-  tx_len = length;
+  hackrf_tx_len = buf;
+  hackrf_tx_len = length;
 
   // open the board-----------------------------------------
   if (open_board() == -1) {
@@ -228,9 +229,9 @@ inline int hackrf_tx_one_buf(void *dev, char *buf, int length) {
   }
 
   // first round TX---------------------------------
-  stop_tx = 0;
+  hackrf_stop_tx = 0;
 
-  result = hackrf_start_tx(device, tx_callback, NULL);
+  result = hackrf_start_tx(device, hackrf_tx_callback, NULL);
   if( result != HACKRF_SUCCESS ) {
     printf("tx_one_buf: hackrf_start_tx() failed: %s (%d)\n", hackrf_error_name(result), result);
     return(-1);
@@ -239,7 +240,7 @@ inline int hackrf_tx_one_buf(void *dev, char *buf, int length) {
   while( (hackrf_is_streaming(device) == HACKRF_TRUE) &&
       (do_exit == false) )
   {
-    if (stop_tx>=9) {
+    if (hackrf_stop_tx>=9) {
       break;
     }
   }

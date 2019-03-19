@@ -46,7 +46,6 @@
 #include "btle_lib.h"
 
 volatile bool do_exit = false;
-volatile void *tx_buf; // for bladerf should be int16_t tx_buf[NUM_BLADERF_BUF_SAMPLE*2]; for harckrf should be char *
 PKT_INFO packets[MAX_NUM_PACKET];
 
 static void print_usage() {

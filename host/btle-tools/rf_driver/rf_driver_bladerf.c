@@ -115,7 +115,7 @@ void *bladerf_rx_task_run(void *tmp)
   return NULL;
 }
 
-inline int bladerf_config_run_board(uint64_t freq_hz, int gain, void **rf_dev) {
+inline int bladerf_config_run_board(uint64_t freq_hz, int gain, void **rf_dev, bool trx_flag) {
   int status;
   unsigned int actual;
   struct bladerf *dev = NULL;
@@ -250,31 +250,31 @@ inline int bladerf_config_run_board(uint64_t freq_hz, int gain, void **rf_dev) {
   return(0);
 }
 
-void bladerf_stop_close_board(void *dev){
+void bladerf_stop_close_board(void *dev, bool trx_flag){
   int status;
 
-  fprintf(stderr, "bladerf_stop_close_board...\n");
+  fprintf(stderr, "bladerf_stop_rx_close_board...\n");
   
   pthread_join(bladerf_rx_task, NULL);
   //pthread_cancel(async_task.rx_task);
-  printf("bladerf_stop_close_board: bladeRF rx thread quit.\n");
+  printf("bladerf_stop_rx_close_board: bladeRF rx thread quit.\n");
 
   if (dev==NULL)
     return;
 
   bladerf_deinit_stream(bladerf_rx_stream);
-  printf("bladerf_deinit_stream.\n");
+  printf("bladerf_stop_rx_close_board: bladerf_deinit_stream.\n");
 
   status = bladerf_enable_module((struct bladerf *)dev, BLADERF_MODULE_RX, false);
   if (status < 0) {
-      fprintf(stderr, "Failed to enable module: %s\n",
+      fprintf(stderr, "bladerf_stop_rx_close_board: Failed to enable module: %s\n",
               bladerf_strerror(status));
   } else {
-    fprintf(stdout, "enable module false: %s\n", bladerf_strerror(status));
+    fprintf(stdout, "bladerf_stop_rx_close_board: enable module false: %s\n", bladerf_strerror(status));
   }
 
   bladerf_close((struct bladerf *)dev);
-  printf("bladerf_close.\n");
+  printf("bladerf_stop_rx_close_board: bladerf_close.\n");
 }
 
 //------------------------------FROM TX----------------------

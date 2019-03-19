@@ -73,7 +73,7 @@ void *usrp_rx_task_run(void *tmp)
   return(NULL);
 }
 
-void usrp_stop_close_board(void *dev){
+void usrp_stop_close_board(void *dev, bool trx_flag){
   fprintf(stderr, "usrp_stop_close_board...\n");
   
   pthread_join(usrp_rx_task, NULL);
@@ -95,7 +95,6 @@ void usrp_stop_close_board(void *dev){
   fprintf(stderr, "usrp_stop_close_board: USRP reported the following error: %s\n", usrp_error_string);
 
   uhd_usrp_free((struct uhd_usrp **)(&dev));
-
 }
 
 int usrp_tune_rx(void *dev, uint64_t freq_hz) {
@@ -128,7 +127,7 @@ int usrp_tune_tx(void *dev, uint64_t freq_hz) {
   return(0);
 }
 
-inline int usrp_config_run_board(uint64_t freq_hz, char *device_args, int gain_input, void **rf_dev) {
+inline int usrp_config_run_board(uint64_t freq_hz, char *device_args, int gain_input, void **rf_dev, bool trx_flag) {
   uhd_usrp_handle usrp = NULL;
   size_t channel = 0;
   double rate = (double)SAMPLE_PER_SYMBOL*(double)1000000ul;
