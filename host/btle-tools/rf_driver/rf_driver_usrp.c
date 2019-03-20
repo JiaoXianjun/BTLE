@@ -127,7 +127,7 @@ int usrp_tune_tx(void *dev, uint64_t freq_hz) {
   return(0);
 }
 
-inline int usrp_config_run_board(uint64_t freq_hz, char *device_args, int gain_input, void **rf_dev, bool trx_flag) {
+inline int usrp_config_run_board(uint64_t freq_hz, int gain, int sampl_rate, int bw, int trx_flag, void **rf_dev) {
   uhd_usrp_handle usrp = NULL;
   size_t channel = 0;
   double rate = (double)SAMPLE_PER_SYMBOL*(double)1000000ul;

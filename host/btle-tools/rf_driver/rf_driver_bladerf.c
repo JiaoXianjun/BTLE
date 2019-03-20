@@ -115,7 +115,7 @@ void *bladerf_rx_task_run(void *tmp)
   return NULL;
 }
 
-inline int bladerf_config_run_board(uint64_t freq_hz, int gain, void **rf_dev, bool trx_flag) {
+inline int bladerf_config_run_board(uint64_t freq_hz, int gain, int sampl_rate, int bw, int trx_flag, void **rf_dev) {
   int status;
   unsigned int actual;
   struct bladerf *dev = NULL;
