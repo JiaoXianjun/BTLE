@@ -9,7 +9,7 @@
 
 #define MAX_NUM_PACKET (128)
 
-#define NUM_BLADERF_BUF_SAMPLE_TX 4096
+#define NUM_BLADERF_BUF_SAMPLE_TX (4096)
 
 #define HACKRF_ONBOARD_BUF_SIZE_TX (32768) // in usb_bulk_buffer.h
 #define HACKRF_USB_BUF_SIZE_TX (4096) // in hackrf.c lib_device->buffer_size

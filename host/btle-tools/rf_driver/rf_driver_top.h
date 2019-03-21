@@ -11,6 +11,20 @@
 
 enum rf_type {HACKRF=0, BLADERF=1, USRP=2, NOTVALID=3}; 
 
+struct unit_trx_cfg {
+    uint64_t freq_hz;
+    int gain;
+    int sampl_rate;
+    int bw;
+};
+
+struct transceiver_cfg {
+    struct unit_trx_cfg tx;
+    struct unit_trx_cfg rx;
+    bool tx_en;
+    bool rx_en;
+};
+
 int rf_tune_rx(void *dev, uint64_t freq_hz);
 int rf_tune_tx(void *dev, uint64_t freq_hz);
 void stop_close_rf(void *dev, int trx_flag);

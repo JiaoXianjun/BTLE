@@ -25,12 +25,13 @@ extern pthread_mutex_t callback_lock;
 extern volatile IQ_TYPE rx_buf[];
 extern volatile int rx_buf_offset; // remember to initialize it!
 extern volatile bool do_exit;
+extern void sigint_callback_handler(int signum);
 
 struct bladerf_stream *bladerf_rx_stream;
 pthread_t bladerf_rx_task;
 struct bladerf_data bladerf_rx_data;
 
-extern void sigint_callback_handler(int signum);
+volatile int16_t bladerf_tx_buf[NUM_BLADERF_BUF_SAMPLE_TX*2];
 
 void *bladerf_stream_callback(struct bladerf *dev, struct bladerf_stream *stream,
                       struct bladerf_metadata *metadata, void *samples,
@@ -115,16 +116,18 @@ void *bladerf_rx_task_run(void *tmp)
   return NULL;
 }
 
-inline int bladerf_config_run_board(uint64_t freq_hz, int gain, int sampl_rate, int bw, int trx_flag, void **rf_dev) {
+inline int bladerf_config_run_board(struct transceiver_cfg *rf_cfg, void **rf_dev) {
   int status;
   unsigned int actual;
   struct bladerf *dev = NULL;
 
   (*rf_dev) = NULL;
 
-  bladerf_rx_data.idx = 0;
-  bladerf_rx_data.num_buffers = 2;
-  bladerf_rx_data.samples_per_buffer = (LEN_BUF/2);
+  if (trx_flag&2) {
+    bladerf_rx_data.idx = 0;
+    bladerf_rx_data.num_buffers = 2;
+    bladerf_rx_data.samples_per_buffer = (LEN_BUF/2);
+  }
 
   status = bladerf_open(&dev, NULL);
   if (status < 0) {
@@ -147,7 +150,12 @@ inline int bladerf_config_run_board(uint64_t freq_hz, int gain, int sampl_rate, 
     fprintf(stdout, "bladerf_config_run_board: FPGA is loaded.\n");
   }
   
-  status = bladerf_set_frequency(dev, BLADERF_MODULE_RX, freq_hz);
+  if (trx_flag&1)
+    status = bladerf_set_frequency(dev, BLADERF_MODULE_TX, freq_hz);
+
+  if (trx_flag&2)
+    status = bladerf_set_frequency(dev, BLADERF_MODULE_RX, freq_hz);
+
   if (status != 0) {
       fprintf(stderr, "bladerf_config_run_board: Failed to set frequency: %s\n",
               bladerf_strerror(status));
@@ -253,28 +261,49 @@ inline int bladerf_config_run_board(uint64_t freq_hz, int gain, int sampl_rate, 
 void bladerf_stop_close_board(void *dev, bool trx_flag){
   int status;
 
-  fprintf(stderr, "bladerf_stop_rx_close_board...\n");
+  fprintf(stderr, "bladerf_stop_close_board...\n");
   
-  pthread_join(bladerf_rx_task, NULL);
-  //pthread_cancel(async_task.rx_task);
-  printf("bladerf_stop_rx_close_board: bladeRF rx thread quit.\n");
+  if (trx_flag&1) {
+    //pthread_join(bladerf_tx_task, NULL);
+    //printf("bladerf_stop_close_board: pthread_join(bladerf_tx_task, NULL)\n");
+  }
+  
+  if (trx_flag&2) {
+    pthread_join(bladerf_rx_task, NULL);
+    printf("bladerf_stop_close_board: pthread_join(bladerf_rx_task, NULL)\n");
+  } 
 
   if (dev==NULL)
     return;
 
-  bladerf_deinit_stream(bladerf_rx_stream);
-  printf("bladerf_stop_rx_close_board: bladerf_deinit_stream.\n");
+  if (trx_flag&1) {
+    //bladerf_deinit_stream(bladerf_tx_stream);
+    //printf("bladerf_stop_close_board: bladerf_deinit_stream(bladerf_tx_stream)\n");
 
-  status = bladerf_enable_module((struct bladerf *)dev, BLADERF_MODULE_RX, false);
-  if (status < 0) {
-      fprintf(stderr, "bladerf_stop_rx_close_board: Failed to enable module: %s\n",
-              bladerf_strerror(status));
-  } else {
-    fprintf(stdout, "bladerf_stop_rx_close_board: enable module false: %s\n", bladerf_strerror(status));
+    status = bladerf_enable_module((struct bladerf *)dev, BLADERF_MODULE_TX, false);
+    if (status < 0) {
+        fprintf(stderr, "bladerf_stop_close_board: Failed to enable module BLADERF_MODULE_TX: %s\n",
+                bladerf_strerror(status));
+    } else {
+      fprintf(stdout, "bladerf_stop_close_board: enable module BLADERF_MODULE_TX false: %s\n", bladerf_strerror(status));
+    }
+  }
+
+  if (trx_flag&2) {
+    bladerf_deinit_stream(bladerf_rx_stream);
+    printf("bladerf_stop_close_board: bladerf_deinit_stream(bladerf_rx_stream)\n");
+
+    status = bladerf_enable_module((struct bladerf *)dev, BLADERF_MODULE_RX, false);
+    if (status < 0) {
+        fprintf(stderr, "bladerf_stop_close_board: Failed to enable module BLADERF_MODULE_RX: %s\n",
+                bladerf_strerror(status));
+    } else {
+      fprintf(stdout, "bladerf_stop_close_board: enable module BLADERF_MODULE_RX false: %s\n", bladerf_strerror(status));
+    }
   }
 
   bladerf_close((struct bladerf *)dev);
-  printf("bladerf_stop_rx_close_board: bladerf_close.\n");
+  printf("bladerf_stop_close_board: bladerf_close.\n");
 }
 
 //------------------------------FROM TX----------------------
@@ -405,28 +434,20 @@ void exit_board() {
   return;
 }
 
-inline int tx_one_buf(char *buf, int length, int channel_number) {
+inline int bladerf_tx_one_buf(void *dev, char *buf, int length) {
   int status, i;
 
-  set_freq_by_channel_number(channel_number);
-
-  memset( (void *)tx_buf, 0, NUM_BLADERF_BUF_SAMPLE_TX*2*sizeof(tx_buf[0]) );
+  memset( (void *)bladerf_tx_buf, 0, NUM_BLADERF_BUF_SAMPLE_TX*2*sizeof(bladerf_tx_buf[0]) );
 
   for (i=(NUM_BLADERF_BUF_SAMPLE_TX*2-length); i<(NUM_BLADERF_BUF_SAMPLE_TX*2); i++) {
-    tx_buf[i] = ( (int)( buf[i-(NUM_BLADERF_BUF_SAMPLE_TX*2-length)] ) )*16;
+    bladerf_tx_buf[i] = ( (int)( buf[i-(NUM_BLADERF_BUF_SAMPLE_TX*2-length)] ) )*16;
   }
 
   // Transmit samples
-  status = bladerf_sync_tx(dev, (void *)tx_buf, NUM_BLADERF_BUF_SAMPLE_TX, NULL, 10);
+  status = bladerf_sync_tx(dev, (void *)bladerf_tx_buf, NUM_BLADERF_BUF_SAMPLE_TX, NULL, 10);
   if (status != 0) {
-    printf("tx_one_buf: Failed to TX samples 1: %s\n",
+    printf("bladerf_tx_one_buf: Failed to TX samples 1: %s\n",
              bladerf_strerror(status));
-    return(-1);
-  }
-
-  if (do_exit)
-  {
-    printf("\ntx_one_buf: Exiting...\n");
     return(-1);
   }
 
