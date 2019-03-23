@@ -83,9 +83,7 @@ void stop_close_rf(void *dev, int trx_flag){
     (*stop_close_rf_internal)(dev, int trx_flag);
 }
 
-void probe_run_rf(char *arg_string, uint64_t freq_hz, int *gain, int sampl_rate, int bw, int trx_flag, void **rf_dev, enum rf_type* rf_in_use) {
-  // check board and run cyclic recv in background
-  int gain_tmp;
+void probe_run_rf(struct trx_cfg_op *trx) {
   pthread_mutex_init(&callback_lock, NULL);
 
   #ifdef _MSC_VER
@@ -103,14 +101,10 @@ void probe_run_rf(char *arg_string, uint64_t freq_hz, int *gain, int sampl_rate,
   #endif
 
   do_exit = false;
-  if ((*rf_in_use) == NOTVALID) { // NEED to detect
+  if ( trx->hw_type == NOTVALID) { // NEED to detect
     printf("probe_run_rf: Start to probe avaliable board...\n");
 
-    if ( (*gain)==-1 ) 
-      gain_tmp = HACKRF_DEFAULT_GAIN;
-    else
-      gain_tmp = (*gain);
-    if ( hackrf_config_run_board(freq_hz, gain_tmp, sampl_rate, bw, trx_flag, rf_dev) ){
+    if ( hackrf_config_run_board(trx) ){
       //printf("hhhhh%d\n",*rf_dev);
       //exit(1);
       hackrf_stop_close_board(*rf_dev, trx_flag);
@@ -144,7 +138,7 @@ void probe_run_rf(char *arg_string, uint64_t freq_hz, int *gain, int sampl_rate,
       (*gain) = gain_tmp;
     }
   } else { //user specified the board
-    if ((*rf_in_use) == HACKRF) {
+    if ( rf_cfg->hw_type == HACKRF) {
       printf("probe_run_rf: Try to probe HackRF...\n");
 
       if ( (*gain)==-1 ) 
@@ -157,7 +151,7 @@ void probe_run_rf(char *arg_string, uint64_t freq_hz, int *gain, int sampl_rate,
         exit(-1);
       } else 
         (*gain) = gain_tmp;
-    } else if ((*rf_in_use) == BLADERF) {
+    } else if ( rf_cfg->hw_type == BLADERF) {
       printf("probe_run_rf: Try to probe bladeRF...\n");
 
       if ( (*gain)==-1 ) 
@@ -170,7 +164,7 @@ void probe_run_rf(char *arg_string, uint64_t freq_hz, int *gain, int sampl_rate,
         exit(-1);
       } else 
         (*gain) = gain_tmp;
-    } else if ((*rf_in_use) == USRP) {
+    } else if ( rf_cfg->hw_type == USRP) {
       printf("probe_run_rf: Try to probe USRP...\n");
 
       if ( (*gain)==-1 ) 
@@ -186,7 +180,7 @@ void probe_run_rf(char *arg_string, uint64_t freq_hz, int *gain, int sampl_rate,
     } 
   }
   
-  if ((*rf_in_use) == HACKRF) {
+  if ( rf_cfg->hw_type == HACKRF) {
     rf_tune_rx_internal = hackrf_tune;
     rf_tune_tx_internal = hackrf_tune;
     tx_one_buf_internal = hackrf_tx_one_buf;

@@ -240,15 +240,25 @@ int main(int argc, char** argv) {
   int gain, chan, phase, rx_buf_offset_tmp, verbose_flag, raw_flag, hop_flag;
   uint32_t access_addr, access_addr_mask, crc_init, crc_init_internal;
   bool run_flag = false;
-  void* rf_dev=NULL;
   IQ_TYPE *rxp;
-  enum rf_type rf_in_use = NOTVALID;
+  struct trx_cfg_op trx;
   char arg_string[MAX_NUM_CHAR_CMD];
 
   parse_commandline(argc, argv, &chan, &gain, &access_addr, &crc_init, &verbose_flag, &raw_flag, &freq_hz, &access_addr_mask, &hop_flag, &rf_in_use, arg_string);
   //printf("arg string %d\n", arg_string);
 
-  probe_run_rf(&rf_dev, freq_hz, arg_string, &gain, &rf_in_use);
+  trx.tx.en = false;//for sniffer, we only need rx
+  trx.rx.en = true;
+  trx.rx.freq = freq_hz;
+  trx.rx.gain = gain;
+  trx.rx.rate = SAMPLE_PER_SYMBOL*1000000;
+  trx.rx.bw = SAMPLE_PER_SYMBOL*1000000/2;
+  trx.rx.num_sample_buf = LEN_BUF_RX;
+  trx.arg_string = arg_string;
+  trx.dev = NULL;
+  trx.hw_type = rf_in_use;
+
+  probe_run_rf(&trx);
   printf("Cmd line input: chan %d, freq %ldMHz, access addr %08x, crc init %06x raw %d verbose %d rx %ddB RF %d\n", chan, freq_hz/1000000, access_addr, crc_init, raw_flag, verbose_flag, gain, rf_in_use);
   
   crc_init_internal = receiver_init(access_addr_mask, crc_init);

@@ -147,13 +147,14 @@ inline int hackrf_run_board(hackrf_device* device) {
   return(0);
 }
 
-int hackrf_config_run_board(uint64_t freq_hz, int gain, int sampl_rate, int bw, int trx_flag, void **rf_dev) {
+int hackrf_config_run_board(struct trx_cfg_op *trx) {
   hackrf_device *dev = NULL;
-  
-  (*rf_dev) = NULL;
+  uint64_t freq;
+  int rate, bw;
+
+  trx->dev = NULL;
   
 	int result = hackrf_init();
-
 	if( result != HACKRF_SUCCESS ) {
 		fprintf(stderr,"hackrf_config_run_board: hackrf_init() failed: %s (%d)\n", hackrf_error_name(result), result);
 		return(EXIT_FAILURE);
@@ -165,13 +166,27 @@ int hackrf_config_run_board(uint64_t freq_hz, int gain, int sampl_rate, int bw, 
 		return(-1);
 	}
 
-  result = hackrf_set_freq(dev, freq_hz);
+  if (trx->tx.en) {
+    freq = trx->tx.freq;
+    rate = trx->tx.rate;
+    bw   = trx->tx.bw;
+  }
+  else if (trx->rx.en) {
+    freq = trx->rx.freq;
+    rate = trx->rx.rate;
+    bw   = trx->rx.bw;
+  }
+  else {
+    printf("hackrf_config_run_board: trx->tx.en and trx->rx.en are both false!\n";
+    return(-1);
+  }
+  result = hackrf_set_freq(dev, freq);
   if( result != HACKRF_SUCCESS ) {
     printf("hackrf_config_run_board: hackrf_set_freq() failed: %s (%d)\n", hackrf_error_name(result), result);
     return(-1);
   }
 
-  result = hackrf_set_sample_rate(dev, sampl_rate);
+  result = hackrf_set_sample_rate(dev, rate);
   if( result != HACKRF_SUCCESS ) {
     printf("hackrf_config_run_board: hackrf_set_sample_rate() failed: %s (%d)\n", hackrf_error_name(result), result);
     return(-1);
@@ -183,14 +198,16 @@ int hackrf_config_run_board(uint64_t freq_hz, int gain, int sampl_rate, int bw, 
     return(-1);
   }
   
-  result = hackrf_set_vga_gain(dev, gain);
-	result |= hackrf_set_lna_gain(dev, HACKRF_MAX_LNA_GAIN);
-  if( result != HACKRF_SUCCESS ) {
-    printf("hackrf_config_run_board: hackrf_set_txvga_gain() failed: %s (%d)\n", hackrf_error_name(result), result);
-    return(-1);
-  }
+  if (trx->tx.en) {
+    if (trx->tx.gain!=-1)
+      result = hackrf_set_txvga_gain(dev, trx->tx.gain);
+    else 
+      result = hackrf_set_txvga_gain(dev, HACKRF_DEFAULT_TX_GAIN);
+    if( result != HACKRF_SUCCESS ) {
+      printf("hackrf_config_run_board: hackrf_set_txvga_gain() failed: %s (%d)\n", hackrf_error_name(result), result);
+      return(-1);
+    }
 
-  if (trx_flag&1) {
     result = hackrf_stop_tx(dev);
     if( result != HACKRF_SUCCESS ) {
       printf("hackrf_config_run_board: hackrf_stop_tx() failed: %s (%d)\n", hackrf_error_name(result), result);
@@ -204,7 +221,18 @@ int hackrf_config_run_board(uint64_t freq_hz, int gain, int sampl_rate, int bw, 
     }
   }
 
-  if (trx_flag&2) {
+  if (trx->rx.en) {
+    if (trx->rx.gain!=-1)
+      result = hackrf_set_vga_gain(dev, trx->rx.gain);
+    else
+      result = hackrf_set_vga_gain(dev, HACKRF_DEFAULT_RX_GAIN);
+    
+    result |= hackrf_set_lna_gain(dev, HACKRF_MAX_LNA_GAIN);
+    if( result != HACKRF_SUCCESS ) {
+      printf("hackrf_config_run_board: hackrf_set_vga_gain() hackrf_set_lna_gain() failed: %s (%d)\n", hackrf_error_name(result), result);
+      return(-1);
+    }
+
     result = hackrf_stop_rx(dev);
     if( result != HACKRF_SUCCESS ) {
       printf("hackrf_config_run_board: hackrf_stop_rx() failed: %s (%d)\n", hackrf_error_name(result), result);
@@ -217,8 +245,35 @@ int hackrf_config_run_board(uint64_t freq_hz, int gain, int sampl_rate, int bw, 
       return(-1);
     }
   }
+
+  // set result to instance pointed by trx pointer
+  trx->dev = dev;
+  trx->hw_type = HACKRF;
   
-  (*rf_dev) = dev;
+  if (trx->tx.en) {
+    if (trx->tx.gain==-1)
+      trx->tx.gain = HACKRF_DEFAULT_TX_GAIN;
+    
+    trx->tx.update_freq = ;
+    trx->tx.update_gain = ;
+    trx->tx.update_rate = ;
+    trx->tx.update_bw = ;
+    trx->tx.proc_one_buf = ;
+  }
+
+  if (trx->rx.en) {
+    if (trx->rx.gain==-1)
+      trx->rx.gain = HACKRF_DEFAULT_RX_GAIN;
+
+    trx->rx.update_freq = ;
+    trx->rx.update_gain = ;
+    trx->rx.update_rate = ;
+    trx->rx.update_bw = ;
+    trx->rx.proc_one_buf = ;
+  }
+
+  trx->stop_close = ;
+
   return(0);
 }
 
