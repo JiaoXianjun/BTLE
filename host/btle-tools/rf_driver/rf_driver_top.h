@@ -21,10 +21,10 @@ struct rf_cfg_op {
     int rate; //sampling rate Hz
     int bw; //bandwidth in Hz
     int num_sample_buf;
-    int (*update_freq)(uint64_t *freq); // if input is not valid, get it back
-    int (*update_gain)(int *gain); // if input is not valid, get it back
-    int (*update_rate)(int *rate); // if input is not valid, get it back
-    int (*update_bw)(int *bw); // if input is not valid, get it back
+    int (*update_freq)(void *dev, uint64_t *freq); // if input is not valid, get it back
+    int (*update_gain)(void *dev, int *gain); // if input is not valid, get it back
+    int (*update_rate)(void *dev, int *rate); // if input is not valid, get it back
+    int (*update_bw)(void *dev, int *bw); // if input is not valid, get it back
     int (*proc_one_buf)(void *dev, void *buf, int *len); // do tx or rx one buf
 };
 
@@ -34,7 +34,7 @@ struct trx_cfg_op {
     char *arg_string;
     void *dev;
     enum rf_type hw_type;
-    int (*stop_close)(void *dev, void *cfg);
+    int (*stop_close)(void *dev, void *trx);
 };
 
 void probe_run_rf(struct trx_cfg_op *trx);

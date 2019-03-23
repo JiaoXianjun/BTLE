@@ -272,65 +272,35 @@ int hackrf_config_run_board(struct trx_cfg_op *trx) {
     trx->rx.proc_one_buf = ;
   }
 
-  trx->stop_close = ;
+  trx->stop_close = hackrf_stop_close_board;
 
   return(0);
 }
 
-void hackrf_exit_board(hackrf_device *device) {
-	if(device != NULL)
-	{
-		hackrf_exit();
-		printf("hackrf_exit() done\n");
-	}
-}
+int hackrf_stop_close_board(void* device, void *trx_input){
+  struct trx_cfg_op *trx = (struct trx_cfg_op *)trx_input;
+  hackrf_device *dev = (hackrf_device* )device;
 
-inline int hackrf_close_board(hackrf_device *device) {
-  int result;
-
-	if(device != NULL)
-	{
-    result = hackrf_stop_rx(device);
-    if( result != HACKRF_SUCCESS ) {
-      printf("close_board: hackrf_stop_rx() failed: %s (%d)\n", hackrf_error_name(result), result);
-      return(-1);
-    }
-
-		result = hackrf_close(device);
-		if( result != HACKRF_SUCCESS )
-		{
-			printf("close_board: hackrf_close() failed: %s (%d)\n", hackrf_error_name(result), result);
-			return(-1);
-		}
-
-    return(0);
-	} else {
-	  return(-1);
-	}
-}
-
-void hackrf_stop_close_board(void* device, bool trx_flag){
-  //printf("afdafdsa%d\n",device);
-  if (device==NULL)
+  if (dev==NULL)
     return;
 
-  if (trx_flag&1) {
-    result = hackrf_stop_tx((hackrf_device* )device);
+  if (trx->tx.en) {
+    result = hackrf_stop_tx(dev);
     if( result != HACKRF_SUCCESS ) {
       printf("hackrf_stop_close_board: hackrf_stop_tx() failed: %s (%d)\n", hackrf_error_name(result), result);
       return(-1);
     }
   }
   
-  if (trx_flag&2) {
-    result = hackrf_stop_rx((hackrf_device* )device);
+  if (trx->rx.en) {
+    result = hackrf_stop_rx(dev);
     if( result != HACKRF_SUCCESS ) {
       printf("hackrf_stop_close_board: hackrf_stop_rx() failed: %s (%d)\n", hackrf_error_name(result), result);
       return(-1);
     }
   }
 
-  result = hackrf_close((hackrf_device* )device);
+  result = hackrf_close(dev);
   if( result != HACKRF_SUCCESS )
   {
     printf("hackrf_stop_close_board: hackrf_close() failed: %s (%d)\n", hackrf_error_name(result), result);
@@ -338,6 +308,7 @@ void hackrf_stop_close_board(void* device, bool trx_flag){
   }
 
   hackrf_exit();
+  return(0);
 }
 
 //---------------------------FROM TX-------------
