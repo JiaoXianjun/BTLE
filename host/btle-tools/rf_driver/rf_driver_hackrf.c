@@ -30,6 +30,11 @@ extern volatile bool do_exit;
 
 extern void sigint_callback_handler(int signum);
 
+static uint64_t hackrf_freq_internal = 0;
+static int hackrf_tx_gain_internal = -1;
+static int hackrf_rx_gain_internal = -1;
+static int hackrf_rate_internal = -1;
+static int hackrf_bw_internal = -1;
 //---------------------for TX---------------------------
 
 volatile int hackrf_stop_tx = 1;
@@ -67,12 +72,108 @@ int hackrf_rx_callback(hackrf_transfer* transfer) {
   return(0);
 }
 
-int hackrf_tune(void *device, uint64_t freq_hz) {
-  int result = hackrf_set_freq((hackrf_device*)device, freq_hz);
-  if( result != HACKRF_SUCCESS ) {
-    fprintf(stderr,"hackrf_tune: hackrf_set_freq() failed: %s (%d)\n", hackrf_error_name(result), result);
-    return(-1);
+int hackrf_update_rx_gain(void *device, int *gain) {
+  int result;
+  
+  if ((*gain)==-1) {
+    (*gain) = hackrf_rx_gain_internal;
+    return(HACKRF_SUCCESS);
   }
+
+  if ((*gain)!=hackrf_rx_gain_internal) {
+    result = hackrf_set_vga_gain((hackrf_device*)device, (*gain));
+    if( result != HACKRF_SUCCESS ) {
+      fprintf(stderr,"hackrf_update_tx_gain: hackrf_set_vga_gain() failed: %s (%d)\n", hackrf_error_name(result), result);
+      return(-1);
+    } else {
+      hackrf_rx_gain_internal = (*gain);
+    }
+  }
+
+  return(HACKRF_SUCCESS);
+}
+
+int hackrf_update_tx_gain(void *device, int *gain) {
+  int result;
+  
+  if ((*gain)==-1) {
+    (*gain) = hackrf_tx_gain_internal;
+    return(HACKRF_SUCCESS);
+  }
+
+  if ((*gain)!=hackrf_tx_gain_internal) {
+    result = hackrf_set_txvga_gain((hackrf_device*)device, (*gain));
+    if( result != HACKRF_SUCCESS ) {
+      fprintf(stderr,"hackrf_update_tx_gain: hackrf_set_txvga_gain() failed: %s (%d)\n", hackrf_error_name(result), result);
+      return(-1);
+    } else {
+      hackrf_tx_gain_internal = (*gain);
+    }
+  }
+
+  return(HACKRF_SUCCESS);
+}
+
+int hackrf_update_freq(void *device, uint64_t *freq_hz) {
+  int result;
+  
+  if ((*freq_hz)==0) {
+    (*freq_hz) = hackrf_freq_internal;
+    return(HACKRF_SUCCESS);
+  }
+
+  if ((*freq_hz)!=hackrf_freq_internal) {
+    result = hackrf_set_freq((hackrf_device*)device, (*freq_hz));
+    if( result != HACKRF_SUCCESS ) {
+      fprintf(stderr,"hackrf_update_freq: hackrf_set_freq() failed: %s (%d)\n", hackrf_error_name(result), result);
+      return(-1);
+    } else {
+      hackrf_freq_internal = (*freq_hz);
+    }
+  }
+
+  return(HACKRF_SUCCESS);
+}
+
+int hackrf_update_rate(void *device, int *rate) {
+  int result;
+  
+  if ((*rate)==-1) {
+    (*rate) = hackrf_rate_internal;
+    return(HACKRF_SUCCESS);
+  }
+
+  if ((*rate)!=hackrf_rate_internal) {
+    result = hackrf_set_sample_rate((hackrf_device*)device, (*rate));
+    if( result != HACKRF_SUCCESS ) {
+      fprintf(stderr,"hackrf_update_freq: hackrf_set_sample_rate() failed: %s (%d)\n", hackrf_error_name(result), result);
+      return(-1);
+    } else {
+      hackrf_rate_internal = (*rate);
+    }
+  }
+
+  return(HACKRF_SUCCESS);
+}
+
+int hackrf_update_bw(void *device, int *bw) {
+  int result;
+  
+  if ((*bw)==-1) {
+    (*bw) = hackrf_bw_internal;
+    return(HACKRF_SUCCESS);
+  }
+
+  if ((*bw)!=hackrf_bw_internal) {
+    result = hackrf_set_baseband_filter_bandwidth((hackrf_device*)device, (*bw));
+    if( result != HACKRF_SUCCESS ) {
+      fprintf(stderr,"hackrf_update_freq: hackrf_set_baseband_filter_bandwidth() failed: %s (%d)\n", hackrf_error_name(result), result);
+      return(-1);
+    } else {
+      hackrf_bw_internal = (*bw);
+    }
+  }
+
   return(HACKRF_SUCCESS);
 }
 
@@ -254,10 +355,10 @@ int hackrf_config_run_board(struct trx_cfg_op *trx) {
     if (trx->tx.gain==-1)
       trx->tx.gain = HACKRF_DEFAULT_TX_GAIN;
     
-    trx->tx.update_freq = ;
-    trx->tx.update_gain = ;
-    trx->tx.update_rate = ;
-    trx->tx.update_bw = ;
+    trx->tx.update_freq = hackrf_update_freq;
+    trx->tx.update_gain = hackrf_update_tx_gain;
+    trx->tx.update_rate = hackrf_update_rate;
+    trx->tx.update_bw = hackrf_update_bw;
     trx->tx.proc_one_buf = ;
   }
 
@@ -265,10 +366,10 @@ int hackrf_config_run_board(struct trx_cfg_op *trx) {
     if (trx->rx.gain==-1)
       trx->rx.gain = HACKRF_DEFAULT_RX_GAIN;
 
-    trx->rx.update_freq = ;
-    trx->rx.update_gain = ;
-    trx->rx.update_rate = ;
-    trx->rx.update_bw = ;
+    trx->rx.update_freq = hackrf_update_freq;
+    trx->rx.update_gain = hackrf_update_rx_gain;
+    trx->rx.update_rate = hackrf_update_rate;
+    trx->rx.update_bw = hackrf_update_bw;
     trx->rx.proc_one_buf = ;
   }
 
