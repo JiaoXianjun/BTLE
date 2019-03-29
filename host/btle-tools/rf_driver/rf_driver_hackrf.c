@@ -384,7 +384,7 @@ int hackrf_config_run_board(struct trx_cfg_op *trx) {
     trx->rx.update_gain = hackrf_update_rx_gain;
     trx->rx.update_rate = hackrf_update_rate;
     trx->rx.update_bw = hackrf_update_bw;
-    trx->rx.proc_one_buf = ;
+    trx->rx.proc_one_buf = get_rx_sample;
   }
 
   trx->stop_close = hackrf_stop_close_board;

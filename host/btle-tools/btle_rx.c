@@ -25,10 +25,6 @@
 
 #include "btle_lib.h"
 
-volatile bool do_exit = false;
-volatile int rx_buf_offset; // remember to initialize it!
-volatile IQ_TYPE rx_buf[LEN_BUF + LEN_BUF_MAX_NUM_PHY_SAMPLE];
-
 //----------------------------------print_usage----------------------------------
 static void print_usage() {
 	printf("Usage:\n");
@@ -237,12 +233,11 @@ abnormal_quit:
 
 int main(int argc, char** argv) {
   uint64_t freq_hz;
-  int gain, chan, phase, rx_buf_offset_tmp, verbose_flag, raw_flag, hop_flag;
+  int gain, chan, verbose_flag, raw_flag, hop_flag;
   uint32_t access_addr, access_addr_mask, crc_init, crc_init_internal;
-  bool run_flag = false;
-  IQ_TYPE *rxp;
   struct trx_cfg_op trx;
   char arg_string[MAX_NUM_CHAR_CMD];
+  IQ_TYPE *rxp;
 
   parse_commandline(argc, argv, &chan, &gain, &access_addr, &crc_init, &verbose_flag, &raw_flag, &freq_hz, &access_addr_mask, &hop_flag, &rf_in_use, arg_string);
   //printf("arg string %d\n", arg_string);
@@ -262,10 +257,7 @@ int main(int argc, char** argv) {
   printf("Cmd line input: chan %d, freq %ldMHz, access addr %08x, crc init %06x raw %d verbose %d rx %ddB RF %d\n", chan, freq_hz/1000000, access_addr, crc_init, raw_flag, verbose_flag, gain, rf_in_use);
   
   crc_init_internal = receiver_init(access_addr_mask, crc_init);
-  // scan
-  do_exit = false;
-  phase = 0;
-  rx_buf_offset = 0;
+
   while(do_exit == false) { //hackrf_is_streaming(hackrf_dev) == HACKRF_TRUE?
     /*
     if ( (rx_buf_offset-rx_buf_offset_old) > 65536 || (rx_buf_offset-rx_buf_offset_old) < -65536 ) {
@@ -274,26 +266,8 @@ int main(int argc, char** argv) {
     }
      * */
     // total buf len LEN_BUF = (8*4096)*2 =  (~ 8ms); tail length MAX_NUM_PHY_SAMPLE*2=LEN_BUF_MAX_NUM_PHY_SAMPLE
-    
-    rx_buf_offset_tmp = rx_buf_offset - LEN_BUF_MAX_NUM_PHY_SAMPLE;
-    // cross point 0
-    if (rx_buf_offset_tmp>=0 && rx_buf_offset_tmp<(LEN_BUF/2) && phase==1) {
-      //printf("rx_buf_offset cross 0: %d %d %d\n", rx_buf_offset, (LEN_BUF/2), LEN_BUF_MAX_NUM_PHY_SAMPLE);
-      phase = 0;
-      memcpy((void *)(rx_buf+LEN_BUF), (void *)rx_buf, LEN_BUF_MAX_NUM_PHY_SAMPLE*sizeof(IQ_TYPE));
-      rxp = (IQ_TYPE*)(rx_buf + (LEN_BUF/2));
-      run_flag = true;
-    }
 
-    // cross point 1
-    if (rx_buf_offset_tmp>=(LEN_BUF/2) && phase==0) {
-      //printf("rx_buf_offset cross 1: %d %d %d\n", rx_buf_offset, (LEN_BUF/2), LEN_BUF_MAX_NUM_PHY_SAMPLE);
-      phase = 1;
-      rxp = (IQ_TYPE*)rx_buf;
-      run_flag = true;
-    }
-    
-    if (run_flag) {
+    if (get_rx_sample(NULL, &rxp, NULL)) {
       #if 0
       // ------------------------for offline test -------------------------------------
       //save_phy_sample(rx_buf+buf_sp, LEN_BUF/2, "/home/jxj/git/BTLE/matlab/sample_iq_4msps.txt");
@@ -311,8 +285,6 @@ int main(int argc, char** argv) {
         if ( receiver_controller(rf_dev, verbose_flag, &chan, &access_addr, &crc_init_internal) )
           goto main_out;
       }
-      
-      run_flag = false;
     }
   }
 

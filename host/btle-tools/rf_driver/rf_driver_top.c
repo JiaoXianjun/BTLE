@@ -22,6 +22,10 @@
 
 extern volatile bool do_exit;
 
+volatile bool do_exit = false;
+static volatile int rx_buf_offset=0; // remember to initialize it!
+static volatile IQ_TYPE rx_buf[LEN_BUF + LEN_BUF_MAX_NUM_PHY_SAMPLE];
+
 pthread_mutex_t callback_lock;
 
 uint64_t freq_hz_tx_driver_internal = 0;
@@ -37,6 +41,35 @@ void sigint_callback_handler(int signum)
 	fprintf(stderr, "Caught signal %d\n", signum);
 	do_exit = true;
 //  exit(1);
+}
+
+int get_rx_sample(void *dev, void *buf, int *len) {
+  static phase = 0;
+  int rx_buf_offset_tmp;
+  int sample_ready_flag = 0;
+  IQ_TYPE *rxp;
+
+  rx_buf_offset_tmp = rx_buf_offset - LEN_BUF_MAX_NUM_PHY_SAMPLE;
+  // cross point 0
+  if (rx_buf_offset_tmp>=0 && rx_buf_offset_tmp<(LEN_BUF/2) && phase==1) {
+    //printf("rx_buf_offset cross 0: %d %d %d\n", rx_buf_offset, (LEN_BUF/2), LEN_BUF_MAX_NUM_PHY_SAMPLE);
+    phase = 0;
+    memcpy((void *)(rx_buf+LEN_BUF), (void *)rx_buf, LEN_BUF_MAX_NUM_PHY_SAMPLE*sizeof(IQ_TYPE));
+    rxp = (IQ_TYPE*)(rx_buf + (LEN_BUF/2));
+    sample_ready_flag = 1;
+  }
+
+  // cross point 1
+  if (rx_buf_offset_tmp>=(LEN_BUF/2) && phase==0) {
+    //printf("rx_buf_offset cross 1: %d %d %d\n", rx_buf_offset, (LEN_BUF/2), LEN_BUF_MAX_NUM_PHY_SAMPLE);
+    phase = 1;
+    rxp = (IQ_TYPE*)rx_buf;
+    sample_ready_flag = 1;
+  }
+
+  (*buf) = rxp;
+
+  return(sample_ready_flag);
 }
 
 int rf_tune_rx_direct(void *dev, uint64_t freq_hz){
@@ -179,7 +212,8 @@ void probe_run_rf(struct trx_cfg_op *trx) {
         (*gain) = gain_tmp;
     } 
   }
-  
+
+  #if 0
   if ( rf_cfg->hw_type == HACKRF) {
     rf_tune_rx_internal = hackrf_tune;
     rf_tune_tx_internal = hackrf_tune;
@@ -199,4 +233,5 @@ void probe_run_rf(struct trx_cfg_op *trx) {
     stop_close_rf_internal = usrp_stop_close_board;
     printf("rf_in_use == USRP\n");
   } 
+  #endif
 }
