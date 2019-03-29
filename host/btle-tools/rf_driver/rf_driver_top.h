@@ -34,7 +34,7 @@ struct trx_cfg_op {
     char *arg_string;
     void *dev;
     enum rf_type hw_type;
-    int (*stop_close)(void *dev, void *trx);
+    int (*stop_close)(void *trx);
 };
 
 void probe_run_rf(struct trx_cfg_op *trx);

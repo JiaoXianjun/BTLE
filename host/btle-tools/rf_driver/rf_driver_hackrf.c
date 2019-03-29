@@ -177,9 +177,9 @@ int hackrf_update_bw(void *device, int *bw) {
   return(HACKRF_SUCCESS);
 }
 
-int hackrf_stop_close_board(void* device, void *trx_input){
+int hackrf_stop_close_board(void *trx_input){
   struct trx_cfg_op *trx = (struct trx_cfg_op *)trx_input;
-  hackrf_device *dev = (hackrf_device* )device;
+  hackrf_device *dev = trx->dev;
 
   if (dev==NULL)
     return;

@@ -259,28 +259,9 @@ int main(int argc, char** argv) {
   crc_init_internal = receiver_init(access_addr_mask, crc_init);
 
   while(do_exit == false) { //hackrf_is_streaming(hackrf_dev) == HACKRF_TRUE?
-    /*
-    if ( (rx_buf_offset-rx_buf_offset_old) > 65536 || (rx_buf_offset-rx_buf_offset_old) < -65536 ) {
-      printf("%d\n", rx_buf_offset);
-      rx_buf_offset_old = rx_buf_offset;
-    }
-     * */
-    // total buf len LEN_BUF = (8*4096)*2 =  (~ 8ms); tail length MAX_NUM_PHY_SAMPLE*2=LEN_BUF_MAX_NUM_PHY_SAMPLE
-
     if (get_rx_sample(NULL, &rxp, NULL)) {
-      #if 0
-      // ------------------------for offline test -------------------------------------
-      //save_phy_sample(rx_buf+buf_sp, LEN_BUF/2, "/home/jxj/git/BTLE/matlab/sample_iq_4msps.txt");
-      load_phy_sample(tmp_buf, 2097152, "/home/jxj/git/BTLE/matlab/sample_iq_4msps.txt");
-      receiver(tmp_buf, 2097152, 37, 0x8E89BED6, 0x555555, 1, 0);
-      break;
-      // ------------------------for offline test -------------------------------------
-      #endif
-      // -----------------------------real online run--------------------------------
-      //receiver(rxp, LEN_BUF_MAX_NUM_PHY_SAMPLE+(LEN_BUF/2), chan);
       receiver(rxp, (LEN_DEMOD_BUF_ACCESS-1)*2*SAMPLE_PER_SYMBOL+(LEN_BUF)/2, chan, access_addr, crc_init_internal, verbose_flag, raw_flag);
-      // -----------------------------real online run--------------------------------
-      
+
       if (hop_flag){
         if ( receiver_controller(rf_dev, verbose_flag, &chan, &access_addr, &crc_init_internal) )
           goto main_out;
@@ -290,7 +271,7 @@ int main(int argc, char** argv) {
 
 main_out:
   fprintf(stderr,"Exit ...\n");
-  stop_close_rf(rf_dev);
+  trx.stop_close(&trx);
   
   return(0);
 }
