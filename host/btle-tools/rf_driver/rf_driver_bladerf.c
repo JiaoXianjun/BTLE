@@ -27,50 +27,32 @@ extern volatile int rx_buf_offset; // remember to initialize it!
 extern volatile bool do_exit;
 extern void sigint_callback_handler(int signum);
 
-struct bladerf_stream *bladerf_rx_stream;
-pthread_t bladerf_rx_task;
-struct bladerf_data bladerf_rx_data;
+static struct bladerf_stream *bladerf_rx_stream;
+static pthread_t bladerf_rx_task;
+static struct bladerf_data bladerf_rx_data;
 
-volatile int16_t bladerf_tx_buf[NUM_BLADERF_BUF_SAMPLE_TX*2];
+static volatile int16_t bladerf_tx_buf[NUM_BLADERF_BUF_SAMPLE_TX*2];
+static volatile int rx_buf_offset=0;
+static volatile IQ_TYPE rx_buf[LEN_BUF + LEN_BUF_MAX_NUM_PHY_SAMPLE];
 
 void *bladerf_stream_callback(struct bladerf *dev, struct bladerf_stream *stream,
                       struct bladerf_metadata *metadata, void *samples,
                       size_t num_samples, void *user_data)
 {
-    struct bladerf_data *my_data = (struct bladerf_data *)user_data;
+  struct bladerf_data *my_data = (struct bladerf_data *)user_data;
+      size_t i;
+      int16_t *sample = (int16_t *)samples ;
+      if (num_samples>0) {
+        pthread_mutex_lock(&callback_lock);
+        for(i = 0; i < num_samples ; i++ ) {
+            rx_buf[rx_buf_offset] = (((*sample)>>4)&0xFF);
+            rx_buf[rx_buf_offset+1] = (((*(sample+1))>>4)&0xFF);
+            rx_buf_offset = (rx_buf_offset+2)&( LEN_BUF-1 ); //cyclic buffer
 
-    //count++ ;
-
-    //if( (count&0xffff) == 0 ) {
-    //    fprintf( stderr, "Called 0x%8.8x times\n", count ) ;
-    //}
-
-    /* Save off the samples to disk if we are in RX */
-    //if( my_data->module == BLADERF_MODULE_RX ) {
-        size_t i;
-        int16_t *sample = (int16_t *)samples ;
-        if (num_samples>0) {
-          pthread_mutex_lock(&callback_lock);
-          for(i = 0; i < num_samples ; i++ ) {
-              //*(sample) &= 0xfff ;
-              //if( (*sample)&0x800 ) *(sample) |= 0xf000 ;
-              //*(sample+1) &= 0xfff ;
-              //if( *(sample+1)&0x800 ) *(sample+1) |= 0xf000 ;
-              //fprintf( my_data->fout, "%d, %d\n", *sample, *(sample+1) );
-              rx_buf[rx_buf_offset] = (((*sample)>>4)&0xFF);
-              rx_buf[rx_buf_offset+1] = (((*(sample+1))>>4)&0xFF);
-              rx_buf_offset = (rx_buf_offset+2)&( LEN_BUF-1 ); //cyclic buffer
-
-              sample += 2 ;
-          }
-          pthread_mutex_unlock(&callback_lock);
+            sample += 2 ;
         }
-        //my_data->samples_left -= num_samples ;
-        //if( my_data->samples_left <= 0 ) {
-        //    do_exit = true ;
-        //}
-    //}
-
+        pthread_mutex_unlock(&callback_lock);
+      }
     if (do_exit) {
         return NULL;
     } else {
@@ -114,6 +96,74 @@ void *bladerf_rx_task_run(void *tmp)
     fprintf(stderr, "RX stream failure: %s\r\n", bladerf_strerror(status));
   }
   return NULL;
+}
+
+void bladerf_stop_close_board(void *dev, bool trx_flag){
+  int status;
+
+  fprintf(stderr, "bladerf_stop_close_board...\n");
+  
+  if (trx_flag&1) {
+    //pthread_join(bladerf_tx_task, NULL);
+    //printf("bladerf_stop_close_board: pthread_join(bladerf_tx_task, NULL)\n");
+  }
+  
+  if (trx_flag&2) {
+    pthread_join(bladerf_rx_task, NULL);
+    printf("bladerf_stop_close_board: pthread_join(bladerf_rx_task, NULL)\n");
+  } 
+
+  if (dev==NULL)
+    return;
+
+  if (trx_flag&1) {
+    //bladerf_deinit_stream(bladerf_tx_stream);
+    //printf("bladerf_stop_close_board: bladerf_deinit_stream(bladerf_tx_stream)\n");
+
+    status = bladerf_enable_module((struct bladerf *)dev, BLADERF_MODULE_TX, false);
+    if (status < 0) {
+        fprintf(stderr, "bladerf_stop_close_board: Failed to enable module BLADERF_MODULE_TX: %s\n",
+                bladerf_strerror(status));
+    } else {
+      fprintf(stdout, "bladerf_stop_close_board: enable module BLADERF_MODULE_TX false: %s\n", bladerf_strerror(status));
+    }
+  }
+
+  if (trx_flag&2) {
+    bladerf_deinit_stream(bladerf_rx_stream);
+    printf("bladerf_stop_close_board: bladerf_deinit_stream(bladerf_rx_stream)\n");
+
+    status = bladerf_enable_module((struct bladerf *)dev, BLADERF_MODULE_RX, false);
+    if (status < 0) {
+        fprintf(stderr, "bladerf_stop_close_board: Failed to enable module BLADERF_MODULE_RX: %s\n",
+                bladerf_strerror(status));
+    } else {
+      fprintf(stdout, "bladerf_stop_close_board: enable module BLADERF_MODULE_RX false: %s\n", bladerf_strerror(status));
+    }
+  }
+
+  bladerf_close((struct bladerf *)dev);
+  printf("bladerf_stop_close_board: bladerf_close.\n");
+}
+
+inline int bladerf_tx_one_buf(void *dev, char *buf, int length) {
+  int status, i;
+
+  memset( (void *)bladerf_tx_buf, 0, NUM_BLADERF_BUF_SAMPLE_TX*2*sizeof(bladerf_tx_buf[0]) );
+
+  for (i=(NUM_BLADERF_BUF_SAMPLE_TX*2-length); i<(NUM_BLADERF_BUF_SAMPLE_TX*2); i++) {
+    bladerf_tx_buf[i] = ( (int)( buf[i-(NUM_BLADERF_BUF_SAMPLE_TX*2-length)] ) )*16;
+  }
+
+  // Transmit samples
+  status = bladerf_sync_tx(dev, (void *)bladerf_tx_buf, NUM_BLADERF_BUF_SAMPLE_TX, NULL, 10);
+  if (status != 0) {
+    printf("bladerf_tx_one_buf: Failed to TX samples 1: %s\n",
+             bladerf_strerror(status));
+    return(-1);
+  }
+
+  return(0);
 }
 
 inline int bladerf_config_run_board(struct trx_cfg_op *trx) {
@@ -331,10 +381,10 @@ inline int bladerf_config_run_board(struct trx_cfg_op *trx) {
     if (trx->tx.gain==-1)
       trx->tx.gain = BLADERF_DEFAULT_TX_GAIN;
     
-    trx->tx.update_freq =  bladerf_update_freq;
+    trx->tx.update_freq =  bladerf_update_tx_freq;
     trx->tx.update_gain =  bladerf_update_tx_gain;
-    trx->tx.update_rate =  bladerf_update_rate;
-    trx->tx.update_bw =    bladerf_update_bw;
+    trx->tx.update_rate =  bladerf_update_tx_rate;
+    trx->tx.update_bw =    bladerf_update_tx_bw;
     trx->tx.proc_one_buf = bladerf_tx_one_buf;
   }
 
@@ -342,210 +392,14 @@ inline int bladerf_config_run_board(struct trx_cfg_op *trx) {
     if (trx->rx.gain==-1)
       trx->rx.gain = BLADERF_DEFAULT_RX_GAIN;
 
-    trx->rx.update_freq =  bladerf_update_freq;
+    trx->rx.update_freq =  bladerf_update_rx_freq;
     trx->rx.update_gain =  bladerf_update_rx_gain;
-    trx->rx.update_rate =  bladerf_update_rate;
-    trx->rx.update_bw =    bladerf_update_bw;
-    trx->rx.proc_one_buf = get_rx_sample;
+    trx->rx.update_rate =  bladerf_update_rx_rate;
+    trx->rx.update_bw =    bladerf_update_rx_bw;
+    trx->rx.proc_one_buf = bladerf_get_rx_sample;
   }
 
   trx->stop_close = bladerf_stop_close_board;
-
-  return(0);
-}
-
-void bladerf_stop_close_board(void *dev, bool trx_flag){
-  int status;
-
-  fprintf(stderr, "bladerf_stop_close_board...\n");
-  
-  if (trx_flag&1) {
-    //pthread_join(bladerf_tx_task, NULL);
-    //printf("bladerf_stop_close_board: pthread_join(bladerf_tx_task, NULL)\n");
-  }
-  
-  if (trx_flag&2) {
-    pthread_join(bladerf_rx_task, NULL);
-    printf("bladerf_stop_close_board: pthread_join(bladerf_rx_task, NULL)\n");
-  } 
-
-  if (dev==NULL)
-    return;
-
-  if (trx_flag&1) {
-    //bladerf_deinit_stream(bladerf_tx_stream);
-    //printf("bladerf_stop_close_board: bladerf_deinit_stream(bladerf_tx_stream)\n");
-
-    status = bladerf_enable_module((struct bladerf *)dev, BLADERF_MODULE_TX, false);
-    if (status < 0) {
-        fprintf(stderr, "bladerf_stop_close_board: Failed to enable module BLADERF_MODULE_TX: %s\n",
-                bladerf_strerror(status));
-    } else {
-      fprintf(stdout, "bladerf_stop_close_board: enable module BLADERF_MODULE_TX false: %s\n", bladerf_strerror(status));
-    }
-  }
-
-  if (trx_flag&2) {
-    bladerf_deinit_stream(bladerf_rx_stream);
-    printf("bladerf_stop_close_board: bladerf_deinit_stream(bladerf_rx_stream)\n");
-
-    status = bladerf_enable_module((struct bladerf *)dev, BLADERF_MODULE_RX, false);
-    if (status < 0) {
-        fprintf(stderr, "bladerf_stop_close_board: Failed to enable module BLADERF_MODULE_RX: %s\n",
-                bladerf_strerror(status));
-    } else {
-      fprintf(stdout, "bladerf_stop_close_board: enable module BLADERF_MODULE_RX false: %s\n", bladerf_strerror(status));
-    }
-  }
-
-  bladerf_close((struct bladerf *)dev);
-  printf("bladerf_stop_close_board: bladerf_close.\n");
-}
-
-//------------------------------FROM TX----------------------
-inline int init_board() {
-  int status;
-  unsigned int actual;
-
-  if (signal(SIGINT, sigint_callback_handler) == SIG_ERR ||
-      signal(SIGTERM, sigint_callback_handler) == SIG_ERR) {
-      fprintf(stderr, "Failed to set up signal handler\n");
-      return EXIT_FAILURE;
-  }
-
-  status = bladerf_open(&dev, NULL);
-  if (status < 0) {
-      fprintf(stderr, "Failed to open device: %s\n", bladerf_strerror(status));
-      return EXIT_FAILURE;
-  } else  {
-    fprintf(stdout, "open device: %s\n", bladerf_strerror(status));
-  }
-  
-  status = bladerf_is_fpga_configured(dev);
-  if (status < 0) {
-      fprintf(stderr, "Failed to determine FPGA state: %s\n",
-              bladerf_strerror(status));
-      return EXIT_FAILURE;
-  } else if (status == 0) {
-      fprintf(stderr, "Error: FPGA is not loaded.\n");
-      bladerf_close(dev);
-      return EXIT_FAILURE;
-  } else  {
-    fprintf(stdout, "FPGA is loaded.\n");
-  }
-  
-  status = bladerf_set_frequency(dev, BLADERF_MODULE_TX, 2402000000ull);
-  if (status != 0) {
-      fprintf(stderr, "Failed to set frequency: %s\n",
-              bladerf_strerror(status));
-      bladerf_close(dev);
-      return EXIT_FAILURE;
-  } else {
-      fprintf(stdout, "set frequency: %lluHz %s\n", 2402000000ull,
-              bladerf_strerror(status));
-  }
-
-  status = bladerf_set_sample_rate(dev, BLADERF_MODULE_TX, SAMPLE_PER_SYMBOL*1000000ul, &actual);
-  if (status != 0) {
-      fprintf(stderr, "Failed to set sample rate: %s\n",
-              bladerf_strerror(status));
-      bladerf_close(dev);
-      return EXIT_FAILURE;
-  } else {
-    fprintf(stdout, "set sample rate: %dHz %s\n", actual,
-              bladerf_strerror(status));
-  }
-  
-  status = bladerf_set_bandwidth(dev, BLADERF_MODULE_TX, SAMPLE_PER_SYMBOL*1000000ul/2, &actual);
-  if (status != 0) {
-      fprintf(stderr, "Failed to set bandwidth: %s\n",
-              bladerf_strerror(status));
-      bladerf_close(dev);
-      return EXIT_FAILURE;
-  } else {
-    fprintf(stdout, "bladerf_set_bandwidth: %d %s\n", actual,
-              bladerf_strerror(status));
-  }
-  
-  status = bladerf_set_gain(dev, BLADERF_MODULE_TX, 57);
-  if (status != 0) {
-      fprintf(stderr, "Failed to set gain: %s\n",
-              bladerf_strerror(status));
-      bladerf_close(dev);
-      return EXIT_FAILURE;
-  } else {
-    fprintf(stdout, "bladerf_set_gain: %d %s\n", 57,
-              bladerf_strerror(status));
-  }
-
-  status = bladerf_sync_config(dev,
-                                BLADERF_MODULE_TX,
-                                BLADERF_FORMAT_SC16_Q11,
-                                32,
-                                NUM_BLADERF_BUF_SAMPLE_TX,
-                                16,
-                                10);
-
-  if (status != 0) {
-      fprintf(stderr, "Failed to initialize TX sync handle: %s\n",
-                bladerf_strerror(status));
-      bladerf_close(dev);
-      return EXIT_FAILURE;
-  } else {
-    fprintf(stdout, "bladerf_sync_config: %s\n",
-              bladerf_strerror(status));
-  }
-
-  status = bladerf_enable_module(dev, BLADERF_MODULE_TX, true);
-  if (status < 0) {
-      fprintf(stderr, "Failed to enable module: %s\n",
-              bladerf_strerror(status));
-      bladerf_close(dev);
-      return EXIT_FAILURE;
-  } else {
-    fprintf(stdout, "enable module true: %s\n",
-              bladerf_strerror(status));
-  }
-
-  return(0);
-}
-
-void close_board(){
-  int status;
-
-  status = bladerf_enable_module(dev, BLADERF_MODULE_TX, false);
-  if (status < 0) {
-      fprintf(stderr, "Failed to enable module: %s\n",
-              bladerf_strerror(status));
-  } else {
-    fprintf(stdout, "enable module false: %s\n", bladerf_strerror(status));
-  }
-
-  bladerf_close(dev);
-
-  printf("bladeRF closed.\n");
-}
-
-void exit_board() {
-  return;
-}
-
-inline int bladerf_tx_one_buf(void *dev, char *buf, int length) {
-  int status, i;
-
-  memset( (void *)bladerf_tx_buf, 0, NUM_BLADERF_BUF_SAMPLE_TX*2*sizeof(bladerf_tx_buf[0]) );
-
-  for (i=(NUM_BLADERF_BUF_SAMPLE_TX*2-length); i<(NUM_BLADERF_BUF_SAMPLE_TX*2); i++) {
-    bladerf_tx_buf[i] = ( (int)( buf[i-(NUM_BLADERF_BUF_SAMPLE_TX*2-length)] ) )*16;
-  }
-
-  // Transmit samples
-  status = bladerf_sync_tx(dev, (void *)bladerf_tx_buf, NUM_BLADERF_BUF_SAMPLE_TX, NULL, 10);
-  if (status != 0) {
-    printf("bladerf_tx_one_buf: Failed to TX samples 1: %s\n",
-             bladerf_strerror(status));
-    return(-1);
-  }
 
   return(0);
 }

@@ -35,11 +35,13 @@ static int hackrf_tx_gain_internal = -1;
 static int hackrf_rx_gain_internal = -1;
 static int hackrf_rate_internal = -1;
 static int hackrf_bw_internal = -1;
-//---------------------for TX---------------------------
 
-volatile int hackrf_stop_tx_internal = 1;
-volatile int hackrf_tx_len_internal;
-volatile void *hackrf_tx_buf_internal;
+static volatile int rx_buf_offset=0;
+static volatile IQ_TYPE rx_buf[LEN_BUF + LEN_BUF_MAX_NUM_PHY_SAMPLE];
+
+static volatile int hackrf_stop_tx_internal = 1;
+static volatile int hackrf_tx_len_internal;
+static volatile void *hackrf_tx_buf_internal;
 
 int hackrf_tx_callback(hackrf_transfer* transfer) {
   int size_left;
@@ -70,6 +72,35 @@ int hackrf_rx_callback(hackrf_transfer* transfer) {
   }
   //printf("%d\n", transfer->valid_length); // !!!!it is 262144 always!!!! Now it is 4096. Defined in hackrf.c lib_device->buffer_size
   return(0);
+}
+
+int hackrf_get_rx_sample(void *dev, void *buf, int *len) {
+  static phase = 0;
+  int rx_buf_offset_tmp;
+  int sample_ready_flag = 0;
+  IQ_TYPE *rxp;
+
+  rx_buf_offset_tmp = rx_buf_offset - LEN_BUF_MAX_NUM_PHY_SAMPLE;
+  // cross point 0
+  if (rx_buf_offset_tmp>=0 && rx_buf_offset_tmp<(LEN_BUF/2) && phase==1) {
+    //printf("rx_buf_offset cross 0: %d %d %d\n", rx_buf_offset, (LEN_BUF/2), LEN_BUF_MAX_NUM_PHY_SAMPLE);
+    phase = 0;
+    memcpy((void *)(rx_buf+LEN_BUF), (void *)rx_buf, LEN_BUF_MAX_NUM_PHY_SAMPLE*sizeof(IQ_TYPE));
+    rxp = (IQ_TYPE*)(rx_buf + (LEN_BUF/2));
+    sample_ready_flag = 1;
+  }
+
+  // cross point 1
+  if (rx_buf_offset_tmp>=(LEN_BUF/2) && phase==0) {
+    //printf("rx_buf_offset cross 1: %d %d %d\n", rx_buf_offset, (LEN_BUF/2), LEN_BUF_MAX_NUM_PHY_SAMPLE);
+    phase = 1;
+    rxp = (IQ_TYPE*)rx_buf;
+    sample_ready_flag = 1;
+  }
+
+  (*buf) = rxp;
+
+  return(sample_ready_flag);
 }
 
 int hackrf_update_rx_gain(void *device, int *gain) {
@@ -146,7 +177,7 @@ int hackrf_update_rate(void *device, int *rate) {
   if ((*rate)!=hackrf_rate_internal) {
     result = hackrf_set_sample_rate((hackrf_device*)device, (*rate));
     if( result != HACKRF_SUCCESS ) {
-      fprintf(stderr,"hackrf_update_freq: hackrf_set_sample_rate() failed: %s (%d)\n", hackrf_error_name(result), result);
+      fprintf(stderr,"hackrf_update_rate: hackrf_set_sample_rate() failed: %s (%d)\n", hackrf_error_name(result), result);
       return(-1);
     } else {
       hackrf_rate_internal = (*rate);
@@ -167,7 +198,7 @@ int hackrf_update_bw(void *device, int *bw) {
   if ((*bw)!=hackrf_bw_internal) {
     result = hackrf_set_baseband_filter_bandwidth((hackrf_device*)device, (*bw));
     if( result != HACKRF_SUCCESS ) {
-      fprintf(stderr,"hackrf_update_freq: hackrf_set_baseband_filter_bandwidth() failed: %s (%d)\n", hackrf_error_name(result), result);
+      fprintf(stderr,"hackrf_update_bw: hackrf_set_baseband_filter_bandwidth() failed: %s (%d)\n", hackrf_error_name(result), result);
       return(-1);
     } else {
       hackrf_bw_internal = (*bw);
@@ -384,7 +415,7 @@ int hackrf_config_run_board(struct trx_cfg_op *trx) {
     trx->rx.update_gain = hackrf_update_rx_gain;
     trx->rx.update_rate = hackrf_update_rate;
     trx->rx.update_bw = hackrf_update_bw;
-    trx->rx.proc_one_buf = get_rx_sample;
+    trx->rx.proc_one_buf = hackrf_get_rx_sample;
   }
 
   trx->stop_close = hackrf_stop_close_board;
