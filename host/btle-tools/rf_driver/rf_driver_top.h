@@ -20,19 +20,27 @@ struct rf_cfg_op {
     int gain; //dB or depends on hardware
     int rate; //sampling rate Hz
     int bw; //bandwidth in Hz
-    int num_sample_buf;
-    int (*update_freq)(void *dev, uint64_t *freq); // if input is not valid, get it back
-    int (*update_gain)(void *dev, int *gain); // if input is not valid, get it back
-    int (*update_rate)(void *dev, int *rate); // if input is not valid, get it back
-    int (*update_bw)(void *dev, int *bw); // if input is not valid, get it back
-    int (*proc_one_buf)(void *dev, void *buf, int *len); // do tx or rx one buf
+    int num_sample_app_buf;
+    int num_sample_app_buf_tail;
+    int app_buf_offset;
+    void *app_buf;
+    void *dev_buf;
+    void *streamer;
+    void *metadata;
+    void *dev;
+    pthread_mutex_t callback_lock;
+    pthread_t tid;
+    int (*update_freq)( void *rf, uint64_t freq); // if input is not valid, get it back
+    int (*update_gain)( void *rf, int gain); // if input is not valid, get it back
+    int (*update_rate)( void *rf, int rate); // if input is not valid, get it back
+    int (*update_bw)(   void *rf, int bw); // if input is not valid, get it back
+    int (*proc_one_buf)(void *rf, void *buf, int *len); // do tx or rx one buf
 };
 
 struct trx_cfg_op {
     struct rf_cfg_op tx;
     struct rf_cfg_op rx;
     char *arg_string;
-    void *dev;
     enum rf_type hw_type;
     int (*stop_close)(void *trx);
 };

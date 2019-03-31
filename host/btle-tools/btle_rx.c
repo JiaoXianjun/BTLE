@@ -248,7 +248,8 @@ int main(int argc, char** argv) {
   trx.rx.gain = gain;
   trx.rx.rate = SAMPLE_PER_SYMBOL*1000000;
   trx.rx.bw = SAMPLE_PER_SYMBOL*1000000/2;
-  trx.rx.num_sample_buf = LEN_BUF_RX;
+  trx.rx.num_sample_rx_buf = LEN_BUF_RX;
+  trx.rx.nu
   trx.arg_string = arg_string;
   trx.dev = NULL;
   trx.hw_type = rf_in_use;
