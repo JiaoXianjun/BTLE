@@ -31,14 +31,15 @@ void *usrp_rx_task_run(void *tmp)
   int i;
   size_t num_rx_samps = 0;
   uhd_rx_metadata_error_code_t error_code;
-  struct rf_cfg_op *rx = tmp;
+  struct rf_cfg_op *rx = (struct rf_cfg_op *)tmp;
+  char *rx_buf = (char*)(rx->app_buf);
   
   fprintf(stderr, "usrp_rx_task_run...\n");
       
   while (!do_exit) {
-    uhd_rx_streamer_recv(rx->streamer, (void**)&(rx->buf), rx->num_sample_buf, rx->metadata, 3.0, false, &num_rx_samps);
+    uhd_rx_streamer_recv(rx->streamer, (void**)&(rx->dev_buf), rx->num_sample_dev_buf, rx->metadata, 3.0, false, &num_rx_samps);
     //fprintf(stderr, "usrp_rx_task_run: %d %d %d\n", num_rx_samps, LEN_BUF, rx_buf_offset);
-    if (uhd_rx_metadata_error_code((*rx->metadata), &error_code) ) {
+    if (uhd_rx_metadata_error_code(*(rx->metadata), &error_code) ) {
       fprintf(stderr, "usrp_rx_task_run: uhd_rx_metadata_error_code return error. Aborting.\n");
       return(NULL);
     }
@@ -51,10 +52,11 @@ void *usrp_rx_task_run(void *tmp)
     if (num_rx_samps>0) {
       pthread_mutex_lock(&(rx->callback_lock));
       // Handle data
+      int16_t *usrp_rx_buff = (int16_t*)(rx->dev_buf);
       for(i = 0; i < (2*num_rx_samps) ; i=i+2 ) {
-          rx_buf[rx_buf_offset] =   ( ( (*(usrp_rx_buff+i)  )>>8)&0xFF );
-          rx_buf[rx_buf_offset+1] = ( ( (*(usrp_rx_buff+i+1))>>8)&0xFF );
-          rx_buf_offset = (rx_buf_offset+2)&( LEN_BUF-1 ); //cyclic buffer
+          rx_buf[rx->app_buf_offset] =   ( ( (*(usrp_rx_buff+i)  )>>8)&0xFF );
+          rx_buf[rx->app_buf_offset+1] = ( ( (*(usrp_rx_buff+i+1))>>8)&0xFF );
+          rx->app_buf_offset = (rx->app_buf_offset+2)&( LEN_BUF-1 ); //cyclic buffer
       }
       pthread_mutex_unlock(&(rx->callback_lock));
     }
@@ -235,11 +237,11 @@ inline int usrp_config_run_board(struct trx_cfg_op *trx) {
       goto fail_out;
 
     // Set up buffer
-    if ( (status = uhd_rx_streamer_max_num_samps(usrp_rx_streamer, &usrp_rx_samps_per_buff)) )
+    if ( (status = uhd_rx_streamer_max_num_samps(usrp_rx_streamer, &(trx->rx.num_sample_dev_buf))) )
       goto fail_out;
 
-    fprintf(stderr, "usrp_config_run_board: RX Buffer size in samples: %zu\n", usrp_rx_samps_per_buff);
-    usrp_rx_buff = malloc(usrp_rx_samps_per_buff * 2 * sizeof(int16_t));
+    fprintf(stderr, "usrp_config_run_board: RX Buffer size in samples: %zu\n", trx->rx.num_sample_dev_buf);
+    usrp_rx_buff = malloc(trx->rx.num_sample_dev_buf * 2 * sizeof(int16_t));
 
     // Issue stream command
     fprintf(stderr, "usrp_config_run_board: Issuing rx stream command.\n");

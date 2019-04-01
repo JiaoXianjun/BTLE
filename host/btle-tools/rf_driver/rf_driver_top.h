@@ -22,8 +22,9 @@ struct rf_cfg_op {
     int bw; //bandwidth in Hz
     int num_sample_app_buf;
     int num_sample_app_buf_tail;
-    int app_buf_offset;
-    void *app_buf;
+    volatile int app_buf_offset;
+    int num_sample_dev_buf;
+    volatile void *app_buf;
     void *dev_buf;
     void *streamer;
     void *metadata;
