@@ -65,13 +65,15 @@ void *usrp_rx_task_run(void *tmp)
   return(NULL);
 }
 
-int usrp_get_rx_sample(void *dev, void *buf, int *len) {
+int usrp_get_rx_sample(void *rf, void *buf, int *len) {
   static phase = 0;
   int rx_buf_offset_tmp;
   int sample_ready_flag = 0;
   IQ_TYPE *rxp;
+  struct rf_cfg_op *rx = (struct rf_cfg_op *)rf;
+  char *rx_buf = (char*)(rx->app_buf);
 
-  rx_buf_offset_tmp = rx_buf_offset - LEN_BUF_MAX_NUM_PHY_SAMPLE;
+  rx_buf_offset_tmp = rx->app_buf_offset - LEN_BUF_MAX_NUM_PHY_SAMPLE;
   // cross point 0
   if (rx_buf_offset_tmp>=0 && rx_buf_offset_tmp<(LEN_BUF/2) && phase==1) {
     //printf("rx_buf_offset cross 0: %d %d %d\n", rx_buf_offset, (LEN_BUF/2), LEN_BUF_MAX_NUM_PHY_SAMPLE);
@@ -94,28 +96,50 @@ int usrp_get_rx_sample(void *dev, void *buf, int *len) {
   return(sample_ready_flag);
 }
 
-void usrp_stop_close_board(void *dev, bool trx_flag){
+void usrp_stop_close_board(void *tmp){
+  struct trx_cfg_op *trx = (struct trx_cfg_op *)tmp;
+  struct uhd_usrp* dev = NULL;
   fprintf(stderr, "usrp_stop_close_board...\n");
   
-  pthread_join(usrp_rx_task, NULL);
-  //pthread_cancel(usrp_rx_task);
-  fprintf(stderr,"usrp_stop_close_board: USRP rx thread quit.\n");
-
-  free(usrp_rx_buff);
-  free(usrp_tx_buff);
+  if (trx->rx.en) {
+    pthread_join(usrp_rx_task, NULL);
+    //pthread_cancel(usrp_rx_task);
+    fprintf(stderr,"usrp_stop_close_board: USRP rx thread quit.\n");
+    free(trx->rx.app_buf);
+    free(trx->rx.dev_buf);
+    dev = trx->rx.dev;
+  }
+  if (trx->tx.en) {
+    free(trx->tx.dev_buf); // because app will take care of app buf here
+    if (dev == NULL) 
+      dev = trx->tx.dev;
+  }
 
   if (dev==NULL)
     return;
 
-  fprintf(stderr, "usrp_stop_close_board: Cleaning up RX streamer.\n");
-  uhd_rx_streamer_free(&usrp_rx_streamer);
+  if (trx->rx.en) {
+    fprintf(stderr, "usrp_stop_close_board: Cleaning up RX streamer.\n");
+    uhd_rx_streamer_free(trx->rx.streamer);
 
-  fprintf(stderr, "usrp_stop_close_board: Cleaning up RX metadata.\n");
-  uhd_rx_metadata_free(&usrp_md);
+    fprintf(stderr, "usrp_stop_close_board: Cleaning up RX metadata.\n");
+    uhd_rx_metadata_free(trx->rx.metadata);
 
-  uhd_usrp_last_error(dev, usrp_error_string, 512);
-  fprintf(stderr, "usrp_stop_close_board: USRP reported the following error: %s\n", usrp_error_string);
+    uhd_usrp_last_error(dev, usrp_error_string, 512);
+    fprintf(stderr, "usrp_stop_close_board: USRP RX reported the following error: %s\n", usrp_error_string);
+  }
 
+  if (trx->tx.en) {
+    //fprintf(stderr, "usrp_stop_close_board: Cleaning up TX streamer.\n");
+    //uhd_rx_streamer_free(trx->tx.streamer);
+
+    fprintf(stderr, "usrp_stop_close_board: Cleaning up TX metadata.\n");
+    uhd_rx_metadata_free(trx->tx.metadata);
+
+    uhd_usrp_last_error(dev, usrp_error_string, 512);
+    fprintf(stderr, "usrp_stop_close_board: USRP TX reported the following error: %s\n", usrp_error_string);
+  }
+  
   uhd_usrp_free((struct uhd_usrp **)(&dev));
 }
 
