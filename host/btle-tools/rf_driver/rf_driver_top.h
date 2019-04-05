@@ -12,10 +12,12 @@
 #define USRP_DEFAULT_RX_GAIN 60
 #define USRP_DEFAULT_TX_GAIN 83
 
-enum rf_type {HACKRF=0, BLADERF=1, USRP=2, NOTVALID=3}; 
+enum board_type {HACKRF=0, BLADERF=1, USRP=2, NOTVALID=3}; 
+enum trx_flag {DISABLE=0, TX_ENABLE=1, RX_ENABLE=2, NOTVALID=3}; 
 
 struct rf_cfg_op {
-    bool en;
+    enum trx_flag en;
+    int chan;
     uint64_t freq; // center frequency Hz
     int gain; //dB or depends on hardware
     int rate; //sampling rate Hz
@@ -42,7 +44,7 @@ struct trx_cfg_op {
     struct rf_cfg_op tx;
     struct rf_cfg_op rx;
     char *arg_string;
-    enum rf_type hw_type;
+    enum board_type hw_type;
     int (*stop_close)(void *trx);
 };
 

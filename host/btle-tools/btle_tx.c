@@ -113,7 +113,7 @@ int parse_commandline(
   char * const argv[],
   // Outputs
   int* gain,
-  enum rf_type *rf_in_use,
+  enum board_type *rf_in_use,
   char *arg_string,
   int *num_item,
   char **descriptor
@@ -227,7 +227,7 @@ int main(int argc, char** argv) {
   int num_packet, num_item, i, j, num_items, gain;
   int num_repeat = 0; // -1: inf; 0: 1; other: specific
   void* rf_dev=NULL;
-  enum rf_type rf_in_use = NOTVALID;
+  enum board_type rf_in_use = NOTVALID;
   char arg_string[MAX_NUM_CHAR_CMD];
   char **descriptor = malloc_2d(MAX_NUM_PACKET, MAX_NUM_CHAR_CMD);
  

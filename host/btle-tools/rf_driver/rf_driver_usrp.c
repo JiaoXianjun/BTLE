@@ -25,6 +25,8 @@ extern volatile bool do_exit;
 extern void sigint_callback_handler(int signum);
 
 static char usrp_error_string[512];
+static uhd_tune_request_t usrp_tune_request;
+static uhd_tune_result_t usrp_tune_result;
 
 void *usrp_rx_task_run(void *tmp)
 {
@@ -143,35 +145,86 @@ void usrp_stop_close_board(void *tmp){
   uhd_usrp_free((struct uhd_usrp **)(&dev));
 }
 
-int usrp_tune_rx(void *dev, uint64_t freq_hz) {
+int usrp_update_freq(void *rf_in, uint64_t freq_hz) {
+  struct rf_cfg_op *rf = (struct rf_cfg_op *)rf_in;
+  struct uhd_usrp *dev = rf->dev;
+  double freq_result;
   int status;
 
+  if ( (rf->en != RX_ENABLE) && (rf->en != TX_ENABLE) ){
+    fprintf(stderr, "usrp_update_freq: rf->en is not correct!\n");
+    return(-1);
+  }
+
+  if (rf->freq == freq_hz)
+    return(0);
+  else
+    rf->freq = freq_hz;
+
   usrp_tune_request.target_freq = freq_hz;
-  status = uhd_usrp_set_rx_freq((uhd_usrp_handle)dev, &usrp_tune_request, 0, &usrp_tune_result);
-  if (status) {
-    uhd_usrp_last_error((uhd_usrp_handle)dev, usrp_error_string, 512);
-    fprintf(stderr, "usrp_tune_rx: USRP reported the following error: %s\n", usrp_error_string);
-    usrp_stop_close_board(dev);
-    return EXIT_FAILURE;
+  if (rf->en == RX_ENABLE) {
+    status = uhd_usrp_set_rx_freq(dev, &usrp_tune_request, rf->chan, &usrp_tune_result);
+    status = (status|uhd_usrp_get_rx_freq(dev,rf->chan,&freq_result));
+    if (status) {
+      uhd_usrp_last_error(dev, usrp_error_string, 512);
+      fprintf(stderr, "usrp_update_freq: uhd_usrp_set_rx_freq: %s\n", usrp_error_string);
+      return EXIT_FAILURE;
+    }
+  } else if (rf->en == TX_ENABLE) {
+    status = uhd_usrp_set_tx_freq(dev, &usrp_tune_request, rf->chan, &usrp_tune_result);
+    status = (status|uhd_usrp_get_tx_freq(dev,rf->chan,&freq_result));
+    if (status) {
+      uhd_usrp_last_error(dev, usrp_error_string, 512);
+      fprintf(stderr, "usrp_update_freq: uhd_usrp_set_tx_freq: %s\n", usrp_error_string);
+      return EXIT_FAILURE;
+    }
+  }
+
+  if (freq_result!=usrp_tune_request.target_freq) {
+    rf->freq = freq_result;
+    fprintf(stderr, "usrp_update_freq: Actual freq %fHz for trx_flag %d\n", freq_result, rf->en);
   }
 
   return(0);
 }
 
-int usrp_tune_tx(void *dev, uint64_t freq_hz) {
-  int status;
+int usrp_update_gain(void *rf_in, int gain_in) {
+  struct rf_cfg_op *rf = (struct rf_cfg_op *)rf_in;
+  struct uhd_usrp *dev = rf->dev;
+  int status, gain, gain_result;
 
-  usrp_tune_request.target_freq = freq_hz;
-  status = uhd_usrp_set_tx_freq((uhd_usrp_handle)dev, &usrp_tune_request, 0, &usrp_tune_result);
-  if (status) {
-    uhd_usrp_last_error((uhd_usrp_handle)dev, usrp_error_string, 512);
-    fprintf(stderr, "usrp_tune_tx: USRP reported the following error: %s\n", usrp_error_string);
-    usrp_stop_close_board(dev);
-    return EXIT_FAILURE;
+  if ( (rf->en != RX_ENABLE) && (rf->en != TX_ENABLE) ){
+    fprintf(stderr, "usrp_update_gain: rf->en is not correct!\n");
+    return(-1);
+  }
+
+  if (rf->gain == gain)
+    return(0);
+  else
+    rf->gain = gain;
+
+  if (rf->en == RX_ENABLE) {
+    status = uhd_usrp_set_rx_gain(dev, gain, rf->chan, "");
+    status = (status|uhd_usrp_get_rx_gain(dev, rf->chan, "", &gain_result));
+    if (status) {
+      uhd_usrp_last_error(dev, usrp_error_string, 512);
+      fprintf(stderr, "usrp_update_gain: uhd_usrp_set_rx_gain: %s\n", usrp_error_string);
+      return EXIT_FAILURE;
+    }
+    if (gain_result)
+      fprintf(stderr, "usrp_config_run_board: Actual RX Gain: %f...\n", gain);
+  } else if (rf->en == TX_ENABLE) {
+    status = uhd_usrp_set_tx_freq(dev, &usrp_tune_request, 0, &usrp_tune_result);
+    if (status) {
+      uhd_usrp_last_error(dev, usrp_error_string, 512);
+      fprintf(stderr, "usrp_update_gain: uhd_usrp_set_tx_freq reported the following error: %s\n", usrp_error_string);
+      return EXIT_FAILURE;
+    }
   }
 
   return(0);
 }
+
 
 inline int usrp_config_run_board(struct trx_cfg_op *trx) {
   uhd_usrp_handle usrp = NULL;

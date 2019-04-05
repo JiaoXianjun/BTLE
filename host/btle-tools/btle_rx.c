@@ -74,7 +74,7 @@ void parse_commandline(
   uint64_t* freq_hz, 
   uint32_t* access_mask, 
   int* hop_flag,
-  enum rf_type *rf_in_use,
+  enum board_type *rf_in_use,
   char *arg_string
 ) {
   printf("BLE sniffer. Xianjun Jiao. putaoshu@msn.com\n\n");
