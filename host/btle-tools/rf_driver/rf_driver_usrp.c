@@ -102,13 +102,29 @@ int usrp_get_rx_sample(void *rf, void *buf, int *len) { // each time get back nu
 
 int usrp_tx_one_buf(void *rf, void *buf, int *len){
   struct rf_cfg_op *tx = (struct rf_cfg_op *)rf;
-  char *tx_buf = (char*)buf;
+  IQ_TYPE *tx_buf = (IQ_TYPE*)buf;
   int num_sample_tx_buf = (*len);
-  int num_acc_samps = 0, num_samps_sent, status;
+  int num_acc_samps = 0, num_samps_sent, status, i, n;
+  int num_sample_left = num_sample_tx_buf, num_copy;
 
   while(1) {
       if (num_acc_samps >= num_sample_tx_buf) break;
-      status = uhd_tx_streamer_send(tx->streamer, &tx_buf, tx->num_sample_dev_buf, &(tx->metadata), 0.1, &num_samps_sent);
+
+      memset(tx->dev_buf,0,tx->num_sample_dev_buf*2*sizeof(int16_t));
+      num_copy = (num_sample_left>(tx->num_sample_dev_buf))?(tx->num_sample_dev_buf):num_sample_left;
+      for (i=0;i<num_copy;i++) {
+        n=i<<1;
+        tx->dev_buf[n] = tx_buf[n];
+        tx->dev_buf[n+1] = tx_buf[n+1];
+      }
+      num_sample_left = num_sample_left - num_copy;
+
+      status = uhd_tx_streamer_send(tx->streamer, &(tx->dev_buf), tx->num_sample_dev_buf, &(tx->metadata), 0.1, &num_samps_sent);
+      if (status) {
+        uhd_usrp_last_error(tx->dev, usrp_error_string, 512);
+        fprintf(stderr, "usrp_tx_one_buf: %s\n", usrp_error_string);
+        break;
+      }
       num_acc_samps += num_samps_sent;
   }
 
