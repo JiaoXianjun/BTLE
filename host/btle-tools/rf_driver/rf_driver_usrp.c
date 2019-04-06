@@ -115,53 +115,6 @@ int usrp_tx_one_buf(void *rf, void *buf, int *len){
   return num_acc_samps;
 }
 
-void usrp_stop_close_board(void *tmp){
-  struct trx_cfg_op *trx = (struct trx_cfg_op *)tmp;
-  struct uhd_usrp* dev = NULL;
-  fprintf(stderr, "usrp_stop_close_board...\n");
-  
-  if (trx->rx.en == RX_ENABLE) {
-    pthread_join(usrp_rx_task, NULL);
-    //pthread_cancel(usrp_rx_task);
-    fprintf(stderr,"usrp_stop_close_board: USRP rx thread quit.\n");
-    free(trx->rx.app_buf);
-    free(trx->rx.dev_buf);
-    dev = trx->rx.dev;
-  }
-  if (trx->tx.en) == TX_ENABLE {
-    free(trx->tx.dev_buf); // because app will take care of app buf here
-    if (dev == NULL) 
-      dev = trx->tx.dev;
-  }
-
-  if (dev==NULL)
-    return;
-
-  if (trx->rx.en == RX_ENABLE) {
-    fprintf(stderr, "usrp_stop_close_board: Cleaning up RX streamer.\n");
-    uhd_rx_streamer_free(trx->rx.streamer);
-
-    fprintf(stderr, "usrp_stop_close_board: Cleaning up RX metadata.\n");
-    uhd_rx_metadata_free(trx->rx.metadata);
-
-    uhd_usrp_last_error(dev, usrp_error_string, 512);
-    fprintf(stderr, "usrp_stop_close_board: USRP RX reported the following error: %s\n", usrp_error_string);
-  }
-
-  if (trx->tx.en == TX_ENABLE) {
-    //fprintf(stderr, "usrp_stop_close_board: Cleaning up TX streamer.\n");
-    //uhd_rx_streamer_free(trx->tx.streamer);
-
-    fprintf(stderr, "usrp_stop_close_board: Cleaning up TX metadata.\n");
-    uhd_rx_metadata_free(trx->tx.metadata);
-
-    uhd_usrp_last_error(dev, usrp_error_string, 512);
-    fprintf(stderr, "usrp_stop_close_board: USRP TX reported the following error: %s\n", usrp_error_string);
-  }
-  
-  uhd_usrp_free((struct uhd_usrp **)(&dev));
-}
-
 int usrp_update_tx_freq(void *rf_in, uint64_t freq_hz) {
   struct rf_cfg_op *rf = (struct rf_cfg_op *)rf_in;
   struct uhd_usrp *dev = rf->dev;
@@ -172,10 +125,13 @@ int usrp_update_tx_freq(void *rf_in, uint64_t freq_hz) {
     return(-1);
   }
 
-  if (rf->freq == freq_hz)
-    return(0);
-  else
-    rf->freq = freq_hz;
+  if (freq_hz!=-1) {
+    if (rf->freq == freq_hz)
+      return(0);
+    else
+      rf->freq = freq_hz;
+  } else
+    freq_hz = rf->freq;
 
   usrp_tune_request.target_freq = freq_hz;
     status = uhd_usrp_set_tx_freq(dev, &usrp_tune_request, rf->chan, &usrp_tune_result);
@@ -204,11 +160,14 @@ int usrp_update_rx_freq(void *rf_in, uint64_t freq_hz) {
     return(-1);
   }
 
-  if (rf->freq == freq_hz)
-    return(0);
-  else
-    rf->freq = freq_hz;
-
+  if (freq_hz!=-1) {
+    if (rf->freq == freq_hz)
+      return(0);
+    else
+      rf->freq = freq_hz;
+  } else
+    freq_hz = rf->freq;
+  
   usrp_tune_request.target_freq = freq_hz;
 
     status = uhd_usrp_set_rx_freq(dev, &usrp_tune_request, rf->chan, &usrp_tune_result);
@@ -238,10 +197,13 @@ int usrp_update_tx_gain(void *rf_in, int gain_in) {
     return(-1);
   }
 
-  if (rf->gain == gain_in)
-    return(0);
-  else
-    rf->gain = gain_in;
+  if (gain_in!=-1) {
+    if (rf->gain == gain_in)
+      return(0);
+    else
+      rf->gain = gain_in;
+  } else 
+    gain = rf->gain;
 
     status = uhd_usrp_set_tx_gain(dev, gain, rf->chan, "");
     status = (status|uhd_usrp_get_tx_gain(dev, rf->chan, "", &gain_result));
@@ -270,10 +232,13 @@ int usrp_update_rx_gain(void *rf_in, int gain_in) {
     return(-1);
   }
 
-  if (rf->gain == gain_in)
-    return(0);
-  else
-    rf->gain = gain_in;
+  if (gain_in!=-1) {
+    if (rf->gain == gain_in)
+      return(0);
+    else
+      rf->gain = gain_in;
+  } else 
+    gain = rf->gain;
 
     status = uhd_usrp_set_rx_gain(dev, gain, rf->chan, "");
     status = (status|uhd_usrp_get_rx_gain(dev, rf->chan, "", &gain_result));
@@ -302,11 +267,14 @@ int usrp_update_tx_rate(void *rf_in, int rate_in) {
     return(-1);
   }
 
-  if (rf->rate == rate_in)
-    return(0);
-  else
-    rf->rate = rate_in;
-
+  if (rate_in!=-1) {
+    if (rf->rate == rate_in)
+      return(0);
+    else
+      rf->rate = rate_in;
+  } else
+    rate = rf->rate;
+  
     status = uhd_usrp_set_tx_rate(dev, rate, rf->chan);
     status = (status|uhd_usrp_get_tx_rate(dev, rf->chan, &rate_result));
     if (status) {
@@ -334,18 +302,21 @@ int usrp_update_rx_rate(void *rf_in, int rate_in) {
     return(-1);
   }
 
-  if (rf->rate == rate_in)
-    return(0);
-  else
-    rf->rate = rate_in;
+  if (rate_in!=-1) {
+    if (rf->rate == rate_in)
+      return(0);
+    else
+      rf->rate = rate_in;
+  } else
+    rate = rf->rate;
 
-    status = uhd_usrp_set_rx_rate(dev, rate, rf->chan);
-    status = (status|uhd_usrp_get_rx_rate(dev, rf->chan, &rate_result));
-    if (status) {
-      uhd_usrp_last_error(dev, usrp_error_string, 512);
-      fprintf(stderr, "usrp_update_rx_rate: uhd_usrp_set_rx_rate: %s\n", usrp_error_string);
-      return EXIT_FAILURE;
-    }
+  status = uhd_usrp_set_rx_rate(dev, rate, rf->chan);
+  status = (status|uhd_usrp_get_rx_rate(dev, rf->chan, &rate_result));
+  if (status) {
+    uhd_usrp_last_error(dev, usrp_error_string, 512);
+    fprintf(stderr, "usrp_update_rx_rate: uhd_usrp_set_rx_rate: %s\n", usrp_error_string);
+    return EXIT_FAILURE;
+  }
 
   if (rate_result!=rate) {
     rf->rate = rate_result;
@@ -366,11 +337,13 @@ int usrp_update_tx_bw(void *rf_in, int bw_in) {
     return(-1);
   }
 
-  if (rf->bw == bw_in)
-    return(0);
-  else
-    rf->bw = bw_in;
-
+  if (bw_in!=-1){
+    if (rf->bw == bw_in)
+      return(0);
+    else
+      rf->bw = bw_in;
+  } else 
+    bw = rf->bw;
 
     status = uhd_usrp_set_tx_bandwidth(dev, bw, rf->chan);
     status = (status|uhd_usrp_get_tx_bandwidth(dev, rf->chan, &bw_result));
@@ -399,10 +372,13 @@ int usrp_update_rx_bw(void *rf_in, int bw_in) {
     return(-1);
   }
 
-  if (rf->bw == bw_in)
-    return(0);
-  else
-    rf->bw = bw_in;
+  if (bw_in!=-1){
+    if (rf->bw == bw_in)
+      return(0);
+    else
+      rf->bw = bw_in;
+  } else 
+    bw = rf->bw;
 
     status = uhd_usrp_set_rx_bandwidth(dev, bw, rf->chan);
     status = (status|uhd_usrp_get_rx_bandwidth(dev, rf->chan, &bw_result));
@@ -418,6 +394,52 @@ int usrp_update_rx_bw(void *rf_in, int bw_in) {
   }
 
   return(0);
+}
+
+void usrp_stop_close_board(void *tmp){
+  struct trx_cfg_op *trx = (struct trx_cfg_op *)tmp;
+  struct uhd_usrp* dev = NULL;
+  fprintf(stderr, "usrp_stop_close_board...\n");
+  
+  if (trx->rx.en == RX_ENABLE) {
+    pthread_join(trx->rx.tid, NULL);
+    fprintf(stderr,"usrp_stop_close_board: USRP rx thread quit.\n");
+    free(trx->rx.app_buf);
+    free(trx->rx.dev_buf);
+    dev = trx->rx.dev;
+  }
+
+  if (trx->tx.en) == TX_ENABLE {
+    free(trx->tx.dev_buf); // because app will take care of app buf here
+    dev = trx->tx.dev;
+  }
+
+  if (dev==NULL)
+    return;
+
+  if (trx->rx.en == RX_ENABLE) {
+    fprintf(stderr, "usrp_stop_close_board: Cleaning up RX streamer.\n");
+    uhd_rx_streamer_free(trx->rx.streamer);
+
+    fprintf(stderr, "usrp_stop_close_board: Cleaning up RX metadata.\n");
+    uhd_rx_metadata_free(trx->rx.metadata);
+
+    uhd_usrp_last_error(dev, usrp_error_string, 512);
+    fprintf(stderr, "usrp_stop_close_board: USRP RX reported the following error: %s\n", usrp_error_string);
+  }
+
+  if (trx->tx.en == TX_ENABLE) {
+    fprintf(stderr, "usrp_stop_close_board: Cleaning up TX streamer.\n");
+    uhd_tx_streamer_free(trx->tx.streamer);
+
+    fprintf(stderr, "usrp_stop_close_board: Cleaning up TX metadata.\n");
+    uhd_rx_metadata_free(trx->tx.metadata);
+
+    uhd_usrp_last_error(dev, usrp_error_string, 512);
+    fprintf(stderr, "usrp_stop_close_board: USRP TX reported the following error: %s\n", usrp_error_string);
+  }
+  
+  uhd_usrp_free((struct uhd_usrp **)(&dev));
 }
 
 inline int usrp_config_run_board(struct trx_cfg_op *trx) {
@@ -436,8 +458,46 @@ inline int usrp_config_run_board(struct trx_cfg_op *trx) {
       .num_samps = 0,
       .stream_now = true
   };
+  int num_sample_app_buf_total;
   
-  trx->dev = NULL;
+  if (trx->tx.en==TX_ENABLE) {
+    trx->tx.app_buf = NULL;
+    trx->tx.dev_buf = NULL;
+    trx->tx.streamer = NULL;
+    trx->tx.metadata = NULL;
+    trx->tx.dev = NULL;
+    trx->tx.app_buf_offset = 0;
+
+    if (trx->tx.freq==-1)
+      trx->tx.freq = USRP_DEFAULT_TX_FREQ;
+    if (trx->tx.gain==-1)
+      trx->tx.gain = USRP_DEFAULT_TX_GAIN;
+    if (trx->tx.rate==-1)
+      trx->tx.rate = USRP_DEFAULT_TX_RATE;
+    if (trx->tx.bw==-1)
+      trx->tx.bw = USRP_DEFAULT_TX_BW;
+    
+  }
+
+  if (trx->rx.en==RX_ENABLE) {
+    trx->rx.app_buf = NULL;
+    trx->rx.dev_buf = NULL;
+    trx->rx.streamer = NULL;
+    trx->rx.metadata = NULL;
+    trx->rx.dev = NULL;
+    trx->rx.app_buf_offset = 0;
+
+    num_sample_app_buf_total = 2*(trx->rx.num_sample_app_buf) + trx->rx.num_sample_app_buf_tail;
+
+    if (trx->rx.freq==-1)
+      trx->rx.freq = USRP_DEFAULT_RX_FREQ;
+    if (trx->rx.gain==-1)
+      trx->rx.gain = USRP_DEFAULT_RX_GAIN;
+    if (trx->rx.rate==-1)
+      trx->rx.rate = USRP_DEFAULT_RX_RATE;
+    if (trx->rx.bw==-1)
+      trx->rx.bw = USRP_DEFAULT_RX_BW;
+  }
 
   usrp_tune_request.rf_freq_policy = UHD_TUNE_REQUEST_POLICY_AUTO;
   usrp_tune_request.dsp_freq_policy = UHD_TUNE_REQUEST_POLICY_AUTO;
@@ -458,45 +518,17 @@ inline int usrp_config_run_board(struct trx_cfg_op *trx) {
       goto fail_out;
 
     // Set rate
-    rate = trx->rx.rate;
-    fprintf(stderr, "usrp_config_run_board: Setting RX Rate: %f...\n", rate);
-    if ( (status = uhd_usrp_set_rx_rate(usrp, rate, trx->rx.chan)) )
+    if ( usrp_update_rx_rate(&(trx->rx),-1) )
       goto fail_out;
-    // See what rate actually is
-    if ( (status = uhd_usrp_get_rx_rate(usrp, trx->rx.chan, &rate)) )
-      goto fail_out;
-    fprintf(stderr, "usrp_config_run_board: Actual RX Rate: %f...\n", rate);
-    trx->rx.rate = rate;
-
     // Set gain
-    gain = trx->rx.gain;
-    fprintf(stderr, "usrp_config_run_board: Setting RX Gain: %f dB...\n", gain);
-    if ( (status = uhd_usrp_set_rx_gain(usrp, gain, trx->rx.chan, "")) )
+    if ( usrp_update_rx_gain(&(trx->rx),-1) )
       goto fail_out;
-    // See what gain actually is
-    if ( (status = uhd_usrp_get_rx_gain(usrp, trx->rx.chan, "", &gain)) )
-      goto fail_out;
-    fprintf(stderr, "usrp_config_run_board: Actual RX Gain: %f...\n", gain);
-    trx->rx.gain = gain;
-
     // Set frequency
-    usrp_tune_request.target_freq = trx->rx.freq;
-    fprintf(stderr, "usrp_config_run_board: Setting RX frequency: %f MHz...\n", usrp_tune_request.target_freq/1e6);
-    if ( (status = uhd_usrp_set_rx_freq(usrp, &usrp_tune_request, trx->rx.chan, &usrp_tune_result)) )
+    if ( usrp_update_rx_freq(&(trx->rx),-1) )
       goto fail_out;
-    fprintf(stderr, "usrp_config_run_board: Actual RX frequency: %f MHz...\n", usrp_tune_result.actual_rf_freq / 1e6);
-    trx->rx.freq = usrp_tune_result.actual_rf_freq;
-
     // Set bw
-    bw = trx->rx.bw;
-    fprintf(stderr, "usrp_config_run_board: Setting RX bandwidth: %f MHz...\n", bw/1e6);
-    if ( (status = uhd_usrp_set_rx_bandwidth(usrp, bw, trx->rx.chan)) )
+    if ( usrp_update_rx_bw(&(trx->rx),-1) )
       goto fail_out;
-    // See what bw actually is
-    if ( (status = uhd_usrp_get_rx_bandwidth(usrp, trx->rx.chan, &bw)) )
-      goto fail_out;
-    fprintf(stderr, "usrp_config_run_board: Actual RX bandwidth: %f MHz...\n", bw / 1e6);
-    trx->rx.bw = bw;
 
     // Set up streamer
     stream_args.channel_list = &(trx->rx.chan);
@@ -509,6 +541,15 @@ inline int usrp_config_run_board(struct trx_cfg_op *trx) {
 
     fprintf(stderr, "usrp_config_run_board: RX Buffer size in samples: %zu\n", trx->rx.num_sample_dev_buf);
     trx->rx.dev_buf = malloc(trx->rx.num_sample_dev_buf * 2 * sizeof(int16_t)); // 2 for I and Q
+    if(trx->rx.dev_buf==NULL){
+      fprintf(stderr, "usrp_config_run_board: trx->rx.dev_buf==NULL\n");
+      goto fail_out;
+    }
+    trx->rx.app_buf = malloc(num_sample_app_buf_total * 2 * sizeof(IQ_TYPE)); // 2 for I and Q
+    if(trx->rx.app_buf==NULL){
+      fprintf(stderr, "usrp_config_run_board: trx->rx.app_buf==NULL\n");
+      goto fail_out;
+    }
 
     // Issue stream command
     fprintf(stderr, "usrp_config_run_board: Issuing rx stream command.\n");
@@ -517,7 +558,7 @@ inline int usrp_config_run_board(struct trx_cfg_op *trx) {
       goto fail_out;
 
     if ( pthread_create(&(trx->rx.tid), NULL, usrp_rx_task_run, &(trx->rx) ) )
-        return EXIT_FAILURE;
+      goto fail_out;
   }
 
   if (trx->tx.en == TX_ENABLE) {
@@ -530,45 +571,17 @@ inline int usrp_config_run_board(struct trx_cfg_op *trx) {
       goto fail_out;
 
     // Set rate
-    rate = trx->tx.rate;
-    fprintf(stderr, "usrp_config_run_board: Setting tx Rate: %f...\n", trx->tx.rate);
-    if ( (status = uhd_usrp_set_tx_rate(usrp, rate, trx->rx.chan)) )
+    if ( usrp_update_tx_rate(&(trx->tx),-1) )
       goto fail_out;
-    // See what rate actually is
-    if ( (status = uhd_usrp_get_tx_rate(usrp, trx->rx.chan, &rate)))
-      goto fail_out;
-    fprintf(stderr, "usrp_config_run_board: Actual tx Rate: %f...\n", rate);
-    trx->tx.rate = rate;
-
     // Set gain
-    gain = trx->tx.gain;
-    fprintf(stderr, "usrp_config_run_board: Setting tx Gain: %f dB...\n", gain);
-    if ( (status = uhd_usrp_set_tx_gain(usrp, gain, trx->rx.chan, "")) )
+    if ( usrp_update_tx_gain(&(trx->tx),-1) )
       goto fail_out;
-    // See what gain actually is
-    if ( (status = uhd_usrp_get_tx_gain(usrp, trx->rx.chan, "", &gain)))
-      goto fail_out;
-    fprintf(stderr, "usrp_config_run_board: Actual tx Gain: %f...\n", gain);
-    trx->tx.gain = gain;
-
     // Set frequency
-    usrp_tune_request.target_freq = trx->tx.freq;
-    fprintf(stderr, "usrp_config_run_board: Setting tx frequency: %f MHz...\n", usrp_tune_request.target_freq/1e6);
-    if ( (status = uhd_usrp_set_tx_freq(usrp, &usrp_tune_request, trx->rx.chan, &usrp_tune_result)) )
+    if ( usrp_update_tx_freq(&(trx->tx),-1) )
       goto fail_out;
-    fprintf(stderr, "usrp_config_run_board: Actual tx frequency: %f MHz...\n", usrp_tune_result.actual_rf_freq  / 1e6);
-    trx->tx.freq = usrp_tune_result.actual_rf_freq;
-
     // Set bw
-    bw = trx->tx.bw;
-    fprintf(stderr, "usrp_config_run_board: Setting tx bandwidth: %f MHz...\n", bw/1e6);
-    if ( (status = uhd_usrp_set_tx_bandwidth(usrp, bw, trx->rx.chan)) )
+    if ( usrp_update_tx_bw(&(trx->tx),-1) )
       goto fail_out;
-    // See what bw actually is
-    if ( (status = uhd_usrp_get_tx_bandwidth(usrp, trx->rx.chan, &bw)) )
-      goto fail_out;
-    fprintf(stderr, "usrp_config_run_board: Actual tx bandwidth: %f MHz...\n", bw / 1e6);
-    trx->tx.bw = bw;
 
     // Set up streamer
     stream_args.channel_list = &(trx->tx.chan);
@@ -581,15 +594,17 @@ inline int usrp_config_run_board(struct trx_cfg_op *trx) {
 
     fprintf(stderr, "usrp_config_run_board: TX Buffer size in samples: %zu\n", trx->tx.num_sample_dev_buf);
     trx->tx.dev_buf = malloc(trx->tx.num_sample_dev_buf * 2 * sizeof(int16_t));
+    if(trx->tx.dev_buf==NULL){
+      fprintf(stderr, "usrp_config_run_board: trx->tx.dev_buf==NULL\n");
+      goto fail_out;
+    }
   }
 
-  trx->dev = usrp;
   trx->board = USRP;
+  trx->stop_close = usrp_stop_close_board;
 
   if (trx->tx.en==TX_ENABLE) {
-    if (trx->tx.gain==-1)
-      trx->tx.gain = USRP_DEFAULT_TX_GAIN;
-    
+    trx->tx.dev = usrp;
     trx->tx.update_freq =  usrp_update_tx_freq;
     trx->tx.update_gain =  usrp_update_tx_gain;
     trx->tx.update_rate =  usrp_update_tx_rate;
@@ -598,9 +613,7 @@ inline int usrp_config_run_board(struct trx_cfg_op *trx) {
   }
 
   if (trx->rx.en==RX_ENABLE) {
-    if (trx->rx.gain==-1)
-      trx->rx.gain = USRP_DEFAULT_RX_GAIN;
-
+    trx->rx.dev = usrp;
     trx->rx.update_freq =  usrp_update_rx_freq;
     trx->rx.update_gain =  usrp_update_rx_gain;
     trx->rx.update_rate =  usrp_update_rx_rate;
@@ -608,7 +621,6 @@ inline int usrp_config_run_board(struct trx_cfg_op *trx) {
     trx->rx.proc_one_buf = usrp_get_rx_sample;
   }
 
-  trx->stop_close = usrp_stop_close_board;
   return(0);
 
 fail_out:

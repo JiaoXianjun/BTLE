@@ -18,7 +18,7 @@ enum trx_flag {DISABLE=0, TX_ENABLE=1, RX_ENABLE=2, NOTVALID=3};
 
 struct rf_cfg_op {
     enum trx_flag en;
-    int           chan;
+    int           chan; //some board supports multiple channel
     uint64_t      freq; // center frequency Hz
     int           gain; //dB or depends on hardware
     int           rate; //sampling rate Hz
