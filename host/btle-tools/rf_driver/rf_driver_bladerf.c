@@ -18,74 +18,110 @@
 #include <errno.h>
 
 #include <libbladeRF.h>
+#include "rf_driver_top.h"
 #include "rf_driver_bladerf.h"
 #include "../common_misc.h"
 
-extern pthread_mutex_t callback_lock;
+extern volatile bool do_exit;
 extern void sigint_callback_handler(int signum);
-
-static struct bladerf_stream *bladerf_rx_stream;
-static pthread_t bladerf_rx_task;
-static struct bladerf_data bladerf_rx_data;
-
-static volatile int16_t bladerf_tx_buf[NUM_BLADERF_BUF_SAMPLE_TX*2];
-static volatile int rx_buf_offset=0;
-static volatile IQ_TYPE rx_buf[LEN_BUF + LEN_BUF_MAX_NUM_PHY_SAMPLE];
 
 void *bladerf_stream_callback(struct bladerf *dev, struct bladerf_stream *stream,
                       struct bladerf_metadata *metadata, void *samples,
                       size_t num_samples, void *user_data)
 {
-  struct bladerf_data *my_data = (struct bladerf_data *)user_data;
-      size_t i;
-      int16_t *sample = (int16_t *)samples ;
-      if (num_samples>0) {
-        pthread_mutex_lock(&callback_lock);
-        for(i = 0; i < num_samples ; i++ ) {
-            rx_buf[rx_buf_offset] = (((*sample)>>4)&0xFF);
-            rx_buf[rx_buf_offset+1] = (((*(sample+1))>>4)&0xFF);
-            rx_buf_offset = (rx_buf_offset+2)&( LEN_BUF-1 ); //cyclic buffer
+  struct rf_cfg_op *rx = (struct rf_cfg_op *)user_data;
+  char *rx_buf = (char*)(rx->app_buf);
+  int num_sample_app_buf = rx->num_sample_app_buf;
+  int len_buf = 2*num_sample_app_buf;
+  size_t i;
+  int16_t *sample = (int16_t *)samples;
 
-            sample += 2 ;
-        }
-        pthread_mutex_unlock(&callback_lock);
-      }
-    if (do_exit) {
-        return NULL;
-    } else {
-        void *rv = my_data->buffers[my_data->idx];
-        my_data->idx = (my_data->idx + 1) % my_data->num_buffers;
-        return rv ;
+  if (num_samples>0) {
+    pthread_mutex_lock(&(rx->callback_lock));
+    for(i = 0; i < num_samples ; i++ ) {
+        rx_buf[rx->app_buf_offset] = (((*sample)>>4)&0xFF);
+        rx_buf[rx->app_buf_offset+1] = (((*(sample+1))>>4)&0xFF);
+        rx->app_buf_offset = (rx->app_buf_offset+2)&( len_buf-1 ); //cyclic buffer
+
+        sample += 2 ;
     }
+    pthread_mutex_unlock(&(rx->callback_lock));
+  }
+  if (do_exit) {
+      return NULL;
+  } else {
+      void *rv = ((int16_t**)(rf->dev_buf))[rx->dev_buf_idx];
+      rx->dev_buf_idx = (rx->dev_buf_idx + 1) % rx->num_dev_buf;
+      return rv ;
+  }
 }
 
-int bladerf_get_rx_sample(void *dev, void *buf, int *len) {
+void *bladerf_rx_task_run(void *tmp)
+{
+  struct rf_cfg_op *rx = (struct rf_cfg_op *)tmp;
+  int status;
+
+  /* Start stream and stay there until we kill the stream */
+  status = bladerf_stream(rx->streamer, BLADERF_MODULE_RX);
+  if (status < 0) {
+    fprintf(stderr, "bladerf_rx_task_run: RX stream failure: %s\r\n", bladerf_strerror(status));
+  }
+  return NULL;
+}
+
+int bladerf_get_rx_sample(void *rf, void *buf, int *len) {
   static phase = 0;
   int rx_buf_offset_tmp;
   int sample_ready_flag = 0;
   IQ_TYPE *rxp;
+  struct rf_cfg_op *rx = (struct rf_cfg_op *)rf;
+  char *rx_buf = (char*)(rx->app_buf);
+  int num_sample_app_buf = rx->num_sample_app_buf;
+  int num_sample_app_buf_tail = rx->num_sample_app_buf_tail;
+  int len_buf = 2*num_sample_app_buf;
 
-  rx_buf_offset_tmp = rx_buf_offset - LEN_BUF_MAX_NUM_PHY_SAMPLE;
+  rx_buf_offset_tmp = rx->app_buf_offset - num_sample_app_buf_tail;
   // cross point 0
-  if (rx_buf_offset_tmp>=0 && rx_buf_offset_tmp<(LEN_BUF/2) && phase==1) {
-    //printf("rx_buf_offset cross 0: %d %d %d\n", rx_buf_offset, (LEN_BUF/2), LEN_BUF_MAX_NUM_PHY_SAMPLE);
+  if (rx_buf_offset_tmp>=0 && rx_buf_offset_tmp<num_sample_app_buf && phase==1) {
     phase = 0;
-    memcpy((void *)(rx_buf+LEN_BUF), (void *)rx_buf, LEN_BUF_MAX_NUM_PHY_SAMPLE*sizeof(IQ_TYPE));
-    rxp = (IQ_TYPE*)(rx_buf + (LEN_BUF/2));
+    memcpy((void *)(rx_buf+len_buf), (void *)rx_buf, num_sample_app_buf_tail*sizeof(IQ_TYPE));
+    rxp = (IQ_TYPE*)(rx_buf + num_sample_app_buf);
     sample_ready_flag = 1;
   }
 
   // cross point 1
-  if (rx_buf_offset_tmp>=(LEN_BUF/2) && phase==0) {
-    //printf("rx_buf_offset cross 1: %d %d %d\n", rx_buf_offset, (LEN_BUF/2), LEN_BUF_MAX_NUM_PHY_SAMPLE);
+  if (rx_buf_offset_tmp>=num_sample_app_buf && phase==0) {
     phase = 1;
     rxp = (IQ_TYPE*)rx_buf;
     sample_ready_flag = 1;
   }
 
-  (*buf) = rxp;
+  (*((IQ_TYPE**)buf)) = rxp;
 
   return(sample_ready_flag);
+}
+
+int bladerf_tx_one_buf(void *rf, void *buf, int *len) {
+  struct rf_cfg_op *tx = (struct rf_cfg_op *)rf;
+  IQ_TYPE *tx_buf = (IQ_TYPE*)buf;
+  int status, i, num_sample_input = (*len);
+  int16_t *bladerf_tx_buf = tx->dev_buf;
+  int element_offset = (tx->num_sample_dev_buf-num_sample_input)*2;
+
+  memset( (void *)bladerf_tx_buf, 0, element_offset*sizeof(int16_t) );
+
+  for (i=element_offset; i<(tx->num_sample_dev_buf*2); i++) {
+    bladerf_tx_buf[i] = ( (int)( tx_buf[i-element_offset] ) )*16;
+  }
+
+  // Transmit samples
+  status = bladerf_sync_tx(tx->dev, (void *)bladerf_tx_buf, tx->num_sample_dev_buf, NULL, 10);
+  if (status != 0) {
+    printf("bladerf_tx_one_buf: Failed to TX samples: %s\n", bladerf_strerror(status));
+    return(-1);
+  }
+
+  return(0);
 }
 
 int bladerf_update_rx_gain(void *device, int *gain) {
@@ -258,18 +294,6 @@ int bladerf_update_rx_bw(void *dev, int *bw) {
   return(0);
 }
 
-void *bladerf_rx_task_run(void *tmp)
-{
-  int status;
-
-  /* Start stream and stay there until we kill the stream */
-  status = bladerf_stream(bladerf_rx_stream, BLADERF_MODULE_RX);
-  if (status < 0) {
-    fprintf(stderr, "RX stream failure: %s\r\n", bladerf_strerror(status));
-  }
-  return NULL;
-}
-
 void bladerf_stop_close_board(void *trx_input){
   struct trx_cfg_op *trx = (struct trx_cfg_op *)trx_input;
   int status;
@@ -313,27 +337,7 @@ void bladerf_stop_close_board(void *trx_input){
   printf("bladerf_stop_close_board: bladerf_close.\n");
 }
 
-inline int bladerf_tx_one_buf(void *dev, char *buf, int length) {
-  int status, i;
-
-  memset( (void *)bladerf_tx_buf, 0, NUM_BLADERF_BUF_SAMPLE_TX*2*sizeof(bladerf_tx_buf[0]) );
-
-  for (i=(NUM_BLADERF_BUF_SAMPLE_TX*2-length); i<(NUM_BLADERF_BUF_SAMPLE_TX*2); i++) {
-    bladerf_tx_buf[i] = ( (int)( buf[i-(NUM_BLADERF_BUF_SAMPLE_TX*2-length)] ) )*16;
-  }
-
-  // Transmit samples
-  status = bladerf_sync_tx(dev, (void *)bladerf_tx_buf, NUM_BLADERF_BUF_SAMPLE_TX, NULL, 10);
-  if (status != 0) {
-    printf("bladerf_tx_one_buf: Failed to TX samples 1: %s\n",
-             bladerf_strerror(status));
-    return(-1);
-  }
-
-  return(0);
-}
-
-inline int bladerf_config_run_board(struct trx_cfg_op *trx) {
+int bladerf_config_run_board(struct trx_cfg_op *trx) {
   int status;
   unsigned int actual;
   struct bladerf *dev = NULL;

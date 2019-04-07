@@ -18,6 +18,7 @@
 #include <errno.h>
 
 #include <uhd.h>
+#include "rf_driver_top.h"
 #include "rf_driver_usrp.h"
 #include "../common_misc.h"
 
@@ -95,7 +96,7 @@ int usrp_get_rx_sample(void *rf, void *buf, int *len) { // each time get back nu
     sample_ready_flag = 1;
   }
 
-  (*buf) = rxp;
+  (*((IQ_TYPE**)buf)) = rxp;
 
   return(sample_ready_flag);
 }
@@ -114,8 +115,8 @@ int usrp_tx_one_buf(void *rf, void *buf, int *len){
       num_copy = (num_sample_left>(tx->num_sample_dev_buf))?(tx->num_sample_dev_buf):num_sample_left;
       for (i=0;i<num_copy;i++) {
         n=i<<1;
-        tx->dev_buf[n] = tx_buf[n];
-        tx->dev_buf[n+1] = tx_buf[n+1];
+        ((int16_t*)(tx->dev_buf))[n] = tx_buf[n];
+        ((int16_t*)(tx->dev_buf))[n+1] = tx_buf[n+1];
       }
       num_sample_left = num_sample_left - num_copy;
 
@@ -458,7 +459,7 @@ void usrp_stop_close_board(void *tmp){
   uhd_usrp_free((struct uhd_usrp **)(&dev));
 }
 
-inline int usrp_config_run_board(struct trx_cfg_op *trx) {
+int usrp_config_run_board(struct trx_cfg_op *trx) {
   struct uhd_usrp *usrp = NULL;
   uhd_error status;
   double rate, bw, gain;
