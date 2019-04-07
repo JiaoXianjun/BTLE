@@ -124,177 +124,283 @@ int bladerf_tx_one_buf(void *rf, void *buf, int *len) {
   return(0);
 }
 
-int bladerf_update_rx_gain(void *device, int *gain) {
-  int result;
-  struct bladerf *dev = device;
-  
-  if ((*gain)==-1) {
-    (*gain) = bladerf_rx_gain_internal;
-    return(0);
-  }
-
-  if ((*gain)!=bladerf_rx_gain_internal) {
-    status = bladerf_set_gain(dev, BLADERF_MODULE_RX,(*gain));
-    if( result != 0 ) {
-      fprintf(stderr, "bladerf_update_rx_gain: Failed to set rx gain: %s\n", bladerf_strerror(status));
-      return(-1);
-    } else {
-      bladerf_rx_gain_internal = (*gain);
-    }
-  }
-
-  return(0);
-}
-
-int bladerf_update_tx_gain(void *device, int *gain) {
-  int result;
-  struct bladerf *dev = device;
-  
-  if ((*gain)==-1) {
-    (*gain) = bladerf_tx_gain_internal;
-    return(0);
-  }
-
-  if ((*gain)!=bladerf_tx_gain_internal) {
-    status = bladerf_set_gain(dev, BLADERF_MODULE_TX,(*gain));
-    if( result != 0 ) {
-      fprintf(stderr, "bladerf_update_tx_gain: Failed to set tx gain: %s\n", bladerf_strerror(status));
-      return(-1);
-    } else {
-      bladerf_tx_gain_internal = (*gain);
-    }
-  }
-
-  return(0);
-}
-
-int bladerf_update_tx_freq(void *dev, uint64_t *freq_hz) {
+int bladerf_update_tx_freq(void *rf_in, uint64_t freq_hz) {
+  struct rf_cfg_op *rf = (struct rf_cfg_op *)rf_in;
+  struct bladerf *dev = rf->dev;
   int status;
-  
-  if ((*freq_hz)==0) {
-    (*freq_hz) = bladerf_tx_freq_internal;
-    return(0);
+  uint64_t freq_hz_result;
+
+  if (rf->en != TX_ENABLE){
+    fprintf(stderr, "bladerf_update_tx_freq: rf->en is not correct!\n");
+    return(-1);
   }
 
-  if ((*freq_hz)!=bladerf_tx_freq_internal) {
-    status = bladerf_set_frequency((struct bladerf *)dev, BLADERF_MODULE_TX,(*freq_hz));
-    if (status != 0) {
-        fprintf(stderr, "bladerf_update_tx_freq: Failed to set tx frequency: %s\n", bladerf_strerror(status));
-        return(-1);
-    } else {
-      bladerf_tx_freq_internal = (*freq_hz);
-    }
+  if (freq_hz!=-1) {
+    if (rf->freq == freq_hz)
+      return(0);
+    else
+      rf->freq = freq_hz;
+  } else
+    freq_hz = rf->freq;
+
+  status = bladerf_set_frequency(dev, BLADERF_MODULE_TX, freq_hz);
+  if (status != 0) {
+      fprintf(stderr, "bladerf_update_tx_freq: Failed to set frequency: %s\n", bladerf_strerror(status));
+      return(-1);
+  }
+
+  status = bladerf_get_frequency(dev, BLADERF_MODULE_TX, &freq_hz_result);
+  if (status != 0) {
+      fprintf(stderr, "bladerf_update_tx_freq: Failed to get frequency: %s\n", bladerf_strerror(status));
+      return(-1);
+  }
+
+  if (freq_hz!=freq_hz_result) {
+    rf->freq = freq_hz_result;
+    fprintf(stderr, "bladerf_update_tx_freq: Actual freq %uulz\n", freq_hz_result);
   }
 
   return(0);
 }
 
-int bladerf_update_rx_freq(void *dev, uint64_t *freq_hz) {
+int bladerf_update_rx_freq(void *rf_in, uint64_t freq_hz) {
+  struct rf_cfg_op *rf = (struct rf_cfg_op *)rf_in;
+  struct bladerf *dev = rf->dev;
   int status;
-  
-  if ((*freq_hz)==0) {
-    (*freq_hz) = bladerf_rx_freq_internal;
-    return(0);
+  uint64_t freq_hz_result;
+
+  if (rf->en != RX_ENABLE){
+    fprintf(stderr, "bladerf_update_rx_freq: rf->en is not correct!\n");
+    return(-1);
   }
 
-  if ((*freq_hz)!=bladerf_rx_freq_internal) {
-    status = bladerf_set_frequency((struct bladerf *)dev, BLADERF_MODULE_RX,(*freq_hz));
-    if (status != 0) {
-        fprintf(stderr, "bladerf_update_rx_freq: Failed to set rx frequency: %s\n", bladerf_strerror(status));
-        return(-1);
-    } else {
-      bladerf_rx_freq_internal = (*freq_hz);
-    }
+  if (freq_hz!=-1) {
+    if (rf->freq == freq_hz)
+      return(0);
+    else
+      rf->freq = freq_hz;
+  } else
+    freq_hz = rf->freq;
+
+  status = bladerf_set_frequency(dev, BLADERF_MODULE_RX, freq_hz);
+  if (status != 0) {
+      fprintf(stderr, "bladerf_update_rx_freq: Failed to set frequency: %s\n", bladerf_strerror(status));
+      return(-1);
   }
 
-  return(0);
-}
-
-int bladerf_update_tx_rate(void *dev, int *rate) {
-  int status, actual;
-  
-  if ((*rate)==-1) {
-    (*rate) = bladerf_tx_rate_internal;
-    return(0);
+  status = bladerf_get_frequency(dev, BLADERF_MODULE_RX, &freq_hz_result);
+  if (status != 0) {
+      fprintf(stderr, "bladerf_update_rx_freq: Failed to get frequency: %s\n", bladerf_strerror(status));
+      return(-1);
   }
 
-  if ((*rate)!=bladerf_tx_rate_internal) {
-    status = bladerf_set_sample_rate((struct bladerf *)dev, BLADERF_MODULE_TX,(*rate),&actual);
-    if (status != 0) {
-        fprintf(stderr, "bladerf_update_tx_rate: Failed to set tx sample rate: %s\n", bladerf_strerror(status));
-        return(-1);
-    } else {
-      bladerf_tx_rate_internal = (*rate);
-    }
+  if (freq_hz!=freq_hz_result) {
+    rf->freq = freq_hz_result;
+    fprintf(stderr, "bladerf_update_rx_freq: Actual freq %uul\n", freq_hz_result);
   }
 
   return(0);
 }
 
-int bladerf_update_rx_rate(void *dev, int *rate) {
-  int status, actual;
-  
-  if ((*rate)==-1) {
-    (*rate) = bladerf_rx_rate_internal;
-    return(0);
+int bladerf_update_tx_gain(void *rf_in, int gain_in) {
+  struct rf_cfg_op *rf = (struct rf_cfg_op *)rf_in;
+  struct bladerf *dev = rf->dev;
+  int status, gain_result;
+
+  if (rf->en != TX_ENABLE){
+    fprintf(stderr, "bladerf_update_tx_gain: rf->en is not correct!\n");
+    return(-1);
   }
 
-  if ((*rate)!=bladerf_rx_rate_internal) {
-    status = bladerf_set_sample_rate((struct bladerf *)dev, BLADERF_MODULE_RX,(*rate),&actual);
-    if (status != 0) {
-        fprintf(stderr, "bladerf_update_rx_rate: Failed to set rx sample rate: %s\n", bladerf_strerror(status));
-        return(-1);
-    } else {
-      bladerf_rx_rate_internal = (*rate);
-    }
-  }
+  if (gain_in!=-1) {
+    if (rf->gain == gain_in)
+      return(0);
+    else
+      rf->gain = gain_in;
+  } else
+    gain_in = rf->gain;
 
-  return(0);
-}
-
-int bladerf_update_tx_bw(void *dev, int *bw) {
-  int status, actual;
-  
-  if ((*bw)==-1) {
-    (*bw) = bladerf_tx_bw_internal;
-    return(0);
-  }
-
-  if ((*bw)!=bladerf_tx_bw_internal) {
-    status = bladerf_set_bandwidth((struct bladerf *)dev, BLADERF_MODULE_TX,(*bw),&actual);
-    if (status != 0) {
-        fprintf(stderr, "bladerf_update_tx_bw: Failed to set tx bandwidth: %s\n", bladerf_strerror(status));
-        return(-1);
-    } else {
-      bladerf_tx_bw_internal = (*bw);
-    }
+  status = bladerf_set_gain(dev, BLADERF_MODULE_TX, gain_in);
+  if (status != 0) {
+      fprintf(stderr, "bladerf_update_tx_gain: Failed to set: %s\n", bladerf_strerror(status));
+      return(-1);
   }
 
   return(0);
 }
 
-int bladerf_update_rx_bw(void *dev, int *bw) {
-  int status, actual;
-  
-  if ((*bw)==-1) {
-    (*bw) = bladerf_rx_bw_internal;
-    return(0);
+int bladerf_update_rx_gain(void *rf_in, int gain_in) {
+  struct rf_cfg_op *rf = (struct rf_cfg_op *)rf_in;
+  struct bladerf *dev = rf->dev;
+  int status, gain_result;
+
+  if (rf->en != RX_ENABLE){
+    fprintf(stderr, "bladerf_update_rx_gain: rf->en is not correct!\n");
+    return(-1);
   }
 
-  if ((*bw)!=bladerf_rx_bw_internal) {
-    status = bladerf_set_bandwidth((struct bladerf *)dev, BLADERF_MODULE_RX,(*bw),&actual);
-    if (status != 0) {
-        fprintf(stderr, "bladerf_update_rx_bw: Failed to set rx bandwidth: %s\n", bladerf_strerror(status));
-        return(-1);
-    } else {
-      bladerf_rx_bw_internal = (*bw);
-    }
+  if (gain_in!=-1) {
+    if (rf->gain == gain_in)
+      return(0);
+    else
+      rf->gain = gain_in;
+  } else
+    gain_in = rf->gain;
+
+  status = bladerf_set_gain(dev, BLADERF_MODULE_RX, gain_in);
+  if (status != 0) {
+      fprintf(stderr, "bladerf_update_rx_gain: Failed to set: %s\n", bladerf_strerror(status));
+      return(-1);
   }
 
   return(0);
 }
 
-void bladerf_stop_close_board(void *trx_input){
+int bladerf_update_tx_rate(void *rf_in, int rate) {
+  struct rf_cfg_op *rf = (struct rf_cfg_op *)rf_in;
+  struct bladerf *dev = rf->dev;
+  int status;
+  uint64_t rate_result;
+
+  if (rf->en != TX_ENABLE){
+    fprintf(stderr, "bladerf_update_tx_rate: rf->en is not correct!\n");
+    return(-1);
+  }
+
+  if (rate!=-1) {
+    if (rf->rate == rate)
+      return(0);
+    else
+      rf->rate = rate;
+  } else
+    rate = rf->rate;
+
+  status = bladerf_set_sample_rate(dev, BLADERF_MODULE_TX, rate);
+  if (status != 0) {
+      fprintf(stderr, "bladerf_update_tx_rate: Failed to set  %s\n", bladerf_strerror(status));
+      return(-1);
+  }
+
+  status = bladerf_get_sample_rate(dev, BLADERF_MODULE_TX, &rate_result);
+  if (status != 0) {
+      fprintf(stderr, "bladerf_update_tx_rate: Failed to get  %s\n", bladerf_strerror(status));
+      return(-1);
+  }
+
+  if (rate!=rate_result) {
+    rf->rate = rate_result;
+    fprintf(stderr, "bladerf_update_tx_rate: Actual %d\n", rate_result);
+  }
+
+  return(0);
+}
+
+int bladerf_update_rx_rate(void *rf_in, int rate) {
+  struct rf_cfg_op *rf = (struct rf_cfg_op *)rf_in;
+  struct bladerf *dev = rf->dev;
+  int status;
+  uint64_t rate_result;
+
+  if (rf->en != RX_ENABLE){
+    fprintf(stderr, "bladerf_update_rx_rate: rf->en is not correct!\n");
+    return(-1);
+  }
+
+  if (rate!=-1) {
+    if (rf->rate == rate)
+      return(0);
+    else
+      rf->rate = rate;
+  } else
+    rate = rf->rate;
+
+  status = bladerf_set_sample_rate(dev, BLADERF_MODULE_RX, rate);
+  if (status != 0) {
+      fprintf(stderr, "bladerf_update_rx_rate: Failed to set  %s\n", bladerf_strerror(status));
+      return(-1);
+  }
+
+  status = bladerf_get_sample_rate(dev, BLADERF_MODULE_RX, &rate_result);
+  if (status != 0) {
+      fprintf(stderr, "bladerf_update_rx_rate: Failed to get  %s\n", bladerf_strerror(status));
+      return(-1);
+  }
+
+  if (rate!=rate_result) {
+    rf->rate = rate_result;
+    fprintf(stderr, "bladerf_update_rx_rate: Actual %d\n", rate_result);
+  }
+
+  return(0);
+}
+
+int bladerf_update_tx_bw(void *rf_in, int bw) {
+  struct rf_cfg_op *rf = (struct rf_cfg_op *)rf_in;
+  struct bladerf *dev = rf->dev;
+  int status;
+  uint64_t bw_result;
+
+  if (rf->en != TX_ENABLE){
+    fprintf(stderr, "bladerf_update_tx_bw: rf->en is not correct!\n");
+    return(-1);
+  }
+
+  if (bw!=-1) {
+    if (rf->bw == bw)
+      return(0);
+    else
+      rf->bw = bw;
+  } else
+    bw = rf->bw;
+
+  status = bladerf_set_bandwidth(dev, BLADERF_MODULE_TX, bw, &bw_result);
+  if (status != 0) {
+      fprintf(stderr, "bladerf_update_tx_bw: Failed to set  %s\n", bladerf_strerror(status));
+      return(-1);
+  }
+
+  if (bw!=bw_result) {
+    rf->bw = bw_result;
+    fprintf(stderr, "bladerf_update_tx_bw: Actual %d\n", bw_result);
+  }
+
+  return(0);
+}
+
+int bladerf_update_rx_bw(void *rf_in, int bw) {
+  struct rf_cfg_op *rf = (struct rf_cfg_op *)rf_in;
+  struct bladerf *dev = rf->dev;
+  int status;
+  uint64_t bw_result;
+
+  if (rf->en != TX_ENABLE){
+    fprintf(stderr, "bladerf_update_rx_bw: rf->en is not correct!\n");
+    return(-1);
+  }
+
+  if (bw!=-1) {
+    if (rf->bw == bw)
+      return(0);
+    else
+      rf->bw = bw;
+  } else
+    bw = rf->bw;
+
+  status = bladerf_set_bandwidth(dev, BLADERF_MODULE_RX, bw, &bw_result);
+  if (status != 0) {
+      fprintf(stderr, "bladerf_update_rx_bw: Failed to set  %s\n", bladerf_strerror(status));
+      return(-1);
+  }
+
+  if (bw!=bw_result) {
+    rf->bw = bw_result;
+    fprintf(stderr, "bladerf_update_rx_bw: Actual %d\n", bw_result);
+  }
+
+  return(0);
+}
+
+void bladerf_stop_close_board(void *tmp){
   struct trx_cfg_op *trx = (struct trx_cfg_op *)trx_input;
   int status;
   struct bladerf *dev = trx->dev;

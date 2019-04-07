@@ -151,13 +151,13 @@ int usrp_update_tx_freq(void *rf_in, uint64_t freq_hz) {
     freq_hz = rf->freq;
 
   usrp_tune_request.target_freq = freq_hz;
-    status = uhd_usrp_set_tx_freq(dev, &usrp_tune_request, rf->chan, &usrp_tune_result);
-    //status = (status|uhd_usrp_get_tx_freq(dev,rf->chan,&freq_result));
-    if (status) {
-      uhd_usrp_last_error(dev, usrp_error_string, 512);
-      fprintf(stderr, "usrp_update_tx_freq: uhd_usrp_set_tx_freq: %s\n", usrp_error_string);
-      return EXIT_FAILURE;
-    }
+  status = uhd_usrp_set_tx_freq(dev, &usrp_tune_request, rf->chan, &usrp_tune_result);
+  //status = (status|uhd_usrp_get_tx_freq(dev,rf->chan,&freq_result));
+  if (status) {
+    uhd_usrp_last_error(dev, usrp_error_string, 512);
+    fprintf(stderr, "usrp_update_tx_freq: uhd_usrp_set_tx_freq: %s\n", usrp_error_string);
+    return EXIT_FAILURE;
+  }
 
   if (usrp_tune_result.actual_rf_freq!=usrp_tune_request.target_freq) {
     rf->freq = usrp_tune_result.actual_rf_freq;
@@ -172,7 +172,7 @@ int usrp_update_rx_freq(void *rf_in, uint64_t freq_hz) {
   struct uhd_usrp *dev = rf->dev;
   int status;
 
-  if (rf->en != RX_ENABLE)){
+  if (rf->en != RX_ENABLE){
     fprintf(stderr, "usrp_update_rx_freq: rf->en is not correct!\n");
     return(-1);
   }
@@ -426,7 +426,7 @@ void usrp_stop_close_board(void *tmp){
     dev = trx->rx.dev;
   }
 
-  if (trx->tx.en) == TX_ENABLE {
+  if (trx->tx.en == TX_ENABLE) {
     free(trx->tx.dev_buf); // because app will take care of app buf here
     dev = trx->tx.dev;
   }
