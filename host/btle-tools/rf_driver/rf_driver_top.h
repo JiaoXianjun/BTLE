@@ -28,9 +28,9 @@ struct rf_cfg_op {
     volatile int  app_buf_offset;
     int           num_sample_dev_buf;
     int           num_dev_buf;
-    int           dev_buf_idx;
+    volatile int  dev_buf_idx;
     volatile void *app_buf; //for RX. app will get IQ sample from this buf
-    void          *dev_buf; //for RX. dev will put IQ sample to this buf
+    volatile void *dev_buf; //for RX. dev will put IQ sample to this buf
     void          *streamer;
     void          *metadata;
     void          *dev;

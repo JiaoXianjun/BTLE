@@ -416,18 +416,24 @@ int usrp_update_rx_bw(void *rf_in, int bw_in) {
 void usrp_stop_close_board(void *tmp){
   struct trx_cfg_op *trx = (struct trx_cfg_op *)tmp;
   struct uhd_usrp* dev = NULL;
+
   fprintf(stderr, "usrp_stop_close_board...\n");
   
   if (trx->rx.en == RX_ENABLE) {
     pthread_join(trx->rx.tid, NULL);
     fprintf(stderr,"usrp_stop_close_board: USRP rx thread quit.\n");
-    free(trx->rx.app_buf);
-    free(trx->rx.dev_buf);
+    if (trx->rx.app_buf)
+      free(trx->rx.app_buf);
+    if (trx->rx.dev_buf)
+      free(trx->rx.dev_buf);
     dev = trx->rx.dev;
   }
 
   if (trx->tx.en == TX_ENABLE) {
-    free(trx->tx.dev_buf); // because app will take care of app buf here
+    if (trx->tx.app_buf)
+      free(trx->tx.app_buf);
+    if (trx->tx.dev_buf)
+      free(trx->tx.dev_buf);
     dev = trx->tx.dev;
   }
 
@@ -484,6 +490,7 @@ int usrp_config_run_board(struct trx_cfg_op *trx) {
     trx->tx.metadata = NULL;
     trx->tx.dev = NULL;
     trx->tx.app_buf_offset = 0;
+    trx->tx.dev_buf_idx = 0;
 
     if (trx->tx.freq==-1)
       trx->tx.freq = USRP_DEFAULT_TX_FREQ;
@@ -503,6 +510,7 @@ int usrp_config_run_board(struct trx_cfg_op *trx) {
     trx->rx.metadata = NULL;
     trx->rx.dev = NULL;
     trx->rx.app_buf_offset = 0;
+    trx->rx.dev_buf_idx = 0;
 
     num_sample_app_buf_total = 2*(trx->rx.num_sample_app_buf) + trx->rx.num_sample_app_buf_tail;
 
