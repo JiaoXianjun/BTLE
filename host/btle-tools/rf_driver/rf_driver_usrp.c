@@ -43,7 +43,7 @@ void *usrp_rx_task_run(void *tmp)
       
   while (!do_exit) {
     uhd_rx_streamer_recv(rx->streamer, (void**)&(rx->dev_buf), rx->num_sample_dev_buf, &(rx->metadata), 3.0, false, &num_rx_samps);
-    if (uhd_rx_metadata_error_code(*(rx->metadata), &error_code) ) {
+    if (uhd_rx_metadata_error_code(rx->metadata, &error_code) ) {
       fprintf(stderr, "usrp_rx_task_run: uhd_rx_metadata_error_code return error. Aborting.\n");
       return(NULL);
     }
@@ -491,7 +491,7 @@ int usrp_config_run_board(struct trx_cfg_op *trx) {
     trx->tx.dev = NULL;
     trx->tx.app_buf_offset = 0;
     trx->tx.dev_buf_idx = 0;
-
+    
     if (trx->tx.freq==-1)
       trx->tx.freq = USRP_DEFAULT_TX_FREQ;
     if (trx->tx.gain==-1)
@@ -500,7 +500,6 @@ int usrp_config_run_board(struct trx_cfg_op *trx) {
       trx->tx.rate = USRP_DEFAULT_TX_RATE;
     if (trx->tx.bw==-1)
       trx->tx.bw = USRP_DEFAULT_TX_BW;
-    
   }
 
   if (trx->rx.en==RX_ENABLE) {

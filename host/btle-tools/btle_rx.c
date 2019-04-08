@@ -254,6 +254,18 @@ int main(int argc, char** argv) {
   trx.dev = NULL;
   trx.hw_type = rf_in_use;
 
+  if (USRP)
+    trx->rx.num_dev_buf = 0;
+    trx->rx.num_sample_dev_buf = 0;
+    trx->rx.num_sample_app_buf = LEN_BUF_RX_SAMPLE/2;
+    trx->rx.num_sample_app_buf_tail = MAX_NUM_PHY_SAMPLE;
+  else if (BLADERF)
+    trx->rx.num_dev_buf = 2;
+    trx->rx.num_sample_dev_buf = LEN_BUF_RX_SAMPLE/2;
+    trx->rx.num_sample_app_buf = LEN_BUF_RX_SAMPLE/2;
+    trx->rx.num_sample_app_buf_tail = MAX_NUM_PHY_SAMPLE;
+  else if (HACKRF)
+
   probe_run_rf(&trx);
   printf("Cmd line input: chan %d, freq %ldMHz, access addr %08x, crc init %06x raw %d verbose %d rx %ddB RF %d\n", chan, freq_hz/1000000, access_addr, crc_init, raw_flag, verbose_flag, gain, rf_in_use);
   

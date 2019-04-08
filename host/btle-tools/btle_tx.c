@@ -246,6 +246,18 @@ int main(int argc, char** argv) {
   release_2d(descriptor, MAX_NUM_PACKET);
   printf("\n");
 
+  if (USRP)
+    trx->tx.num_dev_buf = 0;
+    trx->tx.num_sample_dev_buf = 0; // will be decided automatically by HW during initialization
+    trx->tx.num_sample_app_buf = 0; // app buffer will be maintained in main program
+    trx->tx.num_sample_app_buf_tail = 0;
+  else if (BLADERF)
+    trx->tx.num_dev_buf = 0;
+    trx->tx.num_sample_dev_buf = NUM_BLADERF_BUF_SAMPLE_TX;
+    trx->tx.num_sample_app_buf = 0;
+    trx->tx.num_sample_app_buf_tail = 0;
+  else if (HACKRF)
+
   probe_run_rf(&rf_dev, get_freq_by_channel_number(37), arg_string, &gain, &rf_in_use);
 
   struct timeval time_tmp, time_current_pkt, time_pre_pkt;
