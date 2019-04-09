@@ -244,16 +244,17 @@ int main(int argc, char** argv) {
 
   trx.tx.en = false;//for sniffer, we only need rx
   trx.rx.en = true;
-  trx.rx.freq = freq_hz;
-  trx.rx.gain = gain;
-  trx.rx.rate = SAMPLE_PER_SYMBOL*1000000;
-  trx.rx.bw = SAMPLE_PER_SYMBOL*1000000/2;
+  trx.rx.freq = freq_hz; // or -1
+  trx.rx.gain = gain;// or -1
+  trx.rx.rate = SAMPLE_PER_SYMBOL*1000000;// or -1
+  trx.rx.bw = SAMPLE_PER_SYMBOL*1000000/2;// or -1
   trx.rx.num_sample_rx_buf = LEN_BUF_RX;
   trx.rx.nu
   trx.arg_string = arg_string;
   trx.dev = NULL;
   trx.hw_type = rf_in_use;
 
+  // should set 
   if (USRP)
     trx->rx.num_dev_buf = 0;
     trx->rx.num_sample_dev_buf = 0;

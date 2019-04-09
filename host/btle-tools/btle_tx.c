@@ -246,6 +246,13 @@ int main(int argc, char** argv) {
   release_2d(descriptor, MAX_NUM_PACKET);
   printf("\n");
 
+  trx.tx.en = false;//for sniffer, we only need rx
+  trx.rx.en = true;
+  trx.rx.freq = freq_hz; // or -1
+  trx.rx.gain = gain;// or -1
+  trx.rx.rate = SAMPLE_PER_SYMBOL*1000000;// or -1
+  trx.rx.bw = SAMPLE_PER_SYMBOL*1000000/2;// or -1
+  
   if (USRP)
     trx->tx.num_dev_buf = 0;
     trx->tx.num_sample_dev_buf = 0; // will be decided automatically by HW during initialization
