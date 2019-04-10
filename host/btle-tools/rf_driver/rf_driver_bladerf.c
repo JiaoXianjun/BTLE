@@ -401,9 +401,9 @@ int bladerf_update_rx_bw(void *rf_in, int bw) {
 }
 
 void bladerf_stop_close_board(void *tmp){
-  struct trx_cfg_op *trx = (struct trx_cfg_op *)trx_input;
+  struct trx_cfg_op *trx = (struct trx_cfg_op *)tmp;
   int status=-9999, i;
-  struct bladerf *dev;
+  struct bladerf *dev = NULL;
 
   fprintf(stderr, "bladerf_stop_close_board...\n");
 
@@ -441,7 +441,7 @@ void bladerf_stop_close_board(void *tmp){
     status = bladerf_enable_module(dev, BLADERF_MODULE_RX, false);
     if (status<0)
         fprintf(stderr, "bladerf_stop_close_board: Failed to disable module BLADERF_MODULE_RX. %s\n",bladerf_strerror(status));
-    else 
+    else
       fprintf(stdout, "bladerf_stop_close_board: disable module BLADERF_MODULE_RX. %s\n", bladerf_strerror(status));
   }
 

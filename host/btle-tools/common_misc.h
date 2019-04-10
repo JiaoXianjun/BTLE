@@ -3,17 +3,10 @@
 #define SAMPLE_PER_SYMBOL 4 // 4M sampling rate
 
 #define LEN_BUF_RX_SAMPLE (4*4096) //4096 samples = ~1ms for 4Msps; ATTENTION each rx callback get hackrf.c:lib_device->buffer_size samples!!!
-#define LEN_BUF_RX (LEN_BUF_RX_SAMPLE*2)
 
 #define MAX_NUM_CHAR_CMD (256)
 
 #define MAX_NUM_PACKET (128)
-
-#define NUM_BLADERF_BUF_SAMPLE_TX (4096)
-
-#define HACKRF_ONBOARD_BUF_SIZE_TX (32768) // in usb_bulk_buffer.h
-#define HACKRF_USB_BUF_SIZE_TX (4096) // in hackrf.c lib_device->buffer_size
-#define NUM_PRE_SEND_DATA (256)
 
 #ifndef bool
 typedef int bool;
