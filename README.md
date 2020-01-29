@@ -35,7 +35,7 @@ Build and Quick test
 
 Instructions:
 ```
-git clone git@github.com:JiaoXianjun/BTLE.git
+git clone https://github.com/JiaoXianjun/BTLE.git
 cd BTLE/host
 mkdir build
 cd build
