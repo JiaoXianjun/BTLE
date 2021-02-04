@@ -1,4 +1,5 @@
-// BLE sniffer by Xianjun Jiao (putaoshu@msn.com)
+// SPDX-FileCopyrightText: 2021 Xianjun Jiao <putaoshu@msn.com>
+// SPDX-License-Identifier: Apache-2.0
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -92,7 +93,7 @@ void parse_commandline(
   
   (*raw_flag) = 0;
   
-  (*freq_hz) = 123;
+  (*freq_hz) = 0;
   
   (*access_mask) = 0xFFFFFFFF;
   
@@ -104,18 +105,18 @@ void parse_commandline(
 
   while (1) {
     static struct option long_options[] = {
-      {"help",         no_argument,       0, 'h'},
-      {"chan",   required_argument, 0, 'c'},
-      {"gain",         required_argument, 0, 'g'},
-      {"access",         required_argument, 0, 'a'},
-      {"crcinit",           required_argument, 0, 'k'},
-      {"verbose",         no_argument, 0, 'v'},
-      {"raw",         no_argument, 0, 'r'},
-      {"freq_hz",           required_argument, 0, 'f'},
-      {"access_mask",         required_argument, 0, 'm'},
-      {"hop",         no_argument, 0, 'o'},
-      {"board",         required_argument, 0, 'b'},
-      {"s",         required_argument, 0, 's'},
+      {"help",        no_argument,       0, 'h'},
+      {"chan",        required_argument, 0, 'c'},
+      {"gain",        required_argument, 0, 'g'},
+      {"access",      required_argument, 0, 'a'},
+      {"crcinit",     required_argument, 0, 'k'},
+      {"verbose",     no_argument,       0, 'v'},
+      {"raw",         no_argument,       0, 'r'},
+      {"freq_hz",     required_argument, 0, 'f'},
+      {"access_mask", required_argument, 0, 'm'},
+      {"hop",         no_argument,       0, 'o'},
+      {"board",       required_argument, 0, 'b'},
+      {"s",           required_argument, 0, 's'},
       {0, 0, 0, 0}
     };
     /* getopt_long stores the option index here. */
@@ -235,14 +236,20 @@ int main(int argc, char** argv) {
   uint64_t freq_hz;
   int gain, chan, verbose_flag, raw_flag, hop_flag;
   uint32_t access_addr, access_addr_mask, crc_init, crc_init_internal;
-  struct trx_cfg_op trx;
   char arg_string[MAX_NUM_CHAR_CMD];
+  struct trx_cfg_op trx;
+  enum board_type rf_in_use,
   IQ_TYPE *rxp;
 
   parse_commandline(argc, argv, &chan, &gain, &access_addr, &crc_init, &verbose_flag, &raw_flag, &freq_hz, &access_addr_mask, &hop_flag, &rf_in_use, arg_string);
   //printf("arg string %d\n", arg_string);
 
+  trx.arg_string = arg_string;
+  trx.dev = NULL;
+  trx.hw_type = rf_in_use;
+
   trx.tx.en = false;//for sniffer, we only need rx
+
   trx.rx.en = true;
   trx.rx.freq = freq_hz; // or -1
   trx.rx.gain = gain;// or -1
@@ -250,9 +257,6 @@ int main(int argc, char** argv) {
   trx.rx.bw = SAMPLE_PER_SYMBOL*1000000/2;// or -1
   trx.rx.num_sample_rx_buf = LEN_BUF_RX;
   trx.rx.nu
-  trx.arg_string = arg_string;
-  trx.dev = NULL;
-  trx.hw_type = rf_in_use;
 
   // should set 
   if (USRP)

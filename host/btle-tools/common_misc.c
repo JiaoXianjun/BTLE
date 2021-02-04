@@ -224,7 +224,6 @@ void save_phy_sample_for_matlab(IQ_TYPE *IQ_sample, int num_IQ_sample, char *fil
   fclose(fp);
 }
 
-
 void save_phy_sample(char *IQ_sample, int num_IQ_sample, char *filename)
 {
   int i;
@@ -367,7 +366,6 @@ void release_2d(char **items, int num_row) {
   free ((char *) items);
 }
 
-
 void disp_bit(char *bit, int num_bit)
 {
   int i, bit_val;
@@ -424,7 +422,6 @@ void disp_hex_in_bit(uint8_t *hex, int num_hex)
 
   printf("\n");
 }
-
 
 char* get_next_field(char *str_input, char *p_out, char *seperator, int size_of_p_out) {
   char *tmp_p = strstr(str_input, seperator);
