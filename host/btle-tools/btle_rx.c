@@ -222,7 +222,7 @@ void parse_commandline(
     goto abnormal_quit;
   }
 
-  if ( (*freq_hz) == 123)
+  if ( (*freq_hz) == 0)
     (*freq_hz) = get_freq_by_channel_number((*chan));
 
   return;
@@ -244,31 +244,40 @@ int main(int argc, char** argv) {
   parse_commandline(argc, argv, &chan, &gain, &access_addr, &crc_init, &verbose_flag, &raw_flag, &freq_hz, &access_addr_mask, &hop_flag, &rf_in_use, arg_string);
   //printf("arg string %d\n", arg_string);
 
-  trx.arg_string = arg_string;
-  trx.dev = NULL;
-  trx.hw_type = rf_in_use;
-
   trx.tx.en = false;//for sniffer, we only need rx
 
-  trx.rx.en = true;
+  trx.rx.en   = true;
+  trx.rx.chan = chan;
   trx.rx.freq = freq_hz; // or -1
-  trx.rx.gain = gain;// or -1
-  trx.rx.rate = SAMPLE_PER_SYMBOL*1000000;// or -1
-  trx.rx.bw = SAMPLE_PER_SYMBOL*1000000/2;// or -1
-  trx.rx.num_sample_rx_buf = LEN_BUF_RX;
-  trx.rx.nu
-
+  trx.rx.rate = SAMPLE_PER_SYMBOL*1000000;
+  trx.rx.bw   = SAMPLE_PER_SYMBOL*1000000/2;
+  trx.rx.num_sample_app_buf      = LEN_BUF_RX_SAMPLE/2;
+  trx.rx.num_sample_app_buf_tail = MAX_NUM_PHY_SAMPLE;
+  trx.rx.app_buf_offset = 0;
+  trx.rx.num_sample_dev_buf = 0; // will be decided later
+  trx.rx.num_dev_buf        = 0; // will be decided later
+  trx.rx.dev_buf_idx    = 0;
+  trx.rx.app_buf = NULL;
+  trx.rx.dev_buf = NULL;
+  trx.rx.streamer= NULL;
+  trx.rx.metadata= NULL;
+  trx.rx.dev     = NULL;
+  //pthread_mutex_init(&(trx.rx.callback_lock), NULL);
+  trx.rx.tid     = 0;
+  trx.rx.update_freq = NULL;
+  trx.rx.update_gain = NULL;
+  trx.rx.update_rate = NULL;
+  trx.rx.update_bw   = NULL;
+  trx.rx.proc_one_buf= NULL;
+  
   // should set 
   if (USRP)
+    trx.rx.gain = gain;// or -1
     trx->rx.num_dev_buf = 0;
     trx->rx.num_sample_dev_buf = 0;
-    trx->rx.num_sample_app_buf = LEN_BUF_RX_SAMPLE/2;
-    trx->rx.num_sample_app_buf_tail = MAX_NUM_PHY_SAMPLE;
   else if (BLADERF)
-    trx->rx.num_dev_buf = 2;
     trx->rx.num_sample_dev_buf = LEN_BUF_RX_SAMPLE/2;
-    trx->rx.num_sample_app_buf = LEN_BUF_RX_SAMPLE/2;
-    trx->rx.num_sample_app_buf_tail = MAX_NUM_PHY_SAMPLE;
+    trx->rx.num_dev_buf = 2;
   else if (HACKRF)
 
   probe_run_rf(&trx);

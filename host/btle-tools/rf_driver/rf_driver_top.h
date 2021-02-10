@@ -14,10 +14,9 @@
 #define USRP_DEFAULT_TX_GAIN 83
 
 enum board_type {HACKRF=0, BLADERF=1, USRP=2, NOTVALID=3}; 
-enum trx_flag {DISABLE=0, TX_ENABLE=1, RX_ENABLE=2, NOTVALID=3}; 
 
 struct rf_cfg_op {
-    enum trx_flag en;
+    bool          en;
     int           chan; //currnet chan. some board supports multiple channel
     uint64_t      freq; //current center frequency Hz
     int           gain; //current gain. dB or depends on hardware
