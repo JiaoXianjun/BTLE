@@ -605,11 +605,11 @@ inline int close_board(hackrf_device *device) {
 inline int run_board(hackrf_device* device) {
   int result;
 
-	result = hackrf_stop_rx(device);
-	if( result != HACKRF_SUCCESS ) {
-		printf("run_board: hackrf_stop_rx() failed: %s (%d)\n", hackrf_error_name(result), result);
-		return(-1);
-	}
+	// result = hackrf_stop_rx(device); // this is not necessary for new hackrf driver
+	// if( result != HACKRF_SUCCESS ) {
+	// 	printf("run_board: hackrf_stop_rx() failed: %s (%d)\n", hackrf_error_name(result), result);
+	// 	return(-1);
+	// }
   
   result = hackrf_start_rx(device, rx_callback, NULL);
   if( result != HACKRF_SUCCESS ) {
