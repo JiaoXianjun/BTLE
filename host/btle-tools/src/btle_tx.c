@@ -617,11 +617,11 @@ inline int tx_one_buf(char *buf, int length, int channel_number) {
     return(-1);
   }
 
-  result = hackrf_stop_tx(device);
-  if( result != HACKRF_SUCCESS ) {
-    printf("tx_one_buf: hackrf_stop_tx() failed: %s (%d)\n", hackrf_error_name(result), result);
-    return(-1);
-  }
+  // result = hackrf_stop_tx(device);
+  // if( result != HACKRF_SUCCESS ) {
+  //   printf("tx_one_buf: hackrf_stop_tx() failed: %s (%d)\n", hackrf_error_name(result), result);
+  //   return(-1);
+  // }
 
 #if 0
   do_exit = false;
