@@ -484,7 +484,6 @@ void stop_close_board(struct bladerf *dev){
 char *board_name = "HACKRF";
 #define MAX_GAIN 62
 #define DEFAULT_GAIN 6
-#define MAX_LNA_GAIN 32
 
 int rx_callback(hackrf_transfer* transfer) {
   int i;
