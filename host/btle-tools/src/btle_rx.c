@@ -484,7 +484,7 @@ void stop_close_board(struct bladerf *dev){
 char *board_name = "HACKRF";
 #define MAX_GAIN 62
 #define DEFAULT_GAIN 6
-#define MAX_LNA_GAIN 40
+#define MAX_LNA_GAIN 32
 
 int rx_callback(hackrf_transfer* transfer) {
   int i;
@@ -528,7 +528,7 @@ int board_set_freq(void *device, uint64_t freq_hz) {
   return(HACKRF_SUCCESS);
 }
 
-inline int open_board(uint64_t freq_hz, int gain, hackrf_device** device) {
+inline int open_board(uint64_t freq_hz, int gain, int lnaGain, uint8_t amp, hackrf_device** device) {
   int result;
 
 	result = hackrf_open(device);
@@ -558,11 +558,27 @@ inline int open_board(uint64_t freq_hz, int gain, hackrf_device** device) {
     print_usage();
     return(-1);
   }
-  
+
+  printf("Setting VGA gain to %d\n", gain);
   result = hackrf_set_vga_gain(*device, gain);
-	result |= hackrf_set_lna_gain(*device, MAX_LNA_GAIN);
   if( result != HACKRF_SUCCESS ) {
-    printf("open_board: hackrf_set_txvga_gain() failed: %s (%d)\n", hackrf_error_name(result), result);
+    printf("open_board: hackrf_set_vga_gain() failed: %s (%d)\n", hackrf_error_name(result), result);
+    print_usage();
+    return(-1);
+  }
+
+  printf("Setting LNA gain to %d\n", lnaGain);  
+  result = hackrf_set_lna_gain(*device, lnaGain);
+  if( result != HACKRF_SUCCESS ) {
+    printf("open_board: hackrf_set_lna_gain() failed: %s (%d)\n", hackrf_error_name(result), result);
+    print_usage();
+    return(-1);
+  }
+
+  printf(amp ? "Enabling amp\n" : "Disabling amp\n");
+  result = hackrf_set_amp_enable(*device, amp);	
+  if( result != HACKRF_SUCCESS ) {
+    printf("open_board: hackrf_set_amp_enable() failed: %s (%d)\n", hackrf_error_name(result), result);
     print_usage();
     return(-1);
   }
@@ -620,7 +636,7 @@ inline int run_board(hackrf_device* device) {
   return(0);
 }
 
-inline int config_run_board(uint64_t freq_hz, int gain, void **rf_dev) {
+inline int config_run_board(uint64_t freq_hz, int gain, int lnaGain, uint8_t amp, void **rf_dev) {
   hackrf_device *dev = NULL;
   
   (*rf_dev) = dev;
@@ -629,7 +645,7 @@ inline int config_run_board(uint64_t freq_hz, int gain, void **rf_dev) {
     return(-1);
   }
   
-  if ( open_board(freq_hz, gain, &dev) != 0 ) {
+  if ( open_board(freq_hz, gain, lnaGain, amp, &dev) != 0 ) {
     (*rf_dev) = dev;
     return(-1);
   }
@@ -661,6 +677,10 @@ static void print_usage() {
   printf("      Channel number. default 37. valid range 0~39\n");
   printf("    -g --gain\n");
   printf("      Rx gain in dB. HACKRF rxvga default %d, valid 0~62, lna in max gain. bladeRF default is max rx gain 66dB (valid 0~66)\n", DEFAULT_GAIN);
+  printf("    -l --lnaGain\n");
+  printf("      LNA gain in dB. HACKRF lna default %d, valid 0~40, lna in max gain. bladeRF default is max rx gain 32dB (valid 0~40)\n", 32);
+  printf("    -b --amp\n");
+  printf("      Enable amp. Default off.\n");
   printf("    -a --access\n");
   printf("      Access address. 4 bytes. Hex format (like 89ABCDEF). Default %08x for channel 37 38 39. For other channel you should pick correct value according to sniffed link setup procedure\n", DEFAULT_ACCESS_ADDR);
   printf("    -k --crcinit\n");
@@ -1174,6 +1194,8 @@ void parse_commandline(
   // Outputs
   int* chan,
   int* gain,
+  int* lnaGain,
+  uint8_t* amp,
   uint32_t* access_addr,
   uint32_t* crc_init,
   int* verbose_flag,
@@ -1189,6 +1211,10 @@ void parse_commandline(
   (*chan) = DEFAULT_CHANNEL;
 
   (*gain) = DEFAULT_GAIN;
+
+  (*lnaGain) = 32;
+
+  (*amp) = 0;
   
   (*access_addr) = DEFAULT_ACCESS_ADDR;
   
@@ -1211,6 +1237,8 @@ void parse_commandline(
       {"help",         no_argument,       0, 'h'},
       {"chan",   required_argument, 0, 'c'},
       {"gain",         required_argument, 0, 'g'},
+      {"lnaGain",         required_argument, 0, 'l'},
+      {"amp",         no_argument, 0, 'b'},
       {"access",         required_argument, 0, 'a'},
       {"crcinit",           required_argument, 0, 'k'},
       {"verbose",         no_argument, 0, 'v'},
@@ -1223,7 +1251,7 @@ void parse_commandline(
     };
     /* getopt_long stores the option index here. */
     int option_index = 0;
-    int c = getopt_long (argc, argv, "hc:g:a:k:vrf:m:os:",
+    int c = getopt_long (argc, argv, "hc:g:l:ba:k:vrf:m:os:",
                      long_options, &option_index);
 
     /* Detect the end of the options. */
@@ -1261,6 +1289,14 @@ void parse_commandline(
         
       case 'g':
         (*gain) = strtol(optarg,&endp,10);
+        break;
+
+      case 'l':
+        (*lnaGain) = strtol(optarg,&endp,10);
+        break;
+
+      case 'b':
+        (*amp) = 1;
         break;
       
       case 'f':
@@ -1300,6 +1336,11 @@ void parse_commandline(
   
   if ( (*gain)<0 || (*gain)>MAX_GAIN ) {
     printf("rx gain must be within 0~%d!\n", MAX_GAIN);
+    goto abnormal_quit;
+  }
+
+if ( (*lnaGain)<0 || (*lnaGain)>40 ) {
+    printf("lna gain must be within 0~%d!\n", 40);
     goto abnormal_quit;
   }
   
@@ -2286,13 +2327,14 @@ int receiver_controller(void *rf_dev, int verbose_flag, int *chan, uint32_t *acc
 
 int main(int argc, char** argv) {
   uint64_t freq_hz;
-  int gain, chan, phase, rx_buf_offset_tmp, verbose_flag, raw_flag, hop_flag;
+  int gain, lnaGain, chan, phase, rx_buf_offset_tmp, verbose_flag, raw_flag, hop_flag;
+  uint8_t amp;
   uint32_t access_addr, access_addr_mask, crc_init, crc_init_internal;
   bool run_flag = false;
   void* rf_dev;
   IQ_TYPE *rxp;
 
-  parse_commandline(argc, argv, &chan, &gain, &access_addr, &crc_init, &verbose_flag, &raw_flag, &freq_hz, &access_addr_mask, &hop_flag, &filename_pcap);
+  parse_commandline(argc, argv, &chan, &gain, &lnaGain, &amp, &access_addr, &crc_init, &verbose_flag, &raw_flag, &freq_hz, &access_addr_mask, &hop_flag, &filename_pcap);
 
   if (freq_hz == 123)
     freq_hz = get_freq_by_channel_number(chan);
@@ -2308,7 +2350,7 @@ int main(int argc, char** argv) {
   
   // run cyclic recv in background
   do_exit = false;
-  if ( config_run_board(freq_hz, gain, &rf_dev) != 0 ){
+  if ( config_run_board(freq_hz, gain, lnaGain, amp, &rf_dev) != 0 ){
     if (rf_dev != NULL) {
       goto program_quit;
     }
