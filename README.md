@@ -51,6 +51,8 @@ Above command transmits discovery packets on ADV channel. You should see a devic
 ```
 in hackrf/host/libhackrf/src/hackrf.c. Then re-compile the HACKRF lib and re-install it. Don't forget to re-compile BTLE to take the HACKRF lib change.
 
+**Besides the tools, [matlab](matlab) directory includes algorithm evaluation and other useful scirpts**
+
 btle_rx usage
 ------------------
 ```
