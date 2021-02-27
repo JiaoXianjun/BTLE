@@ -1,3 +1,6 @@
+// Lookup table to speedup the program
+// Xianjun Jiao (putaoshu@msn.com)
+
 const int8_t gauss_coef_int8[16] = {
 0, 0, 0, 0, 2, 11, 32, 53, 60, 53, 32, 11, 2, 0, 0, 0, };
 
