@@ -54,13 +54,10 @@ Above command transmits discovery packets on ADV channel. You should see a devic
 
 btle_rx usage
 ------------------
-```    
-btle_rx -c chan -g gain -a access_addr -k crc_init -v -r
-```
 ```
 -h --help
 ```
-Print this help screen
+Print all arguments/usages.
 ```
 -c --chan
 ```
@@ -68,15 +65,15 @@ Channel number. Default value 37 (one of ADV channels). Valid value 0~39 (all AD
 ```
 -g --gain
 ```
-VGA gain. default value 6. valid value 0~62. Gain should be tuned very carefully to ensure best performance under your circumstance. Suggest test from low gain, because high gain always causes severe distortion and get you nothing.
+Rx gain in dB. HACKRF rxvga default 6, valid 0~62. bladeRF default is max rx gain 66dB (valid 0~66). Gain should be tuned very carefully to ensure best performance under your circumstance. Suggest test from low gain, because high gain always causes severe distortion and get you nothing.
 ```
 -l --lnaGain
 ```
-LNA gain in dB. HACKRF lna default 32, valid 0~40, lna in max gain. bladeRF default is max rx gain 32dB (valid 0~40). Gain should be tuned very carefully to ensure best performance under your circumstance. 
+LNA gain in dB (HackRF only). Default 32, valid 0~40. Gain should be tuned very carefully to ensure best performance under your circumstance. 
 ```
 -b --amp
 ```
-Enable amp (HackRF). Default off.
+Enable amp (HackRF only). Default off.
 ```
 -a --access
 ```
@@ -100,7 +97,8 @@ This frequency (Hz) will override channel setting (In case someone want to work 
 ```
 -m --access_mask (need argument)
 ```
-If a bit is 1 in this mask, corresponding bit in access address will be taken into packet existing decision (In case someone want a shorter/sparser unique word to do packet detection. More general purpose).```
+If a bit is 1 in this mask, corresponding bit in access address will be taken into packet existing decision (In case someone want a shorter/sparser unique word to do packet detection. More general purpose).
+```
 -o --hop
 ```
 This will turn on data channel tracking (frequency hopping) after link setup information is captured in ADV_CONNECT_REQ packet on ADV channel.
