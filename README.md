@@ -69,7 +69,7 @@ Rx gain in dB. HACKRF rxvga default 6, valid 0 - 62. bladeRF default is max rx g
 ```
 -l --lnaGain
 ```
-LNA gain in dB (HackRF only). Default 32, valid 0 ~ 40. Gain should be tuned very carefully to ensure best performance under your circumstance. 
+LNA gain in dB (HackRF only). Default 32, valid 0 - 40. Gain should be tuned very carefully to ensure best performance under your circumstance. 
 ```
 -b --amp
 ```
