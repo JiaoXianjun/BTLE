@@ -293,7 +293,7 @@ void *rx_task_run(void *tmp)
   return NULL;
 }
 
-inline int config_run_board(uint64_t freq_hz, int gain, void **rf_dev) {
+inline int config_run_board(uint64_t freq_hz, int gain, int lnaGain, uint8_t amp, void **rf_dev) {
   int status;
   unsigned int actual;
   struct bladerf *dev;
