@@ -654,9 +654,9 @@ static void print_usage() {
   printf("    -c --chan\n");
   printf("      Channel number. default 37. valid range 0~39\n");
   printf("    -g --gain\n");
-  printf("      Rx gain in dB. HACKRF rxvga default %d, valid 0~62, lna in max gain. bladeRF default is max rx gain 66dB (valid 0~66)\n", DEFAULT_GAIN);
+  printf("      Rx gain in dB. HACKRF rxvga default %d, valid 0~62. bladeRF default is max rx gain 66dB (valid 0~66)\n", DEFAULT_GAIN);
   printf("    -l --lnaGain\n");
-  printf("      LNA gain in dB. HACKRF lna default %d, valid 0~40, lna in max gain. bladeRF default is max rx gain 32dB (valid 0~40)\n", 32);
+  printf("      LNA gain in dB. HACKRF lna default %d, valid 0~40. bladeRF default is max rx gain 32dB (valid 0~40)\n", 32);
   printf("    -b --amp\n");
   printf("      Enable amp. Default off.\n");
   printf("    -a --access\n");
