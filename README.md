@@ -44,13 +44,12 @@ Above command sniffs on channel 37. You should see many packets on screen if you
 ```
 Above command transmits discovery packets on ADV channel. You should see a device with name "SDR/Bluetooth/Low/Energy" in another BLE sniffer App (such as LightBlue).
 
-~~**MAY NOT BE NECESSARY**: To support fast/realtime sender and scanner/sniffer, I ever changed:~~
-
-~~lib_device->transfer_count to 4~~
-
-~~lib_device->buffer_size to 4096~~
-
-~~in hackrf driver: hackrf.c. Maybe you should also do that change to your HackRF driver source code and re-compile, re-install~~
+**To have a faster operation sequence on HACKRF**, use following:
+```
+#define TRANSFER_COUNT 4
+#define TRANSFER_BUFFER_SIZE 4096
+```
+in hackrf/host/libhackrf/src/hackrf.c. Then re-compile the HACKRF lib and re-install it. Don't forget to re-compile BTLE to take the HACKRF lib change.
 
 btle_rx usage
 ------------------
