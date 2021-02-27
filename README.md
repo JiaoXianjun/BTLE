@@ -1,66 +1,56 @@
 BTLE
 ========
 
-BTLE is a free and open-source Bluetooth Low Energy (BLE) software suite developed by Xianjun Jiao. 
+BTLE is a free and open-source Software Defined Radio Bluetooth Low Energy (BLE) software suite. 
 
 It includes:
-  * btle_rx - a complete BLE sniffer. Besides sniff broadcasting/fixed channel, it also can track channel hopping of a communication link.
-  * btle_tx - a universal BLE packet generator. Besides BLE standard, it also supports raw bit mode to generate arbitrary GFSK packet. In this way, you can test private protocol or planned standard feature even before ASIC is ready.
-
-This project is based on [HackRF](https://github.com/mossmann/hackrf) and [bladeRF](https://github.com/Nuand/bladeRF). 
-See [compatible version of HackRF and bladeRF libraries](compatible_hackrf_bladerf_lib.txt).
+  * btle_rx - BLE sniffer. Besides sniff broadcasting/fixed channel, it can also track channel hopping of a communication link.
+  * btle_tx - Universal BLE packet transmitter. Besides BLE standard, it supports also raw bit mode to generate arbitrary GFSK packet. In this way, you can test non-standard protocol or standard under discussion before chip in the market.
 
 Features
 ---------------
 
  * PHY and upper layer are implemented in software (C language). Full Software Defined Radio Flexibility. 
- * BLE standard 1Mbps GFSK PHY rate.
+ * BLE standard 1Mbps GFSK PHY.
  * All ADV and DATA channel link layer packet formats in Core_V4.0 (Chapter 2&3, PartB, Volume 6) are supported.
  * Sniffer is capable to parse and track channel hopping pattern automatically, not limited to broadcasting channel or fixed channel.
 
 Hardware
 --------
 
- * HackRF
- * bladeRF
+ * [HackRF](https://github.com/mossmann/hackrf)
+ * [bladeRF](https://github.com/Nuand/bladeRF)
+ * [compatible version of HackRF and bladeRF libraries](compatible_hackrf_bladerf_lib.txt)
 
 Build and Quick test
 ------------------
 
-* Mandatory requirements: check this link https://github.com/mossmann/hackrf/tree/master/host
+Make sure your SDR hardware environment (driver/lib) has been setup correctly before run this project.
 
-* RF front-end driver:
-  * HackRF:              https://github.com/mossmann/hackrf
-  * BladeRF:             https://github.com/Nuand/bladeRF
-
-Instructions:
 ```
 git clone https://github.com/JiaoXianjun/BTLE.git
 cd BTLE/host
 mkdir build
 cd build
 cmake ../                   (default. for HackRF)
-cmake ../ -DUSE_BLADERF=1   (for bladeRF)
-```
-without -DUSE_BLADERF=1 in above cmake means HACKRF will be used by default
-```
+cmake ../ -DUSE_BLADERF=1   (only for bladeRF)
+
 make
 ./btle-tools/src/btle_rx
 ```
-Above command sniffs on channel 37. You should see many packets on screen.
+Above command sniffs on channel 37. You should see many packets on screen if you have BLE devices (phone/pad/laptop) around.
 ```
 ./btle-tools/src/btle_tx 37-DISCOVERY-TxAdd-1-RxAdd-0-AdvA-010203040506-LOCAL_NAME09-SDR/Bluetooth/Low/Energy r500 
 ```
 Above command transmits discovery packets on ADV channel. You should see a device with name "SDR/Bluetooth/Low/Energy" in another BLE sniffer App (such as LightBlue).
 
-~~**MAY NOT BE NECESSARY**: To support fast/realtime sender and scanner/sniffer, I have changed:~~
+~~**MAY NOT BE NECESSARY**: To support fast/realtime sender and scanner/sniffer, I ever changed:~~
 
 ~~lib_device->transfer_count to 4~~
 
 ~~lib_device->buffer_size to 4096~~
 
-~~in hackrf driver: hackrf.c. You should also do that change to your HackRF driver source code and re-compile, re-install~~
-
+~~in hackrf driver: hackrf.c. Maybe you should also do that change to your HackRF driver source code and re-compile, re-install~~
 
 btle_rx usage
 ------------------
@@ -68,33 +58,41 @@ btle_rx usage
 btle_rx -c chan -g gain -a access_addr -k crc_init -v -r
 ```
 ```
--c chan 
+-h --help
+```
+Print this help screen
+```
+-c --chan
 ```
 Channel number. Default value 37 (one of ADV channels). Valid value 0~39 (all ADV and DATA channels).
 ```
--g gain
+-g --gain
 ```
-VGA gain. default value 6. valid value 0~62. LNA has been set to maximum 40dB internally. Gain should be tuned very carefully to ensure best performance under your circumstance. Suggest test from low gain, because high gain always causes severe distortion and get you nothing.
+VGA gain. default value 6. valid value 0~62. Gain should be tuned very carefully to ensure best performance under your circumstance. Suggest test from low gain, because high gain always causes severe distortion and get you nothing.
 ```
--a access_addr
+-l --lnaGain
+```
+LNA gain in dB. HACKRF lna default 32, valid 0~40, lna in max gain. bladeRF default is max rx gain 32dB (valid 0~40). Gain should be tuned very carefully to ensure best performance under your circumstance. 
+```
+-b --amp
+```
+Enable amp (HackRF). Default off.
+```
+-a --access
 ```
 Access address. Default 8e89bed6 for ADV channel 37 38 39. You should specify correct value for data channel according to captured connection setup procedure.
 ```
--k crc_init
+-k --crcinit
 ```
 Default 555555 for ADV channel. You should specify correct value for data channel according to captured connection setup procedure.
 ```
--v
+-v --verbose
 ```
 Verbose mode. Print more information when there is error
 ```
--r
+-r --raw
 ```
 Raw mode. After access addr is detected, print out following raw 42 bytes (without descrambling, parsing)
-```
--o --hop
-```
-This will turn on data channel tracking (frequency hopping) after link setup information is captured in ADV_CONNECT_REQ packet on ADV channel.
 ```        
 -f --freq_hz (need argument)
 ```
@@ -102,7 +100,14 @@ This frequency (Hz) will override channel setting (In case someone want to work 
 ```
 -m --access_mask (need argument)
 ```
-If a bit is 1 in this mask, corresponding bit in access address will be taken into packet existing decision (In case someone want a shorter/sparser unique word to do packet detection. More general purpose).
+If a bit is 1 in this mask, corresponding bit in access address will be taken into packet existing decision (In case someone want a shorter/sparser unique word to do packet detection. More general purpose).```
+-o --hop
+```
+This will turn on data channel tracking (frequency hopping) after link setup information is captured in ADV_CONNECT_REQ packet on ADV channel.
+```
+-s --filename
+```
+Store packets to pcap file.
 
 btle_tx usage
 ------------------
@@ -212,7 +217,7 @@ Demos
 
 See a comparison with TI's packet sniffer here: [http://sdr-x.github.io/BTLE-SNIFFER/](http://sdr-x.github.io/BTLE-SNIFFER/)
 
-See <a href="https://youtu.be/9LDPhOF2yyw">btle_rx video demo</a> (youtube) or <a href="https://vimeo.com/144574631">btle_rx video demo</a> (in China) and <a href="http://youtu.be/Y8ttV5AEb-g">btle_tx video demo 1</a> (outside China) or <a href="http://v.youku.com/v_show/id_XNzUxMDIzNzAw.html">btle_tx video demo 2</a> (inside China)
+See <a href="https://youtu.be/9LDPhOF2yyw">btle_rx video demo</a> or <a href="https://vimeo.com/144574631">btle_rx video demo</a> (in China) and <a href="http://youtu.be/Y8ttV5AEb-g">btle_tx video demo 1</a> or <a href="http://v.youku.com/v_show/id_XNzUxMDIzNzAw.html">btle_tx video demo 2</a> (in China)
 
 # Appendix: Packet descriptor examples of btle_tx for all formats
 ------------------

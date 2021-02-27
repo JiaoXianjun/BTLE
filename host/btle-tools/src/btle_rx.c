@@ -1,26 +1,5 @@
-// BLE sniffer by Xianjun Jiao (putaoshu@msn.com)
+// Bluetooth Low Energy SDR sniffer by Xianjun Jiao (putaoshu@msn.com)
 
-/*
- * Copyright 2012 Jared Boone <jared@sharebrained.com>
- * Copyright 2013-2014 Benjamin Vernoux <titanmkd@gmail.com>
- *
- * This file is part of HackRF and bladeRF.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; see the file COPYING.  If not, write to
- * the Free Software Foundation, Inc., 51 Franklin Street,
- * Boston, MA 02110-1301, USA.
- */
 #include <pthread.h>
 #include "common.h"
 
@@ -694,6 +673,8 @@ static void print_usage() {
   printf("      If a bit is 1 in this mask, corresponding bit in access address will be taken into packet existing decision (In case someone want a shorter/sparser unique word to do packet detection. More general purpose)\n");
   printf("    -o --hop\n");
   printf("      This will turn on data channel tracking (frequency hopping) after link setup information is captured in ADV_CONNECT_REQ packet\n");
+  printf("    -s --filename\n");
+  printf("      Store packets to pcap file.\n");
   printf("\nSee README for detailed information.\n");
 }
 //----------------------------------print_usage----------------------------------
@@ -2174,7 +2155,6 @@ void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number, uint32_t access_
     if(filename_pcap != NULL)
         write_packet_to_file(fh_pcap_store, payload_len+2, tmp_byte, channel_number, access_addr);
 
-    
     if (adv_flag) {
       printf("ADV_PDU_t%d:%s T%d R%d PloadL%d ", adv_pdu_type, ADV_PDU_TYPE_STR[adv_pdu_type], adv_tx_add, adv_rx_add, payload_len);
     

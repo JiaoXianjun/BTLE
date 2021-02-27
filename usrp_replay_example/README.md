@@ -8,4 +8,4 @@ replay above script generated btle_ch37_iq_float32_welcom_msg.bin in replay_for_
 
 Install LightBlue in your iPhone or other similar things of Android, and open the App.
 
-You will see a welcome message "imecUGent SDRgroup welcome u!" on your phone.
+You will see a welcome message "SDR Bluetooth LE welcome u!" on your phone.

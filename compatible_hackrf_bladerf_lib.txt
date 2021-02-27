@@ -2,25 +2,11 @@ Following versions were tested. Not means other versions won't work.
 
 bladeRF:
 
-/usr/include/libbladeRF.h:
-#define LIBBLADERF_API_VERSION (0x01080000)
-
-#apt-cache policy libbladerf-dev
-libbladerf-dev:
-  Installed: 0.2016.06-2
-  Candidate: 0.2016.06-2
-  Version table:
- *** 0.2016.06-2 500
-        500 http://archive.ubuntu.com/ubuntu bionic/universe amd64 Packages
-        100 /var/lib/dpkg/status
+bladeRF-cli --version
+1.8.0-0.2019.07-5
 
 HackRF:
 
-apt-cache policy libhackrf-dev
-libhackrf-dev:
-  Installed: 2018.01.1-2
-  Candidate: 2018.01.1-2
-  Version table:
- *** 2018.01.1-2 500
-        500 http://archive.ubuntu.com/ubuntu bionic/universe amd64 Packages
-        100 /var/lib/dpkg/status
+hackrf_info
+hackrf_info version: git-f202160
+libhackrf version: git-f202160 (0.5)
