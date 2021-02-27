@@ -656,9 +656,9 @@ static void print_usage() {
   printf("    -g --gain\n");
   printf("      Rx gain in dB. HACKRF rxvga default %d, valid 0~62. bladeRF default is max rx gain 66dB (valid 0~66)\n", DEFAULT_GAIN);
   printf("    -l --lnaGain\n");
-  printf("      LNA gain in dB. HACKRF lna default %d, valid 0~40. bladeRF default is max rx gain 32dB (valid 0~40)\n", 32);
+  printf("      LNA gain in dB (HACKRF only). HACKRF lna default %d, valid 0~40.\n", 32);
   printf("    -b --amp\n");
-  printf("      Enable amp. Default off.\n");
+  printf("      Enable amp (HACKRF only). Default off.\n");
   printf("    -a --access\n");
   printf("      Access address. 4 bytes. Hex format (like 89ABCDEF). Default %08x for channel 37 38 39. For other channel you should pick correct value according to sniffed link setup procedure\n", DEFAULT_ACCESS_ADDR);
   printf("    -k --crcinit\n");
