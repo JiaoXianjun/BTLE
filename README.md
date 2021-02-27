@@ -65,7 +65,7 @@ Channel number. Default value 37 (one of ADV channels). Valid value 0~39 (all AD
 ```
 -g --gain
 ```
-Rx gain in dB. HACKRF rxvga default 6, valid 0 ~ 62. bladeRF default is max rx gain 66dB (valid 0 ~ 66). Gain should be tuned very carefully to ensure best performance under your circumstance. Suggest test from low gain, because high gain always causes severe distortion and get you nothing.
+Rx gain in dB. HACKRF rxvga default 6, valid 0 - 62. bladeRF default is max rx gain 66dB (valid 0 - 66). Gain should be tuned very carefully to ensure best performance under your circumstance. Suggest test from low gain, because high gain always causes severe distortion and get you nothing.
 ```
 -l --lnaGain
 ```
