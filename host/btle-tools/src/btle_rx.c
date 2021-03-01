@@ -2102,7 +2102,7 @@ void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number, uint32_t access_
       time_diff = TimevalDiff(&time_current_pkt, &time_pre_pkt);
       time_pre_pkt = time_current_pkt;
     
-      printf("%dus Pkt%d Ch%d AA:%08x ", time_diff, pkt_count, channel_number, access_addr);
+      printf("%ld.%06ld Pkt%d Ch%d AA:%08x ", time_current_pkt.tv_sec, time_current_pkt.tv_usec, pkt_count, channel_number, access_addr);
       printf("Raw:");
       for(i=0; i<42; i++) {
         printf("%02x", tmp_byte[i]);
@@ -2400,6 +2400,7 @@ int main(int argc, char** argv) {
       // -----------------------------real online run--------------------------------
       //receiver(rxp, LEN_BUF_MAX_NUM_PHY_SAMPLE+(LEN_BUF/2), chan);
       receiver(rxp, (LEN_DEMOD_BUF_ACCESS-1)*2*SAMPLE_PER_SYMBOL+(LEN_BUF)/2, chan, access_addr, crc_init_internal, verbose_flag, raw_flag);
+      fflush(stdout);
       // -----------------------------real online run--------------------------------
       
       if (hop_flag){
