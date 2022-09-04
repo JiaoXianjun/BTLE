@@ -16,5 +16,5 @@ int main () {
   printf("3\n");
   #endif
   
-  return(252);
+  return(252); // valid value range 0~255 (to be captured by test_rf_probe.c)
 }
