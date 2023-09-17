@@ -25,9 +25,10 @@ else (LIBHACKRF_INCLUDE_DIR AND LIBHACKRF_LIBRARIES)
   FIND_PATH(LIBHACKRF_INCLUDE_DIR
     NAMES hackrf.h
     HINTS $ENV{LIBHACKRF_DIR}/include ${PC_LIBHACKRF_INCLUDEDIR}
-    PATHS /usr/local/include/libhackrf /usr/include/libhackrf /usr/local/include
-    /usr/include ${CMAKE_SOURCE_DIR}/../libhackrf/src
-    /opt/local/include/libhackrf
+    PATH_SUFFIXES libhackrf
+    PATHS /usr/local/include /usr/include
+    ${CMAKE_SOURCE_DIR}/../libhackrf/src
+    /opt/local/include
     ${LIBHACKRF_INCLUDE_DIR}
   )
 
