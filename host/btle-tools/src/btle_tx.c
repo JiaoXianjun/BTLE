@@ -1357,7 +1357,7 @@ int calculate_sample_for_RAW(char *pkt_str, PKT_INFO *pkt) {
   int ret;
 
   pkt->num_info_bit = 0;
-  printf("num_info_bit %d\n", pkt->num_info_bit);
+  // printf("num_info_bit %d\n", pkt->num_info_bit);
 
   current_p = pkt_str;
   current_p = get_next_field_bit(current_p, pkt->phy_bit, &(pkt->num_phy_bit), 0, MAX_NUM_PHY_BYTE, &ret);
@@ -1371,7 +1371,7 @@ int calculate_sample_for_RAW(char *pkt_str, PKT_INFO *pkt) {
 
   if (ret==1) {
     pkt->space = DEFAULT_SPACE_MS;
-    printf("space %d\n", pkt->space);
+    printf("space %dms\n", pkt->space);
     return(0);
   }
 
@@ -1387,7 +1387,7 @@ int calculate_sample_for_RAW(char *pkt_str, PKT_INFO *pkt) {
   }
 
   pkt->space = space;
-  printf("space %d\n", pkt->space);
+  printf("space %dms\n", pkt->space);
 
   return(0);
 }
@@ -1877,15 +1877,18 @@ void disp_hex_in_bit(uint8_t *hex, int num_hex)
 void crc24_and_scramble_to_gen_phy_bit(char *crc_init_hex, PKT_INFO *pkt) {
   crc24(pkt->info_bit+5*8, pkt->num_info_bit-5*8, crc_init_hex, pkt->info_bit+pkt->num_info_bit);
 
-  printf("after crc24\n");
-  disp_bit_in_hex(pkt->info_bit, pkt->num_info_bit + 3*8);
+  printf("after crc24, pdu+crc\n");
+  disp_bit_in_hex(pkt->info_bit+40, pkt->num_info_bit-40 + 3*8);
 
   scramble(pkt->info_bit+5*8, pkt->num_info_bit-5*8+24, pkt->channel_number, pkt->phy_bit+5*8);
   memcpy(pkt->phy_bit, pkt->info_bit, 5*8);
   pkt->num_phy_bit = pkt->num_info_bit + 24;
 
-  printf("after scramble %d %d\n", pkt->num_phy_bit , pkt->num_phy_byte);
-  disp_bit_in_hex(pkt->phy_bit, pkt->num_phy_bit);
+  printf("after scramble, pdu+crc\n");
+  disp_bit_in_hex(pkt->phy_bit+40, pkt->num_phy_bit-40);
+
+  pkt->num_phy_byte = pkt->num_phy_bit/8;
+  printf("preamble+access+pdu+crc total %d bits %d bytes\n", pkt->num_phy_bit , pkt->num_phy_byte);
 }
 
 void crc24_and_scramble_byte_to_gen_phy_bit(char *crc_init_hex, PKT_INFO *pkt) {
@@ -1896,9 +1899,9 @@ void crc24_and_scramble_byte_to_gen_phy_bit(char *crc_init_hex, PKT_INFO *pkt) {
   (pkt->info_byte+pkt->num_info_byte)[1] = (crc24_checksum>>8) & 0xFF;
   (pkt->info_byte+pkt->num_info_byte)[2] = (crc24_checksum>>16) & 0xFF;
 
-  printf("after crc24\n");
-  disp_bit_in_hex(pkt->info_bit, pkt->num_info_bit + 3*8);
-  disp_hex(pkt->info_byte, pkt->num_info_byte + 3);
+  printf("after crc24, pdu+crc\n");
+  disp_bit_in_hex(pkt->info_bit+40, pkt->num_info_bit-40 + 3*8);
+  // disp_hex(pkt->info_byte+5, pkt->num_info_byte-5 + 3);
 
   scramble(pkt->info_bit+5*8, pkt->num_info_bit-5*8+24, pkt->channel_number, pkt->phy_bit+5*8);
   memcpy(pkt->phy_bit, pkt->info_bit, 5*8);
@@ -1908,9 +1911,11 @@ void crc24_and_scramble_byte_to_gen_phy_bit(char *crc_init_hex, PKT_INFO *pkt) {
   memcpy(pkt->phy_byte, pkt->info_byte, 5);
   pkt->num_phy_byte = pkt->num_info_byte + 3;
 
-  printf("after scramble %d %d\n", pkt->num_phy_bit , pkt->num_phy_byte);
-  disp_bit_in_hex(pkt->phy_bit, pkt->num_phy_bit);
-  disp_hex(pkt->phy_byte, pkt->num_phy_byte);
+  printf("after scramble, pdu+crc\n");
+  disp_bit_in_hex(pkt->phy_bit+40, pkt->num_phy_bit-40);
+  // disp_hex(pkt->phy_byte+5, pkt->num_phy_byte-5);
+
+  printf("preamble+access+pdu+crc total %d bits %d bytes\n", pkt->num_phy_bit , pkt->num_phy_byte);
 }
 
 int calculate_sample_for_DISCOVERY(char *pkt_str, PKT_INFO*pkt) {
@@ -1935,7 +1940,7 @@ int calculate_sample_for_DISCOVERY(char *pkt_str, PKT_INFO*pkt) {
   num_octet_tmp = 1;
   pkt->info_byte[0] = 0xAA;
 
-  printf("AA %d\n", num_bit_tmp);
+  printf("preamble %dbit: AA\n", num_bit_tmp);
   disp_bit(pkt->info_bit, num_bit_tmp);
   disp_hex_in_bit(pkt->info_byte, num_octet_tmp);
 
@@ -1949,7 +1954,7 @@ int calculate_sample_for_DISCOVERY(char *pkt_str, PKT_INFO*pkt) {
   (pkt->info_byte + pkt->num_info_byte)[2] = 0x89;
   (pkt->info_byte + pkt->num_info_byte)[3] = 0x8E;
 
-  printf("D6BE898E %d\n", num_bit_tmp);
+  printf("access address %dbit: D6BE898E\n", num_bit_tmp);
   disp_bit(pkt->info_bit + pkt->num_info_bit, num_bit_tmp);
   disp_hex_in_bit(pkt->info_byte + pkt->num_info_byte, num_octet_tmp);
 
@@ -1984,11 +1989,11 @@ int calculate_sample_for_DISCOVERY(char *pkt_str, PKT_INFO*pkt) {
   (pkt->info_byte + pkt->num_info_byte)[3] = 0x03;
   (pkt->info_byte + pkt->num_info_byte)[4] = 0x02;
   (pkt->info_byte + pkt->num_info_byte)[5] = 0x01;
-  printf("ADVA buffer begin from %d\n",  pkt->num_info_byte);
+  printf("ADVA buffer begin from byte %d\n",  pkt->num_info_byte);
 
-  printf("010203040506 %d\n", num_bit_tmp);
-  disp_bit(pkt->info_bit + pkt->num_info_bit, num_bit_tmp);
-  disp_hex_in_bit(pkt->info_byte + pkt->num_info_byte, num_octet_tmp);
+  // printf("info %dbit: 010203040506\n", num_bit_tmp);
+  // disp_bit(pkt->info_bit + pkt->num_info_bit, num_bit_tmp);
+  // disp_hex_in_bit(pkt->info_byte + pkt->num_info_byte, num_octet_tmp);
 
   pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
   pkt->num_info_byte = pkt->num_info_byte + num_octet_tmp;
@@ -2029,10 +2034,10 @@ int calculate_sample_for_DISCOVERY(char *pkt_str, PKT_INFO*pkt) {
       }
       pkt->info_byte[2+pkt->num_info_byte+j] = 0;
       
-      printf("display buffer begin from %d\n",  2 + pkt->num_info_byte);
+      printf("display buffer begin from byte %d\n",  2 + pkt->num_info_byte);
 
       //printf("CA1308 11950 22.626 113.823 8 %d\n", num_bit_tmp); // this is fake. let us use real.
-      printf("%s %d\n", (char *)(pkt->info_byte + 2+ pkt->num_info_byte), num_bit_tmp);
+      printf("pdu payload %dbit: %s\n", num_bit_tmp, (char *)(pkt->info_byte + 2+ pkt->num_info_byte));
       
       disp_bit(pkt->info_bit + 2*8 + pkt->num_info_bit, num_bit_tmp);
       disp_hex_in_bit(pkt->info_byte + 2+ pkt->num_info_byte, num_octet_tmp);
@@ -2055,7 +2060,7 @@ int calculate_sample_for_DISCOVERY(char *pkt_str, PKT_INFO*pkt) {
     int_to_bit(AD_TYPE_VAL[i], pkt->info_bit + pkt->num_info_bit + 8 );
     (pkt->info_byte + 1 + pkt->num_info_byte)[0] = AD_TYPE_VAL[i];
 
-    printf("length and AD_TYPE %d\n", 16);
+    printf("pdu header %dbit: length and AD_TYPE:\n", 16);
     disp_bit(pkt->info_bit + pkt->num_info_bit,  2*8);
     disp_hex_in_bit(pkt->info_byte + pkt->num_info_byte,  2);
 
@@ -2066,16 +2071,16 @@ int calculate_sample_for_DISCOVERY(char *pkt_str, PKT_INFO*pkt) {
   }
 
   int payload_len = (pkt->num_info_bit/8) - 7;
-  printf("payload_len %d\n", payload_len);
-  printf("num_info_bit %d\n", pkt->num_info_bit);
-  printf("num_info_byte %d\n", pkt->num_info_byte);
+  printf("pdu payload_len %d bytes\n", payload_len);
+  printf("preamble+access+pdu(NO CRC) %d bit\n", pkt->num_info_bit);
+  printf("preamble+access+pdu(NO CRC) %d byte\n", pkt->num_info_byte);
 
   fill_adv_pdu_header(pkt->pkt_type, txadd, rxadd, payload_len, pkt->info_bit+5*8);
   fill_adv_pdu_header_byte(pkt->pkt_type, txadd, rxadd, payload_len, pkt->info_byte+5);
 
-  printf("before crc24\n");
-  disp_bit_in_hex(pkt->info_bit, pkt->num_info_bit);
-  disp_hex(pkt->info_byte, pkt->num_info_byte);
+  printf("before crc24, pdu\n");
+  disp_bit_in_hex(pkt->info_bit+40, pkt->num_info_bit-40);
+  // disp_hex(pkt->info_byte+5, pkt->num_info_byte-5);
 
   crc24_and_scramble_byte_to_gen_phy_bit("555555", pkt);
   printf("num_phy_bit %d\n", pkt->num_phy_bit);
@@ -2087,7 +2092,7 @@ int calculate_sample_for_DISCOVERY(char *pkt_str, PKT_INFO*pkt) {
 // get space value
   if (ret==1) { // if space value not present
     pkt->space = DEFAULT_SPACE_MS;
-    printf("space %d\n", pkt->space);
+    printf("space %dms\n", pkt->space);
     return(0);
   }
 
@@ -2103,7 +2108,7 @@ int calculate_sample_for_DISCOVERY(char *pkt_str, PKT_INFO*pkt) {
   }
 
   pkt->space = space;
-  printf("space %d\n", pkt->space);
+  printf("space %dms\n", pkt->space);
 
   return(0);
 }
@@ -2146,13 +2151,17 @@ int calculate_sample_for_ADV_IND(char *pkt_str, PKT_INFO *pkt) {
     return(-1);
   }
   pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+  pkt->num_info_byte = pkt->num_info_bit/8;
 
   int payload_len = (pkt->num_info_bit/8) - 7;
-  printf("payload_len %d\n", payload_len);
-  printf("num_info_bit %d\n", pkt->num_info_bit);
+  printf("pdu payload_len %d bytes\n", payload_len);
+  printf("preamble+access+pdu(NO CRC) %d bit\n", pkt->num_info_bit);
+  printf("preamble+access+pdu(NO CRC) %d byte\n", pkt->num_info_byte);
 
   fill_adv_pdu_header(pkt->pkt_type, txadd, rxadd, payload_len, pkt->info_bit+5*8);
 
+  printf("before crc24, pdu\n");
+  disp_bit_in_hex(pkt->info_bit+40, pkt->num_info_bit-40);
   crc24_and_scramble_to_gen_phy_bit("555555", pkt);
   printf("num_phy_bit %d\n", pkt->num_phy_bit);
 
@@ -2162,7 +2171,7 @@ int calculate_sample_for_ADV_IND(char *pkt_str, PKT_INFO *pkt) {
 // get space value
   if (ret==1) { // if space value not present
     pkt->space = DEFAULT_SPACE_MS;
-    printf("space %d\n", pkt->space);
+    printf("space %dms\n", pkt->space);
     return(0);
   }
 
@@ -2178,7 +2187,7 @@ int calculate_sample_for_ADV_IND(char *pkt_str, PKT_INFO *pkt) {
   }
 
   pkt->space = space;
-  printf("space %d\n", pkt->space);
+  printf("space %dms\n", pkt->space);
 
   return(0);
 }
@@ -2200,7 +2209,6 @@ int calculate_sample_for_IBEACON(char *pkt_str, PKT_INFO *pkt) {
   int payload_len = 36;
   fill_adv_pdu_header(ADV_IND, txadd, rxadd, payload_len, pkt->info_bit+5*8);
   pkt->num_info_bit = pkt->num_info_bit + 16; // 16 is header length
-  printf("payload_len %d\n", payload_len);
 
 // get AdvA
   current_p = pkt_str;
@@ -2241,9 +2249,14 @@ int calculate_sample_for_IBEACON(char *pkt_str, PKT_INFO *pkt) {
     return(-1);
   }
   pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+  pkt->num_info_byte = pkt->num_info_bit/8;
 
-  printf("num_info_bit %d\n", pkt->num_info_bit);
+  printf("pdu payload_len %d bytes\n", payload_len);
+  printf("preamble+access+pdu(NO CRC) %d bit\n", pkt->num_info_bit);
+  printf("preamble+access+pdu(NO CRC) %d byte\n", pkt->num_info_byte);
 
+  printf("before crc24, pdu\n");
+  disp_bit_in_hex(pkt->info_bit+40, pkt->num_info_bit-40);
   crc24_and_scramble_to_gen_phy_bit("555555", pkt);
   printf("num_phy_bit %d\n", pkt->num_phy_bit);
 
@@ -2253,7 +2266,7 @@ int calculate_sample_for_IBEACON(char *pkt_str, PKT_INFO *pkt) {
 // get space value
   if (ret==1) { // if space value not present
     pkt->space = DEFAULT_SPACE_MS;
-    printf("space %d\n", pkt->space);
+    printf("space %dms\n", pkt->space);
     return(0);
   }
 
@@ -2269,7 +2282,7 @@ int calculate_sample_for_IBEACON(char *pkt_str, PKT_INFO *pkt) {
   }
 
   pkt->space = space;
-  printf("space %d\n", pkt->space);
+  printf("space %dms\n", pkt->space);
 
   return(0);
 }
@@ -2311,13 +2324,17 @@ int calculate_sample_for_ADV_DIRECT_IND(char *pkt_str, PKT_INFO *pkt) {
     return(-1);
   }
   pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+  pkt->num_info_byte = pkt->num_info_bit/8;
 
   int payload_len = (pkt->num_info_bit/8) - 7;
-  printf("payload_len %d\n", payload_len);
-  printf("num_info_bit %d\n", pkt->num_info_bit);
+  printf("pdu payload_len %d bytes\n", payload_len);
+  printf("preamble+access+pdu(NO CRC) %d bit\n", pkt->num_info_bit);
+  printf("preamble+access+pdu(NO CRC) %d byte\n", pkt->num_info_byte);
 
   fill_adv_pdu_header(pkt->pkt_type, txadd, rxadd, payload_len, pkt->info_bit+5*8);
 
+  printf("before crc24, pdu\n");
+  disp_bit_in_hex(pkt->info_bit+40, pkt->num_info_bit-40);
   crc24_and_scramble_to_gen_phy_bit("555555", pkt);
   printf("num_phy_bit %d\n", pkt->num_phy_bit);
 
@@ -2327,7 +2344,7 @@ int calculate_sample_for_ADV_DIRECT_IND(char *pkt_str, PKT_INFO *pkt) {
 // get space value
   if (ret==1) { // if space value not present
     pkt->space = DEFAULT_SPACE_MS;
-    printf("space %d\n", pkt->space);
+    printf("space %dms\n", pkt->space);
     return(0);
   }
 
@@ -2343,7 +2360,7 @@ int calculate_sample_for_ADV_DIRECT_IND(char *pkt_str, PKT_INFO *pkt) {
   }
 
   pkt->space = space;
-  printf("space %d\n", pkt->space);
+  printf("space %dms\n", pkt->space);
 
   return(0);
 }
@@ -2395,13 +2412,17 @@ int calculate_sample_for_SCAN_REQ(char *pkt_str, PKT_INFO *pkt) {
     return(-1);
   }
   pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+  pkt->num_info_byte = pkt->num_info_bit/8;
 
   int payload_len = (pkt->num_info_bit/8) - 7;
-  printf("payload_len %d\n", payload_len);
-  printf("num_info_bit %d\n", pkt->num_info_bit);
+  printf("pdu payload_len %d bytes\n", payload_len);
+  printf("preamble+access+pdu(NO CRC) %d bit\n", pkt->num_info_bit);
+  printf("preamble+access+pdu(NO CRC) %d byte\n", pkt->num_info_byte);
 
   fill_adv_pdu_header(pkt->pkt_type, txadd, rxadd, payload_len, pkt->info_bit+5*8);
 
+  printf("before crc24, pdu\n");
+  disp_bit_in_hex(pkt->info_bit+40, pkt->num_info_bit-40);
   crc24_and_scramble_to_gen_phy_bit("555555", pkt);
   printf("num_phy_bit %d\n", pkt->num_phy_bit);
 
@@ -2411,7 +2432,7 @@ int calculate_sample_for_SCAN_REQ(char *pkt_str, PKT_INFO *pkt) {
 // get space value
   if (ret==1) { // if space value not present
     pkt->space = DEFAULT_SPACE_MS;
-    printf("space %d\n", pkt->space);
+    printf("space %dms\n", pkt->space);
     return(0);
   }
 
@@ -2427,7 +2448,7 @@ int calculate_sample_for_SCAN_REQ(char *pkt_str, PKT_INFO *pkt) {
   }
 
   pkt->space = space;
-  printf("space %d\n", pkt->space);
+  printf("space %dms\n", pkt->space);
 
   return(0);
 }
@@ -2469,13 +2490,17 @@ int calculate_sample_for_SCAN_RSP(char *pkt_str, PKT_INFO *pkt) {
     return(-1);
   }
   pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+  pkt->num_info_byte = pkt->num_info_bit/8;
 
   int payload_len = (pkt->num_info_bit/8) - 7;
-  printf("payload_len %d\n", payload_len);
-  printf("num_info_bit %d\n", pkt->num_info_bit);
+  printf("pdu payload_len %d bytes\n", payload_len);
+  printf("preamble+access+pdu(NO CRC) %d bit\n", pkt->num_info_bit);
+  printf("preamble+access+pdu(NO CRC) %d byte\n", pkt->num_info_byte);
 
   fill_adv_pdu_header(pkt->pkt_type, txadd, rxadd, payload_len, pkt->info_bit+5*8);
 
+  printf("before crc24, pdu\n");
+  disp_bit_in_hex(pkt->info_bit+40, pkt->num_info_bit-40);
   crc24_and_scramble_to_gen_phy_bit("555555", pkt);
   printf("num_phy_bit %d\n", pkt->num_phy_bit);
 
@@ -2485,7 +2510,7 @@ int calculate_sample_for_SCAN_RSP(char *pkt_str, PKT_INFO *pkt) {
 // get space value
   if (ret==1) { // if space value not present
     pkt->space = DEFAULT_SPACE_MS;
-    printf("space %d\n", pkt->space);
+    printf("space %dms\n", pkt->space);
     return(0);
   }
 
@@ -2501,7 +2526,7 @@ int calculate_sample_for_SCAN_RSP(char *pkt_str, PKT_INFO *pkt) {
   }
 
   pkt->space = space;
-  printf("space %d\n", pkt->space);
+  printf("space %dms\n", pkt->space);
 
   return(0);
 }
@@ -2606,14 +2631,18 @@ int calculate_sample_for_CONNECT_REQ(char *pkt_str, PKT_INFO *pkt) {
     return(-1);
   }
   pkt->num_info_bit = pkt->num_info_bit + 3;
+  pkt->num_info_byte = pkt->num_info_bit/8;
 
   int payload_len = (pkt->num_info_bit/8) - 7;
-  printf("payload_len %d\n", payload_len);
-  printf("num_info_bit %d\n", pkt->num_info_bit);
+  printf("pdu payload_len %d bytes\n", payload_len);
+  printf("preamble+access+pdu(NO CRC) %d bit\n", pkt->num_info_bit);
+  printf("preamble+access+pdu(NO CRC) %d byte\n", pkt->num_info_byte);
 
   fill_adv_pdu_header(pkt->pkt_type, txadd, rxadd, payload_len, pkt->info_bit+5*8);
   fill_hop_sca(hop, sca, pkt->info_bit+pkt->num_info_bit-8);
 
+  printf("before crc24, pdu\n");
+  disp_bit_in_hex(pkt->info_bit+40, pkt->num_info_bit-40);
   crc24_and_scramble_to_gen_phy_bit("555555", pkt);
   printf("num_phy_bit %d\n", pkt->num_phy_bit);
 
@@ -2623,7 +2652,7 @@ int calculate_sample_for_CONNECT_REQ(char *pkt_str, PKT_INFO *pkt) {
 // get space value
   if (ret==1) { // if space value not present
     pkt->space = DEFAULT_SPACE_MS;
-    printf("space %d\n", pkt->space);
+    printf("space %dms\n", pkt->space);
     return(0);
   }
 
@@ -2639,7 +2668,7 @@ int calculate_sample_for_CONNECT_REQ(char *pkt_str, PKT_INFO *pkt) {
   }
 
   pkt->space = space;
-  printf("space %d\n", pkt->space);
+  printf("space %dms\n", pkt->space);
 
   return(0);
 }
@@ -2695,12 +2724,15 @@ int calculate_sample_for_LL_DATA(char *pkt_str, PKT_INFO *pkt) {
     return(-1);
   }
   pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+  pkt->num_info_byte = pkt->num_info_bit/8;
 
   int payload_len = (pkt->num_info_bit/8) - 7;
-  printf("payload_len %d\n", payload_len);
-  printf("num_info_bit %d\n", pkt->num_info_bit);
+  printf("pdu payload_len %d bytes\n", payload_len);
+  printf("preamble+access+pdu(NO CRC) %d bit\n", pkt->num_info_bit);
+  printf("preamble+access+pdu(NO CRC) %d byte\n", pkt->num_info_byte);
 
   fill_data_pdu_header(llid, nesn, sn, md, payload_len, pkt->info_bit+5*8);
+  // disp_bit_in_hex(pkt->info_bit+5*8, 16);
 
 // get CRC init
   char crc_init[7];
@@ -2708,6 +2740,11 @@ int calculate_sample_for_LL_DATA(char *pkt_str, PKT_INFO *pkt) {
   if (ret == -1) { // failed
     return(-1);
   }
+  
+  printf("before crc24, pdu\n");
+  disp_bit_in_hex(pkt->info_bit+40, pkt->num_info_bit-40);
+  // disp_hex(pkt->info_byte+5, pkt->num_info_byte-5);
+
   crc24_and_scramble_to_gen_phy_bit(crc_init, pkt);
   printf("num_phy_bit %d\n", pkt->num_phy_bit);
 
@@ -2717,7 +2754,7 @@ int calculate_sample_for_LL_DATA(char *pkt_str, PKT_INFO *pkt) {
 // get space value
   if (ret==1) { // if space value not present
     pkt->space = DEFAULT_SPACE_MS;
-    printf("space %d\n", pkt->space);
+    printf("space %dms\n", pkt->space);
     return(0);
   }
 
@@ -2733,7 +2770,7 @@ int calculate_sample_for_LL_DATA(char *pkt_str, PKT_INFO *pkt) {
   }
 
   pkt->space = space;
-  printf("space %d\n", pkt->space);
+  printf("space %dms\n", pkt->space);
 
   return(0);
 }
@@ -2822,10 +2859,12 @@ int calculate_sample_for_LL_CONNECTION_UPDATE_REQ(char *pkt_str, PKT_INFO *pkt) 
     return(-1);
   }
   pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+  pkt->num_info_byte = pkt->num_info_bit/8;
 
   int payload_len = (pkt->num_info_bit/8) - 7;
-  printf("payload_len %d\n", payload_len);
-  printf("num_info_bit %d\n", pkt->num_info_bit);
+  printf("pdu payload_len %d bytes\n", payload_len);
+  printf("preamble+access+pdu(NO CRC) %d bit\n", pkt->num_info_bit);
+  printf("preamble+access+pdu(NO CRC) %d byte\n", pkt->num_info_byte);
 
   fill_data_pdu_header(llid, nesn, sn, md, payload_len, pkt->info_bit+5*8);
 
@@ -2835,6 +2874,9 @@ int calculate_sample_for_LL_CONNECTION_UPDATE_REQ(char *pkt_str, PKT_INFO *pkt) 
   if (ret == -1) { // failed
     return(-1);
   }
+
+  printf("before crc24, pdu\n");
+  disp_bit_in_hex(pkt->info_bit+40, pkt->num_info_bit-40);
   crc24_and_scramble_to_gen_phy_bit(crc_init, pkt);
   printf("num_phy_bit %d\n", pkt->num_phy_bit);
 
@@ -2844,7 +2886,7 @@ int calculate_sample_for_LL_CONNECTION_UPDATE_REQ(char *pkt_str, PKT_INFO *pkt) 
 // get space value
   if (ret==1) { // if space value not present
     pkt->space = DEFAULT_SPACE_MS;
-    printf("space %d\n", pkt->space);
+    printf("space %dms\n", pkt->space);
     return(0);
   }
 
@@ -2860,7 +2902,7 @@ int calculate_sample_for_LL_CONNECTION_UPDATE_REQ(char *pkt_str, PKT_INFO *pkt) 
   }
 
   pkt->space = space;
-  printf("space %d\n", pkt->space);
+  printf("space %dms\n", pkt->space);
 
   return(0);
 }
@@ -2925,10 +2967,12 @@ int calculate_sample_for_LL_CHANNEL_MAP_REQ(char *pkt_str, PKT_INFO *pkt) {
     return(-1);
   }
   pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+  pkt->num_info_byte = pkt->num_info_bit/8;
 
   int payload_len = (pkt->num_info_bit/8) - 7;
-  printf("payload_len %d\n", payload_len);
-  printf("num_info_bit %d\n", pkt->num_info_bit);
+  printf("pdu payload_len %d bytes\n", payload_len);
+  printf("preamble+access+pdu(NO CRC) %d bit\n", pkt->num_info_bit);
+  printf("preamble+access+pdu(NO CRC) %d byte\n", pkt->num_info_byte);
 
   fill_data_pdu_header(llid, nesn, sn, md, payload_len, pkt->info_bit+5*8);
 
@@ -2938,6 +2982,9 @@ int calculate_sample_for_LL_CHANNEL_MAP_REQ(char *pkt_str, PKT_INFO *pkt) {
   if (ret == -1) { // failed
     return(-1);
   }
+
+  printf("before crc24, pdu\n");
+  disp_bit_in_hex(pkt->info_bit+40, pkt->num_info_bit-40);
   crc24_and_scramble_to_gen_phy_bit(crc_init, pkt);
   printf("num_phy_bit %d\n", pkt->num_phy_bit);
 
@@ -2947,7 +2994,7 @@ int calculate_sample_for_LL_CHANNEL_MAP_REQ(char *pkt_str, PKT_INFO *pkt) {
 // get space value
   if (ret==1) { // if space value not present
     pkt->space = DEFAULT_SPACE_MS;
-    printf("space %d\n", pkt->space);
+    printf("space %dms\n", pkt->space);
     return(0);
   }
 
@@ -2963,7 +3010,7 @@ int calculate_sample_for_LL_CHANNEL_MAP_REQ(char *pkt_str, PKT_INFO *pkt) {
   }
 
   pkt->space = space;
-  printf("space %d\n", pkt->space);
+  printf("space %dms\n", pkt->space);
 
   return(0);
 }
@@ -3023,10 +3070,12 @@ int calculate_sample_for_LL_TERMINATE_IND(char *pkt_str, PKT_INFO *pkt) {
     return(-1);
   }
   pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+  pkt->num_info_byte = pkt->num_info_bit/8;
 
   int payload_len = (pkt->num_info_bit/8) - 7;
-  printf("payload_len %d\n", payload_len);
-  printf("num_info_bit %d\n", pkt->num_info_bit);
+  printf("pdu payload_len %d bytes\n", payload_len);
+  printf("preamble+access+pdu(NO CRC) %d bit\n", pkt->num_info_bit);
+  printf("preamble+access+pdu(NO CRC) %d byte\n", pkt->num_info_byte);
 
   fill_data_pdu_header(llid, nesn, sn, md, payload_len, pkt->info_bit+5*8);
 
@@ -3036,6 +3085,9 @@ int calculate_sample_for_LL_TERMINATE_IND(char *pkt_str, PKT_INFO *pkt) {
   if (ret == -1) { // failed
     return(-1);
   }
+
+  printf("before crc24, pdu\n");
+  disp_bit_in_hex(pkt->info_bit+40, pkt->num_info_bit-40);
   crc24_and_scramble_to_gen_phy_bit(crc_init, pkt);
   printf("num_phy_bit %d\n", pkt->num_phy_bit);
 
@@ -3045,7 +3097,7 @@ int calculate_sample_for_LL_TERMINATE_IND(char *pkt_str, PKT_INFO *pkt) {
 // get space value
   if (ret==1) { // if space value not present
     pkt->space = DEFAULT_SPACE_MS;
-    printf("space %d\n", pkt->space);
+    printf("space %dms\n", pkt->space);
     return(0);
   }
 
@@ -3061,7 +3113,7 @@ int calculate_sample_for_LL_TERMINATE_IND(char *pkt_str, PKT_INFO *pkt) {
   }
 
   pkt->space = space;
-  printf("space %d\n", pkt->space);
+  printf("space %dms\n", pkt->space);
 
   return(0);
 }
@@ -3139,10 +3191,12 @@ int calculate_sample_for_LL_ENC_REQ(char *pkt_str, PKT_INFO *pkt) {
     return(-1);
   }
   pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+  pkt->num_info_byte = pkt->num_info_bit/8;
 
   int payload_len = (pkt->num_info_bit/8) - 7;
-  printf("payload_len %d\n", payload_len);
-  printf("num_info_bit %d\n", pkt->num_info_bit);
+  printf("pdu payload_len %d bytes\n", payload_len);
+  printf("preamble+access+pdu(NO CRC) %d bit\n", pkt->num_info_bit);
+  printf("preamble+access+pdu(NO CRC) %d byte\n", pkt->num_info_byte);
 
   fill_data_pdu_header(llid, nesn, sn, md, payload_len, pkt->info_bit+5*8);
 
@@ -3152,6 +3206,9 @@ int calculate_sample_for_LL_ENC_REQ(char *pkt_str, PKT_INFO *pkt) {
   if (ret == -1) { // failed
     return(-1);
   }
+
+  printf("before crc24, pdu\n");
+  disp_bit_in_hex(pkt->info_bit+40, pkt->num_info_bit-40);
   crc24_and_scramble_to_gen_phy_bit(crc_init, pkt);
   printf("num_phy_bit %d\n", pkt->num_phy_bit);
 
@@ -3161,7 +3218,7 @@ int calculate_sample_for_LL_ENC_REQ(char *pkt_str, PKT_INFO *pkt) {
 // get space value
   if (ret==1) { // if space value not present
     pkt->space = DEFAULT_SPACE_MS;
-    printf("space %d\n", pkt->space);
+    printf("space %dms\n", pkt->space);
     return(0);
   }
 
@@ -3177,7 +3234,7 @@ int calculate_sample_for_LL_ENC_REQ(char *pkt_str, PKT_INFO *pkt) {
   }
 
   pkt->space = space;
-  printf("space %d\n", pkt->space);
+  printf("space %dms\n", pkt->space);
 
   return(0);
 }
@@ -3243,10 +3300,12 @@ int calculate_sample_for_LL_ENC_RSP(char *pkt_str, PKT_INFO *pkt) {
     return(-1);
   }
   pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+  pkt->num_info_byte = pkt->num_info_bit/8;
 
   int payload_len = (pkt->num_info_bit/8) - 7;
-  printf("payload_len %d\n", payload_len);
-  printf("num_info_bit %d\n", pkt->num_info_bit);
+  printf("pdu payload_len %d bytes\n", payload_len);
+  printf("preamble+access+pdu(NO CRC) %d bit\n", pkt->num_info_bit);
+  printf("preamble+access+pdu(NO CRC) %d byte\n", pkt->num_info_byte);
 
   fill_data_pdu_header(llid, nesn, sn, md, payload_len, pkt->info_bit+5*8);
 
@@ -3256,6 +3315,9 @@ int calculate_sample_for_LL_ENC_RSP(char *pkt_str, PKT_INFO *pkt) {
   if (ret == -1) { // failed
     return(-1);
   }
+
+  printf("before crc24, pdu\n");
+  disp_bit_in_hex(pkt->info_bit+40, pkt->num_info_bit-40);
   crc24_and_scramble_to_gen_phy_bit(crc_init, pkt);
   printf("num_phy_bit %d\n", pkt->num_phy_bit);
 
@@ -3265,7 +3327,7 @@ int calculate_sample_for_LL_ENC_RSP(char *pkt_str, PKT_INFO *pkt) {
 // get space value
   if (ret==1) { // if space value not present
     pkt->space = DEFAULT_SPACE_MS;
-    printf("space %d\n", pkt->space);
+    printf("space %dms\n", pkt->space);
     return(0);
   }
 
@@ -3281,7 +3343,7 @@ int calculate_sample_for_LL_ENC_RSP(char *pkt_str, PKT_INFO *pkt) {
   }
 
   pkt->space = space;
-  printf("space %d\n", pkt->space);
+  printf("space %dms\n", pkt->space);
 
   return(0);
 }
@@ -3335,13 +3397,15 @@ int calculate_sample_for_LL_START_ENC_REQ(char *pkt_str, PKT_INFO *pkt) {
   // fill opcode
   get_opcode(pkt->pkt_type, pkt->info_bit + pkt->num_info_bit);
   pkt->num_info_bit = pkt->num_info_bit + 8; // 8 is opcode
+  pkt->num_info_byte = pkt->num_info_bit/8;
 
 // get NO PAYLOAD
 // ....
 
   int payload_len = (pkt->num_info_bit/8) - 7;
-  printf("payload_len %d\n", payload_len);
-  printf("num_info_bit %d\n", pkt->num_info_bit);
+  printf("pdu payload_len %d bytes\n", payload_len);
+  printf("preamble+access+pdu(NO CRC) %d bit\n", pkt->num_info_bit);
+  printf("preamble+access+pdu(NO CRC) %d byte\n", pkt->num_info_byte);
 
   fill_data_pdu_header(llid, nesn, sn, md, payload_len, pkt->info_bit+5*8);
 
@@ -3351,6 +3415,9 @@ int calculate_sample_for_LL_START_ENC_REQ(char *pkt_str, PKT_INFO *pkt) {
   if (ret == -1) { // failed
     return(-1);
   }
+
+  printf("before crc24, pdu\n");
+  disp_bit_in_hex(pkt->info_bit+40, pkt->num_info_bit-40);
   crc24_and_scramble_to_gen_phy_bit(crc_init, pkt);
   printf("num_phy_bit %d\n", pkt->num_phy_bit);
 
@@ -3360,7 +3427,7 @@ int calculate_sample_for_LL_START_ENC_REQ(char *pkt_str, PKT_INFO *pkt) {
 // get space value
   if (ret==1) { // if space value not present
     pkt->space = DEFAULT_SPACE_MS;
-    printf("space %d\n", pkt->space);
+    printf("space %dms\n", pkt->space);
     return(0);
   }
 
@@ -3376,7 +3443,7 @@ int calculate_sample_for_LL_START_ENC_REQ(char *pkt_str, PKT_INFO *pkt) {
   }
 
   pkt->space = space;
-  printf("space %d\n", pkt->space);
+  printf("space %dms\n", pkt->space);
 
   return(0);
 }
@@ -3443,10 +3510,12 @@ int calculate_sample_for_LL_UNKNOWN_RSP(char *pkt_str, PKT_INFO *pkt) {
     return(-1);
   }
   pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+  pkt->num_info_byte = pkt->num_info_bit/8;
 
   int payload_len = (pkt->num_info_bit/8) - 7;
-  printf("payload_len %d\n", payload_len);
-  printf("num_info_bit %d\n", pkt->num_info_bit);
+  printf("pdu payload_len %d bytes\n", payload_len);
+  printf("preamble+access+pdu(NO CRC) %d bit\n", pkt->num_info_bit);
+  printf("preamble+access+pdu(NO CRC) %d byte\n", pkt->num_info_byte);
 
   fill_data_pdu_header(llid, nesn, sn, md, payload_len, pkt->info_bit+5*8);
 
@@ -3456,6 +3525,9 @@ int calculate_sample_for_LL_UNKNOWN_RSP(char *pkt_str, PKT_INFO *pkt) {
   if (ret == -1) { // failed
     return(-1);
   }
+
+  printf("before crc24, pdu\n");
+  disp_bit_in_hex(pkt->info_bit+40, pkt->num_info_bit-40);
   crc24_and_scramble_to_gen_phy_bit(crc_init, pkt);
   printf("num_phy_bit %d\n", pkt->num_phy_bit);
 
@@ -3465,7 +3537,7 @@ int calculate_sample_for_LL_UNKNOWN_RSP(char *pkt_str, PKT_INFO *pkt) {
 // get space value
   if (ret==1) { // if space value not present
     pkt->space = DEFAULT_SPACE_MS;
-    printf("space %d\n", pkt->space);
+    printf("space %dms\n", pkt->space);
     return(0);
   }
 
@@ -3481,7 +3553,7 @@ int calculate_sample_for_LL_UNKNOWN_RSP(char *pkt_str, PKT_INFO *pkt) {
   }
 
   pkt->space = space;
-  printf("space %d\n", pkt->space);
+  printf("space %dms\n", pkt->space);
 
   return(0);
 }
@@ -3541,10 +3613,12 @@ int calculate_sample_for_LL_FEATURE_REQ(char *pkt_str, PKT_INFO *pkt) {
     return(-1);
   }
   pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+  pkt->num_info_byte = pkt->num_info_bit/8;
 
   int payload_len = (pkt->num_info_bit/8) - 7;
-  printf("payload_len %d\n", payload_len);
-  printf("num_info_bit %d\n", pkt->num_info_bit);
+  printf("pdu payload_len %d bytes\n", payload_len);
+  printf("preamble+access+pdu(NO CRC) %d bit\n", pkt->num_info_bit);
+  printf("preamble+access+pdu(NO CRC) %d byte\n", pkt->num_info_byte);
 
   fill_data_pdu_header(llid, nesn, sn, md, payload_len, pkt->info_bit+5*8);
 
@@ -3554,6 +3628,9 @@ int calculate_sample_for_LL_FEATURE_REQ(char *pkt_str, PKT_INFO *pkt) {
   if (ret == -1) { // failed
     return(-1);
   }
+
+  printf("before crc24, pdu\n");
+  disp_bit_in_hex(pkt->info_bit+40, pkt->num_info_bit-40);
   crc24_and_scramble_to_gen_phy_bit(crc_init, pkt);
   printf("num_phy_bit %d\n", pkt->num_phy_bit);
 
@@ -3563,7 +3640,7 @@ int calculate_sample_for_LL_FEATURE_REQ(char *pkt_str, PKT_INFO *pkt) {
 // get space value
   if (ret==1) { // if space value not present
     pkt->space = DEFAULT_SPACE_MS;
-    printf("space %d\n", pkt->space);
+    printf("space %dms\n", pkt->space);
     return(0);
   }
 
@@ -3579,7 +3656,7 @@ int calculate_sample_for_LL_FEATURE_REQ(char *pkt_str, PKT_INFO *pkt) {
   }
 
   pkt->space = space;
-  printf("space %d\n", pkt->space);
+  printf("space %dms\n", pkt->space);
 
   return(0);
 }
@@ -3672,10 +3749,12 @@ int calculate_sample_for_LL_VERSION_IND(char *pkt_str, PKT_INFO *pkt) {
     return(-1);
   }
   pkt->num_info_bit = pkt->num_info_bit + num_bit_tmp;
+  pkt->num_info_byte = pkt->num_info_bit/8;
 
   int payload_len = (pkt->num_info_bit/8) - 7;
-  printf("payload_len %d\n", payload_len);
-  printf("num_info_bit %d\n", pkt->num_info_bit);
+  printf("pdu payload_len %d bytes\n", payload_len);
+  printf("preamble+access+pdu(NO CRC) %d bit\n", pkt->num_info_bit);
+  printf("preamble+access+pdu(NO CRC) %d byte\n", pkt->num_info_byte);
 
   fill_data_pdu_header(llid, nesn, sn, md, payload_len, pkt->info_bit+5*8);
 
@@ -3685,6 +3764,9 @@ int calculate_sample_for_LL_VERSION_IND(char *pkt_str, PKT_INFO *pkt) {
   if (ret == -1) { // failed
     return(-1);
   }
+
+  printf("before crc24, pdu\n");
+  disp_bit_in_hex(pkt->info_bit+40, pkt->num_info_bit-40);
   crc24_and_scramble_to_gen_phy_bit(crc_init, pkt);
   printf("num_phy_bit %d\n", pkt->num_phy_bit);
 
@@ -3694,7 +3776,7 @@ int calculate_sample_for_LL_VERSION_IND(char *pkt_str, PKT_INFO *pkt) {
 // get space value
   if (ret==1) { // if space value not present
     pkt->space = DEFAULT_SPACE_MS;
-    printf("space %d\n", pkt->space);
+    printf("space %dms\n", pkt->space);
     return(0);
   }
 
@@ -3710,7 +3792,7 @@ int calculate_sample_for_LL_VERSION_IND(char *pkt_str, PKT_INFO *pkt) {
   }
 
   pkt->space = space;
-  printf("space %d\n", pkt->space);
+  printf("space %dms\n", pkt->space);
 
   return(0);
 }
@@ -3942,12 +4024,12 @@ void save_phy_sample(char *IQ_sample, int num_IQ_sample, char *filename)
   }
 
   for(i=0; i<num_IQ_sample; i++) {
-    if (i%24 == 0) {
-      fprintf(fp, "\n");
-    }
-    fprintf(fp, "%d, ", IQ_sample[i]);
+    // if (i%24 == 0) {
+    //   fprintf(fp, "\n");
+    // }
+    fprintf(fp, "%d\n", IQ_sample[i]);
   }
-  fprintf(fp, "\n");
+  // fprintf(fp, "\n");
 
   fclose(fp);
 }
@@ -4006,10 +4088,12 @@ int parse_input(int num_input, char** argv, int *num_repeat_return){
       printf("failed!\n");
       return(-2);
     }
-    printf("INFO bit:"); disp_bit_in_hex(packets[i].info_bit, packets[i].num_info_bit);
-    printf(" PHY bit:"); disp_bit_in_hex(packets[i].phy_bit, packets[i].num_phy_bit);
-    printf("PHY SMPL: PHY_bit_for_matlab.txt IQ_sample_for_matlab.txt IQ_sample.txt IQ_sample_byte.txt\n");
+    printf("Upper byte:"); disp_bit_in_hex(packets[i].info_bit, packets[i].num_info_bit);
+    printf("PHY   byte:"); disp_bit_in_hex(packets[i].phy_bit, packets[i].num_phy_bit);
+    printf("PHY sample: PHY_bit_for_matlab.txt IQ_sample_for_matlab.txt and other txt files\n");
+    save_phy_sample((char*)(packets[i].info_bit), packets[i].num_info_bit, "info_bit.txt");
     save_phy_sample((char*)(packets[i].info_byte), packets[i].num_info_byte, "info_byte.txt");
+    save_phy_sample((char*)(packets[i].phy_bit), packets[i].num_phy_bit, "phy_bit.txt");
     save_phy_sample((char*)(packets[i].phy_byte), packets[i].num_phy_byte, "phy_byte.txt");
     save_phy_sample(packets[i].phy_sample, 2*packets[i].num_phy_sample, "phy_sample.txt");
     save_phy_sample_for_matlab(packets[i].phy_sample, 2*packets[i].num_phy_sample, "IQ_sample_for_matlab.txt");
@@ -4145,7 +4229,7 @@ int main(int argc, char** argv) {
   }
   printf("\n");
 
-  if ( init_board() == -1 )
+  if ( init_board() != 0 )
       return(-1);
 
 #if 0
