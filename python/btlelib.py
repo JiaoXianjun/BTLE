@@ -477,7 +477,7 @@ def btle_rx(i, q, *argv): # i and q at sampling rate SAMPLE_PER_SYMBOL
       num_miss_unique_bit_sequence = num_miss_unique_bit_sequence + 1
 
   if (num_miss_unique_bit_sequence == SAMPLE_PER_SYMBOL):
-    print('Access address NOT found!')
+    print('btle_rx: Access address NOT found!')
     if SAVE_FOR_VERILOG != 0:
       file_set_to_remove = [SAVE_DIR+'/btle_rx_gfsk_demodulation_test_input_i.txt', 
                             SAVE_DIR+'/btle_rx_gfsk_demodulation_test_input_q.txt',
