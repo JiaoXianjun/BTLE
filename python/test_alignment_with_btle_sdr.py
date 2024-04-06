@@ -84,4 +84,5 @@ if __name__ == "__main__":
   plt.grid()
   plt.show()
 
-  # print(bl.SAMPLE_PER_SYMBOL)
+  np.savetxt('btle_fo.txt', btle_fo, fmt='%f')
+  np.savetxt('python_fo.txt', python_fo, fmt='%f')
