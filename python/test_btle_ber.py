@@ -82,3 +82,6 @@ if __name__ == "__main__":
   plt.ylabel('BER')
   plt.grid()
   plt.show()
+
+  np.savetxt('snr_set.txt', snr_set, fmt='%f')
+  np.savetxt('ber_set.txt', ber_set, fmt='%f')
