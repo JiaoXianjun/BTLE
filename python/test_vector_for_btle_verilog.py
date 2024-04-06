@@ -141,6 +141,7 @@ if __name__ == "__main__":
   ax.legend(loc='upper right')
   ax.grid(True)
   ax.set_title('BTLE transmitter I and Q')
+  plt.tight_layout()
 
   # add extra delay by number of sample:
   tx_i = np.concatenate((np.zeros(num_sample_delay, dtype=np.int8), tx_i))
@@ -193,11 +194,13 @@ if __name__ == "__main__":
   for sample_phase_idx in range(bl.SAMPLE_PER_SYMBOL):
     _, signal_for_decision[sample_phase_idx::bl.SAMPLE_PER_SYMBOL] = bl.gfsk_demodulation_fixed_point(i[sample_phase_idx::bl.SAMPLE_PER_SYMBOL], q[sample_phase_idx::bl.SAMPLE_PER_SYMBOL])
   
-  ax.plot(signal_for_decision_idx, signal_for_decision, 'b', label='signal for decision')
-  ax.plot(signal_for_decision_idx[best_sample_phase_idx::bl.SAMPLE_PER_SYMBOL], signal_for_decision[best_sample_phase_idx::bl.SAMPLE_PER_SYMBOL], 'rs', label='best phase moment')
+  idx_shift_left = 4
+  ax.plot(signal_for_decision_idx - idx_shift_left, signal_for_decision, 'b', label='signal for decision')
+  ax.plot(signal_for_decision_idx[best_sample_phase_idx::bl.SAMPLE_PER_SYMBOL] - idx_shift_left, signal_for_decision[best_sample_phase_idx::bl.SAMPLE_PER_SYMBOL], 'rs', label='best phase moment')
   ax.legend(loc='upper right')
   ax.grid(True)
   ax.set_title('signal for decision in receiver')
+  plt.tight_layout()
 
   plt.show()
   
