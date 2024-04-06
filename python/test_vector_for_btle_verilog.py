@@ -208,9 +208,6 @@ if __name__ == "__main__":
   ax.set_title('signal for decision in receiver')
   plt.tight_layout()
 
-  np.savetxt('plot_phy_bit_upsample.txt', phy_bit_upsample, fmt='%f')
-  np.savetxt('plot_btle_tx_vco_test_input.txt', btle_tx_vco_test_input[8:]/64.0, fmt='%f')
-  np.savetxt('plot_fo.txt', fo[6:], fmt='%f')
   np.savetxt('plot_signal_for_decision_x.txt', signal_for_decision_idx - idx_shift_left, fmt='%f')
   np.savetxt('plot_signal_for_decision_y.txt', signal_for_decision, fmt='%f')
   np.savetxt('plot_signal_for_decision_best_phase_x.txt', signal_for_decision_idx[best_sample_phase_idx::bl.SAMPLE_PER_SYMBOL] - idx_shift_left, fmt='%f')
