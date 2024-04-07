@@ -149,6 +149,7 @@ always @ (posedge clk) begin
       $fclose(scramble_test_output_fd);
 
       // check the output and the reference
+      $display("Compare the scramble_test_output_mem and the scramble_test_output_ref_mem ...");
       NUM_ERROR = 0;
       for (i=0; i<NUM_BIT_OUTPUT; i=i+1) begin
         if (scramble_test_output_mem[i] != scramble_test_output_ref_mem[i]) begin

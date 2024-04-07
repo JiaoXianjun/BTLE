@@ -192,6 +192,7 @@ always @ (posedge clk) begin
         $fclose(vco_test_output_sin_fd);
 
         // check the output and the reference
+        $display("Compare the vco_test_output_cos_mem and the vco_test_output_cos_ref_mem ...");
         NUM_ERROR = 0;
         for (i=0; i<NUM_SAMPLE_OUTPUT; i=i+1) begin
           if (vco_test_output_cos_mem[i] != vco_test_output_cos_ref_mem[i]) begin
@@ -205,6 +206,7 @@ always @ (posedge clk) begin
           $display("%d error found! output cos Test PASS.", NUM_ERROR);
         end
 
+        $display("Compare the vco_test_output_sin_mem and the vco_test_output_sin_ref_mem ...");
         NUM_ERROR = 0;
         for (i=0; i<NUM_SAMPLE_OUTPUT; i=i+1) begin
           if (vco_test_output_sin_mem[i] != vco_test_output_sin_ref_mem[i]) begin

@@ -150,6 +150,7 @@ always @ (posedge clk) begin
         $fclose(gauss_filter_test_output_fd);
 
         // check the output and the reference
+        $display("Compare the gauss_filter_test_output_mem and the gauss_filter_test_output_ref_mem ...");
         NUM_ERROR = 0;
         for (i=0; i<NUM_SAMPLE_OUTPUT; i=i+1) begin
           // $display("%d %d", gauss_filter_test_output_mem[i], gauss_filter_test_output_ref_mem[i]);

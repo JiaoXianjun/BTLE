@@ -325,6 +325,7 @@ always @ (posedge clk) begin
       $fclose(btle_tx_test_output_i_fd);
 
       // check the output and the reference
+      $display("Compare the btle_tx_test_output_i_mem and the btle_tx_test_output_i_ref_mem ...");
       NUM_ERROR = 0;
       for (i=0; i<NUM_SAMPLE_OUTPUT; i=i+1) begin
         if (btle_tx_test_output_i_mem[i] != btle_tx_test_output_i_ref_mem[i]) begin
@@ -338,6 +339,7 @@ always @ (posedge clk) begin
         $display("%d error found! output I Test PASS.", NUM_ERROR);
       end
 
+      $display("Compare the btle_tx_test_output_q_mem and the btle_tx_test_output_q_ref_mem ...");
       NUM_ERROR = 0;
       for (i=0; i<NUM_SAMPLE_OUTPUT; i=i+1) begin
         if (btle_tx_test_output_q_mem[i] != btle_tx_test_output_q_ref_mem[i]) begin

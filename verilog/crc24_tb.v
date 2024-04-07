@@ -148,6 +148,7 @@ always @ (posedge clk) begin
       $fclose(crc24_test_output_fd);
       
       // check the output and the reference
+      $display("Compare the crc24_test_output_mem and the crc24_test_output_ref_mem ...");
       NUM_ERROR = 0;
       for (i=0; i<NUM_BIT_OUTPUT; i=i+1) begin
         if (crc24_test_output_mem[i] != crc24_test_output_ref_mem[i]) begin

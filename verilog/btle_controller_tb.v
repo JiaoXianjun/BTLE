@@ -469,6 +469,7 @@ always @ (posedge clk) begin
           $fclose(btle_tx_test_output_i_fd);
 
           // check the output and the reference
+          $display("tx compare the btle_tx_test_output_i_mem and the btle_tx_test_output_i_ref_mem ...");
           NUM_ERROR_TX_I = 0;
           for (i=0; i<NUM_SAMPLE_OUTPUT; i=i+1) begin
             if (btle_tx_test_output_i_mem[i] != btle_tx_test_output_i_ref_mem[i]) begin
@@ -482,6 +483,7 @@ always @ (posedge clk) begin
             $display("tx %d error found! output tx I Test PASS.", NUM_ERROR_TX_I);
           end
 
+          $display("tx compare the btle_tx_test_output_q_mem and the btle_tx_test_output_q_ref_mem ...");
           NUM_ERROR_TX_Q = 0;
           for (i=0; i<NUM_SAMPLE_OUTPUT; i=i+1) begin
             if (btle_tx_test_output_q_mem[i] != btle_tx_test_output_q_ref_mem[i]) begin
@@ -560,7 +562,7 @@ always @ (posedge clk) begin
             $display("rx crc_ok flag is different! Test FAIL.");
           end
 
-          $display("rx Compare the output and the reference: octet");
+          $display("rx compare the btle_rx_test_output_mem and the btle_rx_test_output_ref_mem ...");
           NUM_ERROR = 0;
           for (i=0; i<NUM_OCTET_OUTPUT; i=i+1) begin
             if (btle_rx_test_output_mem[i] != btle_rx_test_output_ref_mem[i]) begin

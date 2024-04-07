@@ -126,6 +126,7 @@ always @ (posedge clk) begin
     if (hit_flag) begin
       $display("unique_bit_sequence full match at the %dth bit", bit_in_count);
       $display("unique_bit_sequence starting idx %d", bit_in_count - LEN_UNIQUE_BIT_SEQUENCE);
+      $display("Compare the unique_bit_sequence starting idx and the search_unique_bit_sequence_test_output_ref_mem[0] ...");
       if ((bit_in_count - LEN_UNIQUE_BIT_SEQUENCE) == search_unique_bit_sequence_test_output_ref_mem[0]) begin
         $display("Same as python result %d. Test PASS.", search_unique_bit_sequence_test_output_ref_mem[0]);
       end else begin

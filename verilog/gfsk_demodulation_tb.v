@@ -168,7 +168,7 @@ always @ (posedge clk) begin
       $fflush(gfsk_demodulation_test_output_signal_for_decision_fd);
       $fclose(gfsk_demodulation_test_output_signal_for_decision_fd);
 
-      $display("Compare the output and the reference: bit");
+      $display("Compare the gfsk_demodulation_test_output_bit_mem and the gfsk_demodulation_test_output_bit_ref_mem ...");
       NUM_ERROR = 0;
       for (i=0; i<NUM_BIT_OUTPUT; i=i+1) begin
         if (gfsk_demodulation_test_output_bit_mem[i+1] != gfsk_demodulation_test_output_bit_ref_mem[i]) begin
@@ -182,7 +182,7 @@ always @ (posedge clk) begin
         $display("%d error found! output bit Test PASS.", NUM_ERROR);
       end
 
-      $display("Compare the output and the reference: signal for decision");
+      $display("Compare the gfsk_demodulation_test_output_signal_for_decision_mem and the gfsk_demodulation_test_output_signal_for_decision_ref_mem ...");
       NUM_ERROR = 0;
       for (i=0; i<NUM_BIT_OUTPUT; i=i+1) begin
         if (gfsk_demodulation_test_output_signal_for_decision_mem[i+1] != gfsk_demodulation_test_output_signal_for_decision_ref_mem[i]) begin

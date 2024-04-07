@@ -217,7 +217,7 @@ always @ (posedge clk) begin
         $display("crc_ok flag is different! Test FAIL.");
       end
 
-      $display("Compare the output and the reference: octet");
+      $display("Compare the btle_rx_test_output_mem and the btle_rx_test_output_ref_mem ...");
       NUM_ERROR = 0;
       for (i=0; i<NUM_OCTET_OUTPUT; i=i+1) begin
         if (btle_rx_test_output_mem[i] != btle_rx_test_output_ref_mem[i]) begin
