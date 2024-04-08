@@ -676,9 +676,9 @@ if {[string equal [get_filesets -quiet constrs_1] ""]} {
 set obj [get_filesets constrs_1]
 
 # Add/Import constrs file and set constrs file properties
-set file "[file normalize "$origin_dir/btle_controller.xdc"]"
+set file "[file normalize "$origin_dir/btle_controller_wrapper.xdc"]"
 set file_added [add_files -norecurse -fileset $obj [list $file]]
-set file "btle_controller.xdc"
+set file "btle_controller_wrapper.xdc"
 set file_obj [get_files -of_objects [get_filesets constrs_1] [list "*$file"]]
 set_property -name "file_type" -value "XDC" -objects $file_obj
 set_property -name "is_enabled" -value "1" -objects $file_obj
@@ -696,8 +696,8 @@ set_property -name "used_in_synthesis" -value "1" -objects $file_obj
 set obj [get_filesets constrs_1]
 set_property -name "constrs_type" -value "XDC" -objects $obj
 set_property -name "name" -value "constrs_1" -objects $obj
-set_property -name "target_constrs_file" -value "[get_files *btle_controller.xdc]" -objects $obj
-set_property -name "target_ucf" -value "[get_files *btle_controller.xdc]" -objects $obj
+set_property -name "target_constrs_file" -value "[get_files *btle_controller_wrapper.xdc]" -objects $obj
+set_property -name "target_ucf" -value "[get_files *btle_controller_wrapper.xdc]" -objects $obj
 
 # Create 'sim_1' fileset (if not found)
 if {[string equal [get_filesets -quiet sim_1] ""]} {
