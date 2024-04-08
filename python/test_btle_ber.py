@@ -1,3 +1,7 @@
+# Author: Xianjun Jiao <putaoshu@msn.com>
+# SPDX-FileCopyrightText: 2024 Xianjun Jiao
+# SPDX-License-Identifier: Apache-2.0 license
+
 import numpy as np
 # import matplotlib
 # matplotlib.use('TkAgg')

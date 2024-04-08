@@ -1,6 +1,6 @@
-# // Author: Xianjun Jiao <putaoshu@msn.com>
-# // SPDX-FileCopyrightText: 2024 Xianjun Jiao
-# // SPDX-License-Identifier: Apache-2.0 license
+# Author: Xianjun Jiao <putaoshu@msn.com>
+# SPDX-FileCopyrightText: 2024 Xianjun Jiao
+# SPDX-License-Identifier: Apache-2.0 license
 # Based on Xilinx Vivado generated .tcl file
 
 #*****************************************************************************************
