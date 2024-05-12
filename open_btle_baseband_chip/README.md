@@ -6,9 +6,9 @@ SPDX-License-Identifier: Apache-2.0 license
 
 # The open-source BTLE (Bluetooth Low Energy) baseband chip design
 
-This is an open-source Bluetooth Low Energy controller (baseband part) project written in Verilog: https://github.com/JiaoXianjun/BTLE/tree/vlsi24-code-a-chip/verilog
+This is an open-source Bluetooth Low Energy controller (baseband part) project written in Verilog: https://github.com/JiaoXianjun/BTLE/tree/master/verilog
 
-There is also a Python bit-true algorithm model for the Verilog project: https://github.com/JiaoXianjun/BTLE/tree/vlsi24-code-a-chip/python
+There is also a Python bit-true algorithm model for the Verilog project: https://github.com/JiaoXianjun/BTLE/tree/master/python
 
 [open_btle_baseband_chip.ipynb](open_btle_baseband_chip.ipynb) has the most complete/comprehensive information. Download and open it in Google Colab to read and run Python/Verilog simulation, synthesis, mapping, routing, etc., with OpenLane2 workflow targeting SkyWater 130 PDK and Xilinx Vivado targeting FPGA.
 
