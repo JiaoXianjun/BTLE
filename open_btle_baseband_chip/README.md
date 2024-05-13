@@ -10,7 +10,9 @@ This is an open-source Bluetooth Low Energy controller (baseband part) project w
 
 There is also a Python bit-true algorithm model for the Verilog project: https://github.com/JiaoXianjun/BTLE/tree/master/python
 
-[open_btle_baseband_chip.ipynb](open_btle_baseband_chip.ipynb) has the most complete/comprehensive information. Download and open it in Google Colab to read and run Python/Verilog simulation, synthesis, mapping, routing, etc., with OpenLane2 workflow targeting SkyWater 130 PDK and Xilinx Vivado targeting FPGA.
+Please refer to [open_btle_baseband_chip.md](open_btle_baseband_chip.md) for detailed algorithm explanation and local setup/running.
+
+You can also upload and run [open_btle_baseband_chip.ipynb](open_btle_baseband_chip.ipynb) in Google Colab to: read and run Python/Verilog simulation, synthesis, mapping, routing, etc., with OpenLane2 workflow targeting SkyWater 130 PDK and Xilinx Vivado targeting FPGA.
 
 Here are some quick pieces to get you some basic ideas about the project.
 
