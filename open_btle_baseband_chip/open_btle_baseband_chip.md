@@ -303,7 +303,7 @@ Now let's run a worst 50PPM case by giving 50 as argument to the test_btle_ber.p
 ```
 python test_btle_ber.py 50
 ```
-![open_btle_baseband_chip_files/open_btle_baseband_chip_21_1.png](open_btle_baseband_chip_files/open_btle_baseband_chip_21_1.png)
+![open_btle_baseband_chip_21_1.png](open_btle_baseband_chip_21_1.png)
 
 During the simulation, some realtime info is shown: ppm value, frequency offset (50PPM --> 122.5KHz under 2.45GHz center frequency of 2.4GHz ISM band), BER and related the number of error bits, etc.
 
@@ -314,7 +314,7 @@ Let's simulate another better case: -30PPM.
 ```
 python test_btle_ber.py -30
 ```    
-![open_btle_baseband_chip_files/open_btle_baseband_chip_23_1.png](open_btle_baseband_chip_files/open_btle_baseband_chip_23_1.png)
+![open_btle_baseband_chip_23_1.png](open_btle_baseband_chip_23_1.png)
 
 From the above figure, BER 0.1% is achieved around SNR 13.5dB. In modern hardware, 30PPM is an easy task for a crystal, and it already can bring big gain on the sensitivity.
 
