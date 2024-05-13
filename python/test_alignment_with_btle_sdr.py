@@ -80,7 +80,7 @@ if __name__ == "__main__":
 
   plt.figure(0)
   plt.plot(btle_fo[2:], 'b', label='sdr btle_tx')
-  plt.plot(python_fo[0::2], 'r', label='python btlelib') # decimate to 4x oversampling
+  plt.plot(python_fo[0::2], 'r.', label='python btlelib') # decimate to 4x oversampling
   plt.legend(loc="upper right")
   plt.title('btle_tx C sdr VS python btlelib. example '+str(example_idx))
   plt.xlabel('sample idx')
