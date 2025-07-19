@@ -409,8 +409,9 @@ def btle_rx(i, q, *argv): # i and q at sampling rate SAMPLE_PER_SYMBOL
   q = np.int16(q)
 
   num_sample = len(i)
-  bit_all_sample_phase = np.zeros((SAMPLE_PER_SYMBOL, round(num_sample/SAMPLE_PER_SYMBOL)-1), dtype=np.int8)
-  signal_for_decision = np.zeros((SAMPLE_PER_SYMBOL, round(num_sample/SAMPLE_PER_SYMBOL)-1), dtype=np.int32)
+  num_bit = round(num_sample/SAMPLE_PER_SYMBOL)-1
+  bit_all_sample_phase = np.zeros((SAMPLE_PER_SYMBOL, num_bit), dtype=np.int8)
+  signal_for_decision = np.zeros((SAMPLE_PER_SYMBOL, num_bit), dtype=np.int32)
 
   # start_idx_at_symbol_rate_store = []
   # sample_phase_idx_store = []
@@ -425,7 +426,14 @@ def btle_rx(i, q, *argv): # i and q at sampling rate SAMPLE_PER_SYMBOL
   num_miss_unique_bit_sequence = 0
   for sample_phase_idx in range(SAMPLE_PER_SYMBOL):
     # from rx I/Q to phy bit by gfsk demodulation
-    bit_all_sample_phase[sample_phase_idx,:], signal_for_decision[sample_phase_idx,:] = gfsk_demodulation_fixed_point(i[sample_phase_idx::SAMPLE_PER_SYMBOL], q[sample_phase_idx::SAMPLE_PER_SYMBOL])
+    bit_all_sample_phase_tmp, signal_for_decision_tmp = gfsk_demodulation_fixed_point(i[sample_phase_idx::SAMPLE_PER_SYMBOL], q[sample_phase_idx::SAMPLE_PER_SYMBOL])
+    len_assign = min(len(bit_all_sample_phase_tmp), num_bit)
+    bit_all_sample_phase[sample_phase_idx, 0:len_assign] = bit_all_sample_phase_tmp[0:len_assign]
+    signal_for_decision[sample_phase_idx, 0:len_assign] = signal_for_decision_tmp[0:len_assign]
+    if len_assign < num_bit:
+      bit_all_sample_phase[sample_phase_idx, -1] = bit_all_sample_phase_tmp[-1]
+      signal_for_decision[sample_phase_idx, -1] = signal_for_decision_tmp[-1]
+    
     start_idx_at_symbol_rate = search_unique_bit_sequence(bit_all_sample_phase[sample_phase_idx,:], access_address_bit)
     if start_idx_at_symbol_rate != int(-1):
       phy_bit = bit_all_sample_phase[sample_phase_idx, start_idx_at_symbol_rate:]

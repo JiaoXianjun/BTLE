@@ -154,8 +154,9 @@ if __name__ == "__main__":
   np.savetxt('plot_tx_q.txt', tx_q[8:], fmt='%f')
 
   # add extra delay by number of sample:
-  tx_i = np.concatenate((np.zeros(num_sample_delay, dtype=np.int8), tx_i))
-  tx_q = np.concatenate((np.zeros(num_sample_delay, dtype=np.int8), tx_q))
+  # if num_sample_delay > 0:
+  tx_i = np.concatenate(([tx_i[0]]*num_sample_delay, tx_i))
+  tx_q = np.concatenate(([tx_q[0]]*num_sample_delay, tx_q))
 
   # add sampling frequency offset, carrier frequency offset
   tx_i_error, tx_q_error, _, fo = bl.add_freq_sampling_error(tx_i, tx_q, ppm_value)
@@ -199,10 +200,16 @@ if __name__ == "__main__":
   # mimic signal_for_decision signal in receiver
   i = np.int16(rx_i)
   q = np.int16(rx_q)
-  signal_for_decision = np.zeros((round(len(i)/bl.SAMPLE_PER_SYMBOL)-1)*bl.SAMPLE_PER_SYMBOL, dtype=np.int32)
+  len_signal = round(len(i)/bl.SAMPLE_PER_SYMBOL)-1
+  signal_for_decision = np.zeros(len_signal*bl.SAMPLE_PER_SYMBOL, dtype=np.int32)
   signal_for_decision_idx = np.linspace(0, len(signal_for_decision)-1,  len(signal_for_decision))
   for sample_phase_idx in range(bl.SAMPLE_PER_SYMBOL):
-    _, signal_for_decision[sample_phase_idx::bl.SAMPLE_PER_SYMBOL] = bl.gfsk_demodulation_fixed_point(i[sample_phase_idx::bl.SAMPLE_PER_SYMBOL], q[sample_phase_idx::bl.SAMPLE_PER_SYMBOL])
+    _, signal_for_decision_tmp = bl.gfsk_demodulation_fixed_point(i[sample_phase_idx::bl.SAMPLE_PER_SYMBOL], q[sample_phase_idx::bl.SAMPLE_PER_SYMBOL])
+    if len(signal_for_decision_tmp) < len_signal:
+      signal_for_decision_tmp = np.concatenate((signal_for_decision_tmp, [signal_for_decision_tmp[-1]]*(len_signal - len(signal_for_decision_tmp))))
+    else:
+      signal_for_decision_tmp = signal_for_decision_tmp[0:len_signal]
+    signal_for_decision[sample_phase_idx::bl.SAMPLE_PER_SYMBOL] = signal_for_decision_tmp
   
   idx_shift_left = 4
   ax.plot(signal_for_decision_idx - idx_shift_left, signal_for_decision, 'b', label='signal for decision')
