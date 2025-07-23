@@ -72,8 +72,8 @@ wire decode_end_all;
 wire decode_end_any;
 wire decode_end_early;
 
-reg       timeout_count_enable;
-reg [3:0] timeout_count_sample;
+// reg       timeout_count_enable;
+// reg [3:0] timeout_count_sample;
 reg [0:0] decode_end_state;
 
 assign payload_length_store_wire[0] = payload_length_store[0];
@@ -101,10 +101,11 @@ always @ (posedge clk) begin
     decode_end <= 0;
     crc_ok <= 0;
     best_phase <= 0;
+    payload_length <= 0;
 
     decode_end_state <= IDLE;
-    timeout_count_sample <= 0;
-    timeout_count_enable <= 0;
+    // timeout_count_sample <= 0;
+    // timeout_count_enable <= 0;
   end else begin
     hit_flag_any_delay <= hit_flag_any;
 
@@ -157,20 +158,21 @@ always @ (posedge clk) begin
       IDLE: begin
         decode_end <= 0;
         crc_ok <= 0;
-        timeout_count_sample <= 0;
-        timeout_count_enable <= 0;
+        // timeout_count_sample <= 0;
+        // timeout_count_enable <= 0;
         decode_end_state <= (hit_flag? WAIT_DECODE_END_LONGEST : decode_end_state);
       end
 
       WAIT_DECODE_END_LONGEST: begin
-        timeout_count_enable <= (decode_end_any == 1? 1 : timeout_count_enable);
-        timeout_count_sample <= ( (iq_valid && timeout_count_enable)? (timeout_count_sample+1) : timeout_count_sample);
+        // timeout_count_enable <= (decode_end_any == 1? 1 : timeout_count_enable);
+        // timeout_count_sample <= ( (iq_valid && timeout_count_enable)? (timeout_count_sample+1) : timeout_count_sample);
 
         if (decode_end_early) begin
           decode_end <= 1;
           crc_ok <= 1;
           decode_end_state <= IDLE;
-        end else if (timeout_count_sample == SAMPLE_PER_SYMBOL) begin
+        // end else if (timeout_count_sample == SAMPLE_PER_SYMBOL) begin // issue decode_end_any happens much earlier than the correct decode_end&crc_ok, this case will terminate the whole rx too early!
+        end else if (decode_end_all) begin // worse case, all decoder runs to the end without crc_ok
           decode_end <= 1;
           decode_end_state <= IDLE;
         end
@@ -205,7 +207,7 @@ always @* begin
       3'd6 : begin 
         pdu_octet_mem_data = data_internal[6]; 
         end
-      3'd7 : begin 
+      3'd7 : begin
         pdu_octet_mem_data = data_internal[7]; 
         end
   endcase
@@ -292,7 +294,8 @@ generate
     end
 
     always @ (posedge clk) begin
-      if (rst|hit_flag_internal[gen_idx]|decode_end_early|decode_end_all) begin
+      // if (rst|hit_flag_internal[gen_idx]|decode_end_early|decode_end_all) begin
+      if (rst|hit_flag_internal[gen_idx]) begin
         crc_ok_store[gen_idx] <= 0;
         decode_end_store[gen_idx] <= 0;
       end else if (decode_end_internal[gen_idx]) begin
