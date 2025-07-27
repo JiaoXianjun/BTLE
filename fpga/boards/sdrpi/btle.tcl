@@ -2,6 +2,37 @@
 # SPDX-FileCopyrightText: 2025 Xianjun Jiao <putaoshu@msn.com>
 # SPDX-License-Identifier: Apache-2.0
 
+# === Generate btle controller IP core for top level fpga project ===
+set ip_src_dir "../../../verilog/"
+set ip_core_dir "./ip_core/btle_controller_wrapper"
+
+exec rm -rf $ip_core_dir
+
+set current_dir [pwd]
+cd $ip_src_dir/
+source ./btle_controller.tcl
+
+update_compile_order -fileset sources_1
+update_compile_order -fileset sources_1
+
+ipx::package_project -root_dir $ip_core_dir -vendor user.org -library user -taxonomy /UserIP -import_files -set_current false
+ipx::unload_core $ip_core_dir/component.xml
+ipx::edit_ip_in_project -upgrade true -name tmp_edit_project -directory $ip_core_dir $ip_core_dir/component.xml
+
+update_compile_order -fileset sources_1
+set_property core_revision 2 [ipx::current_core]
+
+ipx::update_source_project_archive -component [ipx::current_core]
+ipx::create_xgui_files [ipx::current_core]
+ipx::update_checksums [ipx::current_core]
+ipx::save_core [ipx::current_core]
+ipx::move_temp_component_back -component [ipx::current_core]
+
+close_project -delete
+
+cd $current_dir/
+
+# ==================== Top level fpga project =======================
 set origin_dir "."
 
 # Set the project name
@@ -88,7 +119,7 @@ if {[string equal [get_filesets -quiet sources_1] ""]} {
 
 # Set IP repository paths
 set obj [get_filesets sources_1]
-set_property "ip_repo_paths" "[file normalize "$origin_dir/../../adi-hdl/library"] [file normalize "$origin_dir/ip_repo/"]" $obj
+set_property "ip_repo_paths" "[file normalize "$origin_dir/../../adi-hdl/library"] [file normalize "$origin_dir/ip_core/"]" $obj
 
 # Rebuild user ip_repo's index before adding any source files
 update_ip_catalog -rebuild
