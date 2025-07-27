@@ -9,7 +9,7 @@
 `timescale 1ns / 1ps
 module btle_controller #
 (
-	parameter	CLK_FREQUENCE	= 16_000_000,	//hz
+  parameter	CLK_FREQUENCE	= 16_000_000,	//hz
   parameter BAUD_RATE		= 115200		,		  //9600、19200 、38400 、57600 、115200、230400、460800、921600
   parameter PARITY			= "NONE"	,		  //"NONE","EVEN","ODD"
   parameter FRAME_WD		= 8,					    //if PARITY="NONE",it can be 5~9;else 5~8
