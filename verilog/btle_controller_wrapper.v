@@ -46,8 +46,8 @@ module btle_controller_wrapper #
   output wire [31:0] fake_pins
 );
 
-  // ====baremetal phy interface. should be via uart in the future====
-  // for phy tx
+// ====baremetal phy interface. should be via uart in the future====
+// for phy tx
 (*mark_debug="true",DONT_TOUCH="TRUE"*) reg [3:0] ext_tx_gauss_filter_tap_index; // only need to set 0~8, 9~16 will be mirror of 0~7
 (*mark_debug="true",DONT_TOUCH="TRUE"*) reg signed [(GAUSS_FILTER_BIT_WIDTH-1) : 0] ext_tx_gauss_filter_tap_value;
 
@@ -69,7 +69,7 @@ module btle_controller_wrapper #
 
 (*mark_debug="true",DONT_TOUCH="TRUE"*) reg ext_tx_start;
 
-  // for phy tx debug purpose
+// for phy tx debug purpose
 (*mark_debug="true",DONT_TOUCH="TRUE"*) wire ext_tx_phy_bit;
 (*mark_debug="true",DONT_TOUCH="TRUE"*) wire ext_tx_phy_bit_valid;
 (*mark_debug="true",DONT_TOUCH="TRUE"*) wire ext_tx_phy_bit_valid_last;
@@ -82,7 +82,7 @@ module btle_controller_wrapper #
 (*mark_debug="true",DONT_TOUCH="TRUE"*) wire ext_tx_bit_upsample_gauss_filter_valid;
 (*mark_debug="true",DONT_TOUCH="TRUE"*) wire ext_tx_bit_upsample_gauss_filter_valid_last;
 
-  // for phy rx
+// for phy rx
 (*mark_debug="true",DONT_TOUCH="TRUE"*) reg [(LEN_UNIQUE_BIT_SEQUENCE-1) : 0]  ext_rx_unique_bit_sequence;
 (*mark_debug="true",DONT_TOUCH="TRUE"*) reg [(CHANNEL_NUMBER_BIT_WIDTH-1) : 0] ext_rx_channel_number;
 (*mark_debug="true",DONT_TOUCH="TRUE"*) reg [(CRC_STATE_BIT_WIDTH-1) : 0]      ext_rx_crc_state_init_bit;
@@ -185,11 +185,11 @@ btle_controller #
   .clk(clk),
   .rst(rst),
 
-    // ============================to host: UART HCI=========================
+  // ============================to host: UART HCI=========================
   .uart_rx(uart_rx),
   .uart_tx(uart_tx),
 
-    // =========================to zero-IF RF transceiver====================
+  // =========================to zero-IF RF transceiver====================
   .tx_i_signal(tx_i_signal),
   .tx_q_signal(tx_q_signal),
   .tx_iq_valid(tx_iq_valid),
@@ -199,9 +199,9 @@ btle_controller #
   .rx_q_signal(rx_q_signal),
   .rx_iq_valid(rx_iq_valid),
 
-    // ====baremetal phy interface. should be via uart in the future====
+  // ====baremetal phy interface. should be via uart in the future====
   .baremetal_phy_intf_mode(baremetal_phy_intf_mode), //currently 1 for external access. should be 0 in the future to let btle_ll control phy
-    // for phy tx
+  // for phy tx
   .ext_tx_gauss_filter_tap_index(ext_tx_gauss_filter_tap_index), // only need to set 0~8, 9~16 will be mirror of 0~7
   .ext_tx_gauss_filter_tap_value(ext_tx_gauss_filter_tap_value),
 
@@ -223,7 +223,7 @@ btle_controller #
 
   .ext_tx_start(ext_tx_start),
 
-    // for phy tx debug purpose
+  // for phy tx debug purpose
   .ext_tx_phy_bit(ext_tx_phy_bit),
   .ext_tx_phy_bit_valid(ext_tx_phy_bit_valid),
   .ext_tx_phy_bit_valid_last(ext_tx_phy_bit_valid_last),
@@ -236,7 +236,7 @@ btle_controller #
   .ext_tx_bit_upsample_gauss_filter_valid(ext_tx_bit_upsample_gauss_filter_valid),
   .ext_tx_bit_upsample_gauss_filter_valid_last(ext_tx_bit_upsample_gauss_filter_valid_last),
 
-    // for phy rx
+  // for phy rx
   .ext_rx_unique_bit_sequence(ext_rx_unique_bit_sequence),
   .ext_rx_channel_number(ext_rx_channel_number),
   .ext_rx_crc_state_init_bit(ext_rx_crc_state_init_bit),
