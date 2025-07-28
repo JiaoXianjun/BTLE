@@ -2,13 +2,18 @@
 # SPDX-FileCopyrightText: 2025 Xianjun Jiao <putaoshu@msn.com>
 # SPDX-License-Identifier: Apache-2.0
 
+# https://adaptivesupport.amd.com/s/article/000034290?language=en_US
+set_param gui.addressMap 0
+
 # === Generate btle controller IP core for top level fpga project ===
-set ip_src_dir "../../../verilog/"
-set ip_core_dir "./ip_core/btle_controller_wrapper"
-
-exec rm -rf $ip_core_dir
-
 set current_dir [pwd]
+set ip_src_dir "${current_dir}/../../verilog/"
+set ip_core_dir "${current_dir}/ip_core/btle_controller_wrapper"
+
+exec rm -rf project_1
+exec rm -rf $ip_core_dir
+exec mkdir -p $ip_core_dir
+
 cd $ip_src_dir/
 source ./btle_controller.tcl
 
@@ -30,10 +35,15 @@ ipx::move_temp_component_back -component [ipx::current_core]
 
 close_project -delete
 
+close_project -delete
+
 cd $current_dir/
+
+exec rm -rf ${ip_core_dir}/xgui
 
 # ==================== Top level fpga project =======================
 set origin_dir "."
+set adi_hdl_dir "$origin_dir/../adi-hdl/"
 
 # Set the project name
 set _xil_proj_name_ "btle_sdrpi"
@@ -119,7 +129,7 @@ if {[string equal [get_filesets -quiet sources_1] ""]} {
 
 # Set IP repository paths
 set obj [get_filesets sources_1]
-set_property "ip_repo_paths" "[file normalize "$origin_dir/../../adi-hdl/library"] [file normalize "$origin_dir/ip_core/"]" $obj
+set_property "ip_repo_paths" "[file normalize "${adi_hdl_dir}/library"] [file normalize "$origin_dir/ip_core/"]" $obj
 
 # Rebuild user ip_repo's index before adding any source files
 update_ip_catalog -rebuild
@@ -127,7 +137,7 @@ update_ip_catalog -rebuild
 # Set 'sources_1' fileset object
 set obj [get_filesets sources_1]
 set files [list \
- [file normalize "${origin_dir}/../../adi-hdl/library/common/ad_iobuf.v"] \
+ [file normalize "${adi_hdl_dir}/library/common/ad_iobuf.v"] \
  [file normalize "${origin_dir}/src/system_wrapper.v"] \
 ]
 add_files -norecurse -fileset $obj $files
@@ -140,7 +150,7 @@ set files [list \
 set added_files [add_files -fileset sources_1 $files]
 
 # Set 'sources_1' fileset file properties for remote files
-set file "$origin_dir/../../adi-hdl/library/common/ad_iobuf.v"
+set file "${adi_hdl_dir}/library/common/ad_iobuf.v"
 set file [file normalize $file]
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "Verilog" -objects $file_obj
@@ -1108,3 +1118,6 @@ move_dashboard_gadget -name {utilization_2} -row 1 -col 1
 move_dashboard_gadget -name {methodology_1} -row 2 -col 1
 # Set current dashboard to 'default_dashboard' 
 current_dashboard default_dashboard 
+
+update_compile_order -fileset sources_1
+open_bd_design "${origin_dir}/src/system.bd"

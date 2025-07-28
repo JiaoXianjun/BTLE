@@ -6,7 +6,8 @@
       "name": "system",
       "rev_ctrl_bd_flag": "RevCtrlBdOff",
       "synth_flow_mode": "None",
-      "tool_version": "2022.2"
+      "tool_version": "2022.2",
+      "validated": "true"
     },
     "design_tree": {
       "sys_ps7": "",
@@ -34,7 +35,8 @@
       "axi_iic_main": "",
       "sys_concat_intc": "",
       "sys_logic_inv": "",
-      "util_ad9361_divclk_sel_concat": ""
+      "util_ad9361_divclk_sel_concat": "",
+      "btle_controller_wrap_0": ""
     },
     "interface_ports": {
       "ddr": {
@@ -384,7 +386,17 @@
         "right": "0"
       },
       "otg_vbusoc": {
-        "direction": "I"
+        "direction": "I",
+        "parameters": {
+          "PortType": {
+            "value": "undef",
+            "value_src": "ip_prop"
+          },
+          "PortType.PROP_SRC": {
+            "value": "false",
+            "value_src": "ip_prop"
+          }
+        }
       },
       "enable": {
         "direction": "O"
@@ -470,15 +482,73 @@
         "right": "0"
       },
       "CLK125M_OUT": {
-        "direction": "O"
+        "direction": "O",
+        "parameters": {
+          "CLK_DOMAIN": {
+            "value": "system_sys_ps7_0_FCLK_CLK2",
+            "value_src": "default_prop"
+          },
+          "FREQ_HZ": {
+            "value": "125000000",
+            "value_src": "user_prop"
+          },
+          "PHASE": {
+            "value": "0.0",
+            "value_src": "default_prop"
+          }
+        }
       },
       "ENET1_GMII_RX_CLK_0": {
         "type": "clk",
-        "direction": "I"
+        "direction": "I",
+        "parameters": {
+          "CLK_DOMAIN": {
+            "value": "system_ENET1_GMII_RX_CLK_0",
+            "value_src": "default"
+          },
+          "FREQ_HZ": {
+            "value": "100000000",
+            "value_src": "default"
+          },
+          "FREQ_TOLERANCE_HZ": {
+            "value": "0",
+            "value_src": "default"
+          },
+          "INSERT_VIP": {
+            "value": "0",
+            "value_src": "default"
+          },
+          "PHASE": {
+            "value": "0.0",
+            "value_src": "default"
+          }
+        }
       },
       "ENET1_GMII_TX_CLK_0": {
         "type": "clk",
-        "direction": "I"
+        "direction": "I",
+        "parameters": {
+          "CLK_DOMAIN": {
+            "value": "system_ENET1_GMII_TX_CLK_0",
+            "value_src": "default"
+          },
+          "FREQ_HZ": {
+            "value": "100000000",
+            "value_src": "default"
+          },
+          "FREQ_TOLERANCE_HZ": {
+            "value": "0",
+            "value_src": "default"
+          },
+          "INSERT_VIP": {
+            "value": "0",
+            "value_src": "default"
+          },
+          "PHASE": {
+            "value": "0.0",
+            "value_src": "default"
+          }
+        }
       }
     },
     "components": {
@@ -1606,7 +1676,7 @@
             "value": "0"
           },
           "TDD_DISABLE": {
-            "value": "1"
+            "value": "0"
           }
         }
       },
@@ -1851,8 +1921,8 @@
         "components": {
           "xbar": {
             "vlnv": "xilinx.com:ip:axi_crossbar:2.1",
-            "xci_name": "system_xbar_3",
-            "xci_path": "ip/system_xbar_3/system_xbar_3.xci",
+            "xci_name": "system_xbar_0",
+            "xci_path": "ip/system_xbar_0/system_xbar_0.xci",
             "inst_hier_path": "axi_cpu_interconnect/xbar",
             "parameters": {
               "NUM_MI": {
@@ -1927,8 +1997,8 @@
             "components": {
               "auto_pc": {
                 "vlnv": "xilinx.com:ip:axi_protocol_converter:2.1",
-                "xci_name": "system_auto_pc_3",
-                "xci_path": "ip/system_auto_pc_3/system_auto_pc_3.xci",
+                "xci_name": "system_auto_pc_0",
+                "xci_path": "ip/system_auto_pc_0/system_auto_pc_0.xci",
                 "inst_hier_path": "axi_cpu_interconnect/s00_couplers/auto_pc",
                 "parameters": {
                   "MI_PROTOCOL": {
@@ -2280,6 +2350,12 @@
             "value": "2"
           }
         }
+      },
+      "btle_controller_wrap_0": {
+        "vlnv": "user.org:user:btle_controller_wrapper:1.0",
+        "xci_name": "system_btle_controller_wrap_0_0",
+        "xci_path": "ip/system_btle_controller_wrap_0_0/system_btle_controller_wrap_0_0.xci",
+        "inst_hier_path": "btle_controller_wrap_0"
       }
     },
     "interface_nets": {
@@ -2775,7 +2851,10 @@
           "axi_cpu_interconnect/M00_ACLK",
           "axi_cpu_interconnect/M01_ACLK",
           "axi_cpu_interconnect/M02_ACLK",
-          "axi_iic_main/s_axi_aclk"
+          "axi_iic_main/s_axi_aclk",
+          "sys_ps7/M_AXI_GP1_ACLK",
+          "sys_ps7/S_AXI_ACP_ACLK",
+          "sys_ps7/S_AXI_HP3_ACLK"
         ]
       },
       "sys_cpu_reset": {
@@ -2802,13 +2881,6 @@
         "ports": [
           "sys_logic_inv/Res",
           "sys_ps7/USB0_VBUS_PWRFAULT"
-        ]
-      },
-      "sys_ps7_FCLK_CLK2": {
-        "ports": [
-          "sys_ps7/S_AXI_HP3_ACLK",
-          "sys_ps7/S_AXI_ACP_ACLK",
-          "sys_ps7/M_AXI_GP1_ACLK"
         ]
       },
       "sys_ps7_FCLK_CLK3": {
@@ -3007,7 +3079,8 @@
           "util_ad9361_adc_fifo/dout_clk",
           "util_ad9361_adc_pack/clk",
           "axi_ad9361_dac_fifo/din_clk",
-          "util_ad9361_dac_upack/clk"
+          "util_ad9361_dac_upack/clk",
+          "btle_controller_wrap_0/clk"
         ]
       },
       "util_ad9361_divclk_reset_peripheral_aresetn": {
