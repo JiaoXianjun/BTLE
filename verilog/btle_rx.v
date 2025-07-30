@@ -13,10 +13,10 @@ module btle_rx #
   parameter CHANNEL_NUMBER_BIT_WIDTH = 6,
   parameter CRC_STATE_BIT_WIDTH = 24
 ) (
-  input wire clk,
+  input wire clk, // for baseband processing, 16MHz
   input wire rst,
 
-  input wire clkb,
+  input wire clkb, // for reading pkt from ram with different/higher clock speed
 
   input wire [(LEN_UNIQUE_BIT_SEQUENCE-1) : 0] unique_bit_sequence,
   input wire [(CHANNEL_NUMBER_BIT_WIDTH-1) : 0] channel_number,
