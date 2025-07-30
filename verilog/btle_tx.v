@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2024 Xianjun Jiao
 // SPDX-License-Identifier: Apache-2.0 license
 
-// iverilog -o btle_tx btle_tx.v dpram.v crc24.v crc24_core.v scramble.v scramble_core.v gfsk_modulation.v bit_repeat_upsample.v gauss_filter.v vco.v 
+// iverilog -o btle_tx btle_tx.v dpram.v tdpram.v crc24.v crc24_core.v scramble.v scramble_core.v gfsk_modulation.v bit_repeat_upsample.v gauss_filter.v vco.v 
 
 `timescale 1ns / 1ps
 module btle_tx #
@@ -19,6 +19,8 @@ module btle_tx #
 ) (
   input wire clk,
   input wire rst,
+
+  input wire clkb,
 
   input wire [3:0] gauss_filter_tap_index, // only need to set 0~8, 9~16 will be mirror of 0~7
   input wire signed [(GAUSS_FILTER_BIT_WIDTH-1) : 0] gauss_filter_tap_value,
@@ -196,10 +198,10 @@ always @ (posedge clk) begin
   end
 end
 
-dpram # (
+tdpram # (
   .DATA_WIDTH(8),
   .ADDRESS_WIDTH(6)
-) cos_table_dpram_i (
+) tdpram_i (
   .clk(clk),
   .rst(rst),
 
@@ -207,9 +209,25 @@ dpram # (
   .write_data(pdu_octet_mem_data),
   .write_enable(1'b1),
 
+  .clkb(clkb),
   .read_address(addr),
   .read_data(data)
 );
+
+// dpram # (
+//   .DATA_WIDTH(8),
+//   .ADDRESS_WIDTH(6)
+// ) dpram_i (
+//   .clk(clk),
+//   .rst(rst),
+
+//   .write_address(pdu_octet_mem_addr),
+//   .write_data(pdu_octet_mem_data),
+//   .write_enable(1'b1),
+
+//   .read_address(addr),
+//   .read_data(data)
+// );
 
 crc24 # (
   .CRC_STATE_BIT_WIDTH(CRC_STATE_BIT_WIDTH)        
