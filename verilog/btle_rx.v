@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2024 Xianjun Jiao
 // SPDX-License-Identifier: Apache-2.0 license
 
-// iverilog -o btle_rx btle_rx.v btle_rx_core.v gfsk_demodulation.v search_unique_bit_sequence.v scramble_core.v crc24_core.v serial_in_ram_out.v dpram.v
+// iverilog -o btle_rx btle_rx.v btle_rx_core.v gfsk_demodulation.v search_unique_bit_sequence.v scramble_core.v crc24_core.v serial_in_ram_out.v tdpram.v
 
 `timescale 1ns / 1ps
 module btle_rx #
@@ -32,6 +32,7 @@ module btle_rx #
   
   output reg  [6:0] payload_length,
 
+  input wire  clkb,
   output reg  [7:0] pdu_octet_mem_data,
   input  wire [5:0] pdu_octet_mem_addr
 );
@@ -281,6 +282,7 @@ generate
       .data_in(octet_internal[gen_idx]),
       .data_in_valid(octet_valid[gen_idx]),
 
+      .clkb(clkb),
       .addr(pdu_octet_mem_addr),
       .data(data_internal[gen_idx])
     );
