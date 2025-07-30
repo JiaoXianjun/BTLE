@@ -40,7 +40,6 @@ module btle_phy #
   input wire [(CHANNEL_NUMBER_BIT_WIDTH-1) : 0] tx_channel_number,
   input wire tx_channel_number_load,
 
-  input wire clkb,
   input wire [7:0] tx_pdu_octet_mem_data,
   input wire [5:0] tx_pdu_octet_mem_addr,
 
@@ -80,6 +79,7 @@ module btle_phy #
   output wire  [2:0] rx_best_phase,
   output wire  [6:0] rx_payload_length,
 
+  input wire clkb,
   input  wire  [5:0] rx_pdu_octet_mem_addr,
   output wire  [7:0] rx_pdu_octet_mem_data
 );
