@@ -16,6 +16,8 @@ module btle_rx #
   input wire clk,
   input wire rst,
 
+  input wire clkb,
+
   input wire [(LEN_UNIQUE_BIT_SEQUENCE-1) : 0] unique_bit_sequence,
   input wire [(CHANNEL_NUMBER_BIT_WIDTH-1) : 0] channel_number,
   input wire [(CRC_STATE_BIT_WIDTH-1) : 0] crc_state_init_bit,
@@ -32,7 +34,6 @@ module btle_rx #
   
   output reg  [6:0] payload_length,
 
-  input wire  clkb,
   output reg  [7:0] pdu_octet_mem_data,
   input  wire [5:0] pdu_octet_mem_addr
 );
