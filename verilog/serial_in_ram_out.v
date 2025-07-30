@@ -14,6 +14,7 @@ module serial_in_ram_out #
   input  wire [(DATA_WIDTH-1) : 0] data_in,
   input  wire data_in_valid,
 
+  input wire clkb,
   input  wire [(ADDRESS_WIDTH-1) : 0] addr,
   output wire [(DATA_WIDTH-1) : 0] data
 );
@@ -30,10 +31,10 @@ always @ (posedge clk) begin
   end
 end
 
-dpram # (
+tdpram # (
   .DATA_WIDTH(DATA_WIDTH),
   .ADDRESS_WIDTH(ADDRESS_WIDTH)
-) cos_table_dpram_i (
+) tdpram_i (
   .clk(clk),
   .rst(rst),
 
@@ -41,9 +42,25 @@ dpram # (
   .write_data(data_in),
   .write_enable(1'b1),
 
+  .clkb(clkb),
   .read_address(addr),
   .read_data(data)
 );
+
+// dpram # (
+//   .DATA_WIDTH(DATA_WIDTH),
+//   .ADDRESS_WIDTH(ADDRESS_WIDTH)
+// ) dpram_i (
+//   .clk(clk),
+//   .rst(rst),
+
+//   .write_address(addr_internal),
+//   .write_data(data_in),
+//   .write_enable(1'b1),
+
+//   .read_address(addr),
+//   .read_data(data)
+// );
 
 endmodule
 
