@@ -4,7 +4,7 @@
 
 // btle_controller = btle_ll (link layer) + btle_phy (phy: btle_tx and btle_rx)
 
-// iverilog -o btle_controller btle_controller.v btle_ll.v uart_frame_rx.v uart_frame_tx.v rx_clk_gen.v tx_clk_gen.v btle_phy.v btle_rx.v btle_rx_core.v gfsk_demodulation.v search_unique_bit_sequence.v scramble_core.v crc24_core.v serial_in_ram_out.v dpram.v btle_tx.v crc24.v scramble.v gfsk_modulation.v bit_repeat_upsample.v gauss_filter.v vco.v
+// iverilog -o btle_controller btle_controller.v btle_ll.v uart_frame_rx.v uart_frame_tx.v rx_clk_gen.v tx_clk_gen.v btle_phy.v btle_rx.v btle_rx_core.v gfsk_demodulation.v search_unique_bit_sequence.v scramble_core.v crc24_core.v serial_in_ram_out.v tdpram.v dpram.v btle_tx.v crc24.v scramble.v gfsk_modulation.v bit_repeat_upsample.v gauss_filter.v vco.v
 
 `timescale 1ns / 1ps
 module btle_controller #
@@ -93,6 +93,7 @@ module btle_controller #
   output wire  [2:0] ext_rx_best_phase,
   output wire  [6:0] ext_rx_payload_length,
 
+  input  wire  clkb,
   input  wire  [5:0] ext_rx_pdu_octet_mem_addr,
   output wire  [7:0] ext_rx_pdu_octet_mem_data
 );
@@ -309,6 +310,7 @@ btle_phy #
   .rx_best_phase(ext_rx_best_phase),
   .rx_payload_length(ext_rx_payload_length),
 
+  .clkb(clkb),
   .rx_pdu_octet_mem_addr(rx_pdu_octet_mem_addr),
   .rx_pdu_octet_mem_data(ext_rx_pdu_octet_mem_data)
 );
