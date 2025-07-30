@@ -630,6 +630,8 @@ btle_controller # (
 ) btle_controller_i (
   .clk(clk),
   .rst(rst),
+  
+  .clkb(clk),
 
   // ============================to host: UART HCI=========================
   .uart_rx(uart_rx),
@@ -694,7 +696,6 @@ btle_controller # (
   .ext_rx_best_phase(rx_best_phase),
   .ext_rx_payload_length(rx_payload_length),
 
-  .clkb(clk),
   .ext_rx_pdu_octet_mem_addr(rx_pdu_octet_mem_addr),
   .ext_rx_pdu_octet_mem_data(rx_pdu_octet_mem_data)
 );
