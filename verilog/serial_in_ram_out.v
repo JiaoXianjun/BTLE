@@ -14,7 +14,7 @@ module serial_in_ram_out #
   input  wire [(DATA_WIDTH-1) : 0] data_in,
   input  wire data_in_valid,
 
-  input wire clkb,
+  input  wire clkb,
   input  wire [(ADDRESS_WIDTH-1) : 0] addr,
   output wire [(DATA_WIDTH-1) : 0] data
 );
