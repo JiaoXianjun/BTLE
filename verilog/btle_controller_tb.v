@@ -6,7 +6,7 @@
 // python3 test_vector_for_btle_verilog.py
 // (arguments can be added: example_idx snr ppm_value)
 // Run verilog simulation:
-// iverilog -o btle_controller_tb btle_controller_tb.v btle_controller.v btle_ll.v uart_frame_rx.v uart_frame_tx.v rx_clk_gen.v tx_clk_gen.v btle_phy.v btle_rx.v btle_rx_core.v gfsk_demodulation.v search_unique_bit_sequence.v scramble_core.v crc24_core.v serial_in_ram_out.v dpram.v btle_tx.v crc24.v scramble.v gfsk_modulation.v bit_repeat_upsample.v gauss_filter.v vco.v
+// iverilog -o btle_controller_tb btle_controller_tb.v btle_controller.v btle_ll.v uart_frame_rx.v uart_frame_tx.v rx_clk_gen.v tx_clk_gen.v btle_phy.v btle_rx.v btle_rx_core.v gfsk_demodulation.v search_unique_bit_sequence.v scramble_core.v crc24_core.v serial_in_ram_out.v tdpram.v dpram.v btle_tx.v crc24.v scramble.v gfsk_modulation.v bit_repeat_upsample.v gauss_filter.v vco.v
 // vvp btle_controller_tb
 // Check verilog outputs to see whether test pass.
 
@@ -694,6 +694,7 @@ btle_controller # (
   .ext_rx_best_phase(rx_best_phase),
   .ext_rx_payload_length(rx_payload_length),
 
+  .clkb(clk),
   .ext_rx_pdu_octet_mem_addr(rx_pdu_octet_mem_addr),
   .ext_rx_pdu_octet_mem_data(rx_pdu_octet_mem_data)
 );
