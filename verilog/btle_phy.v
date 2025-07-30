@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2024 Xianjun Jiao
 // SPDX-License-Identifier: Apache-2.0 license
 
-// iverilog -o btle_phy btle_phy.v btle_rx.v btle_rx_core_tb.v btle_rx_core.v gfsk_demodulation.v search_unique_bit_sequence.v scramble_core.v crc24_core.v serial_in_ram_out.v dpram.v btle_tx.v crc24.v scramble.v gfsk_modulation.v bit_repeat_upsample.v gauss_filter.v vco.v 
+// iverilog -o btle_phy btle_phy.v btle_rx.v btle_rx_core_tb.v btle_rx_core.v gfsk_demodulation.v search_unique_bit_sequence.v scramble_core.v crc24_core.v serial_in_ram_out.v tdpram.v dpram.v btle_tx.v crc24.v scramble.v gfsk_modulation.v bit_repeat_upsample.v gauss_filter.v vco.v 
 
 `timescale 1ns / 1ps
 module btle_phy #
@@ -40,6 +40,7 @@ module btle_phy #
   input wire [(CHANNEL_NUMBER_BIT_WIDTH-1) : 0] tx_channel_number,
   input wire tx_channel_number_load,
 
+  input wire clkb,
   input wire [7:0] tx_pdu_octet_mem_data,
   input wire [5:0] tx_pdu_octet_mem_addr,
 
@@ -163,6 +164,7 @@ btle_rx # (
 
   .payload_length(rx_payload_length),
 
+  .clkb(clkb),
   .pdu_octet_mem_data(rx_pdu_octet_mem_data),
   .pdu_octet_mem_addr(rx_pdu_octet_mem_addr)
 );
