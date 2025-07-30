@@ -391,6 +391,8 @@ btle_tx # (
   .clk(clk),
   .rst(rst),
 
+  .clkb(clk),
+
   .gauss_filter_tap_index(gauss_filter_tap_index),
   .gauss_filter_tap_value(gauss_filter_tap_value),
 
