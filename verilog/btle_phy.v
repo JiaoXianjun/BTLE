@@ -23,6 +23,8 @@ module btle_phy #
   input wire clk,
   input wire rst,
 
+  input wire clkb,
+
   // for tx
   input wire [3:0] tx_gauss_filter_tap_index, // only need to set 0~8, 9~16 will be mirror of 0~7
   input wire signed [(GAUSS_FILTER_BIT_WIDTH-1) : 0] tx_gauss_filter_tap_value,
@@ -79,7 +81,6 @@ module btle_phy #
   output wire  [2:0] rx_best_phase,
   output wire  [6:0] rx_payload_length,
 
-  input wire clkb,
   input  wire  [5:0] rx_pdu_octet_mem_addr,
   output wire  [7:0] rx_pdu_octet_mem_data
 );
@@ -148,6 +149,8 @@ btle_rx # (
   .clk(clk),
   .rst(rst),
 
+  .clkb(clkb),
+  
   .unique_bit_sequence(rx_unique_bit_sequence),
   .channel_number(rx_channel_number),
   .crc_state_init_bit(rx_crc_state_init_bit),
@@ -164,7 +167,6 @@ btle_rx # (
 
   .payload_length(rx_payload_length),
 
-  .clkb(clkb),
   .pdu_octet_mem_data(rx_pdu_octet_mem_data),
   .pdu_octet_mem_addr(rx_pdu_octet_mem_addr)
 );
