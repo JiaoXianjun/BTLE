@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: ISC License
 
 // True dual-port RAM module
+
 // Dual-ported parameterized RAM module
 // Based on https://github.com/KennethWilke/sv-dpram/blob/master/dpram.sv
 
@@ -22,7 +23,7 @@
 // PERFORMANCE OF THIS SOFTWARE.
 
 `timescale 1ns / 1ps
-module dpram #
+module tdpram #
 (
   parameter DATA_WIDTH = 8,
   parameter ADDRESS_WIDTH = 11
