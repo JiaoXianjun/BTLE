@@ -30,6 +30,8 @@ module btle_controller #
   input clk,
   input rst,
 
+  input wire clkb,
+
   // ============================to host: UART HCI=========================
   input  uart_rx,
   output uart_tx,
@@ -93,7 +95,6 @@ module btle_controller #
   output wire  [2:0] ext_rx_best_phase,
   output wire  [6:0] ext_rx_payload_length,
 
-  input  wire  clkb,
   input  wire  [5:0] ext_rx_pdu_octet_mem_addr,
   output wire  [7:0] ext_rx_pdu_octet_mem_data
 );
@@ -255,6 +256,8 @@ btle_phy #
   .clk(clk),
   .rst(rst),
 
+  .clkb(clkb),
+
   .tx_gauss_filter_tap_index(tx_gauss_filter_tap_index),
   .tx_gauss_filter_tap_value(tx_gauss_filter_tap_value),
 
@@ -310,7 +313,6 @@ btle_phy #
   .rx_best_phase(ext_rx_best_phase),
   .rx_payload_length(ext_rx_payload_length),
 
-  .clkb(clkb),
   .rx_pdu_octet_mem_addr(rx_pdu_octet_mem_addr),
   .rx_pdu_octet_mem_data(ext_rx_pdu_octet_mem_data)
 );
