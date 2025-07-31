@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2024 Xianjun Jiao
 // SPDX-License-Identifier: Apache-2.0 license
 
-// iverilog -o btle_tx btle_tx.v dpram.v crc24.v crc24_core.v scramble.v scramble_core.v gfsk_modulation.v bit_repeat_upsample.v gauss_filter.v vco.v 
+// iverilog -o btle_tx btle_tx.v sdpram_one_clk.v crc24.v crc24_core.v scramble.v scramble_core.v gfsk_modulation.v bit_repeat_upsample.v gauss_filter.v vco.v 
 
 `timescale 1ns / 1ps
 module btle_tx #
@@ -198,26 +198,10 @@ always @ (posedge clk) begin
   end
 end
 
-// tdpram # (
-//   .DATA_WIDTH(8),
-//   .ADDRESS_WIDTH(6)
-// ) tdpram_i (
-//   .clk(clk),
-//   .rst(rst),
-
-//   .write_address(pdu_octet_mem_addr),
-//   .write_data(pdu_octet_mem_data),
-//   .write_enable(1'b1),
-
-//   .clkb(clkb),
-//   .read_address(addr),
-//   .read_data(data)
-// );
-
-dpram # (
+sdpram_two_clk # (
   .DATA_WIDTH(8),
   .ADDRESS_WIDTH(6)
-) dpram_i (
+) btle_tx_sdpram_two_clk_i (
   .clk(clkb),
   .rst(rst),
 
@@ -225,6 +209,7 @@ dpram # (
   .write_data(pdu_octet_mem_data),
   .write_enable(1'b1),
 
+  .clkb(clk),
   .read_address(addr),
   .read_data(data)
 );
