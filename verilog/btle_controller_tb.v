@@ -6,7 +6,7 @@
 // python3 test_vector_for_btle_verilog.py
 // (arguments can be added: example_idx snr ppm_value)
 // Run verilog simulation:
-// iverilog -o btle_controller_tb btle_controller_tb.v btle_controller.v btle_ll.v uart_frame_rx.v uart_frame_tx.v rx_clk_gen.v tx_clk_gen.v btle_phy.v btle_rx.v btle_rx_core.v gfsk_demodulation.v search_unique_bit_sequence.v scramble_core.v crc24_core.v serial_in_ram_out.v tdpram.v dpram.v btle_tx.v crc24.v scramble.v gfsk_modulation.v bit_repeat_upsample.v gauss_filter.v vco.v
+// iverilog -o btle_controller_tb btle_controller_tb.v btle_controller.v btle_ll.v uart_frame_rx.v uart_frame_tx.v rx_clk_gen.v tx_clk_gen.v btle_phy.v btle_rx.v btle_rx_core.v gfsk_demodulation.v search_unique_bit_sequence.v scramble_core.v crc24_core.v serial_in_ram_out.v sdpram_two_clk.v sdpram_one_clk.v btle_tx.v crc24.v scramble.v gfsk_modulation.v bit_repeat_upsample.v gauss_filter.v vco.v
 // vvp btle_controller_tb
 // Check verilog outputs to see whether test pass.
 
@@ -328,7 +328,8 @@ assign baremetal_phy_intf_mode = 1;
 reg [31:0] clk_count;
 reg [31:0] sample_in_count;
 reg tx_test_ok;
-reg rx_test_ok;
+reg rx_crc_test_ok;
+reg rx_pdu_test_ok;
 reg read_start;
 
 reg  tx_gauss_filter_tap_init_done;
@@ -364,7 +365,8 @@ always @ (posedge clk) begin
     rx_crc_ok_store <= 0;
 
     tx_test_ok <= 0;
-    rx_test_ok <= 0;
+    rx_crc_test_ok <= 0;
+    rx_pdu_test_ok <= 0;
 
     tx_gauss_filter_tap_index <= 0;
     tx_gauss_filter_tap_value <= 0;
@@ -556,8 +558,8 @@ always @ (posedge clk) begin
 
           $display("rx crc_ok flag verilog %d python %d", rx_crc_ok_store, btle_rx_test_output_crc_ok_ref_mem[0]);
           if (rx_crc_ok_store == btle_rx_test_output_crc_ok_ref_mem[0]) begin
-            $display("rx Test PASS.");
-            rx_test_ok <= 1;
+            $display("rx CRC Test PASS.");
+            rx_crc_test_ok <= 1;
           end else begin
             $display("rx crc_ok flag is different! Test FAIL.");
           end
@@ -570,8 +572,11 @@ always @ (posedge clk) begin
             end
           end
           $display("rx %d difference found", NUM_ERROR);
-          if (NUM_ERROR > 0) begin
-            $display("rx Please check %s VS %s", RX_TEST_OUTPUT_FILENAME, RX_TEST_OUTPUT_REF_FILENAME);
+          if (NUM_ERROR == 0) begin
+            $display("rx PDU Test PASS.");
+            rx_pdu_test_ok <= 1;
+          end else begin
+            $display("rx octets are different! Test FAIL.\nPlease check %s VS %s", RX_TEST_OUTPUT_FILENAME, RX_TEST_OUTPUT_REF_FILENAME);
           end
 
           test_state <= TEST_FINISH;
@@ -579,8 +584,10 @@ always @ (posedge clk) begin
         end
 
         if (read_start) begin
-          if (rx_pdu_octet_mem_addr < (rx_payload_length+2)) begin
-            btle_rx_test_output_mem[rx_pdu_octet_mem_addr] <= rx_pdu_octet_mem_data;
+          if (rx_pdu_octet_mem_addr < (rx_payload_length+2)+1) begin // +1 due to true dual port RAM reading latency
+            if (rx_pdu_octet_mem_addr > 0) begin
+              btle_rx_test_output_mem[rx_pdu_octet_mem_addr-1] <= rx_pdu_octet_mem_data;
+            end
             rx_pdu_octet_mem_addr <= rx_pdu_octet_mem_addr + 1;
           end
         end
@@ -601,7 +608,8 @@ always @ (posedge clk) begin
       
       TEST_FINISH: begin
         $display("tx test_ok %d", tx_test_ok);
-        $display("rx test_ok %d", rx_test_ok);
+        $display("rx crc test_ok %d", rx_crc_test_ok);
+        $display("rx pdu test_ok %d", rx_pdu_test_ok);
         $finish;
       end
     endcase
