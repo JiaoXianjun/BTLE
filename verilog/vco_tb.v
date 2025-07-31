@@ -6,7 +6,7 @@
 // python3 test_vector_for_btle_verilog.py
 // (arguments can be added: example_idx snr ppm_value)
 // Run verilog simulation:
-// iverilog -o vco_tb vco_tb.v vco.v dpram.v
+// iverilog -o vco_tb vco_tb.v vco.v sdpram_one_clk.v
 // vvp vco_tb
 // Check verilog outputs to see whether test pass.
 
