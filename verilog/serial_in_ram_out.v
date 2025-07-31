@@ -31,10 +31,10 @@ always @ (posedge clk) begin
   end
 end
 
-tdpram # (
+sdpram_two_clk # (
   .DATA_WIDTH(DATA_WIDTH),
   .ADDRESS_WIDTH(ADDRESS_WIDTH)
-) tdpram_i (
+) serial_in_ram_out_sdpram_two_clk_i (
   .clk(clk),
   .rst(rst),
 
@@ -46,21 +46,6 @@ tdpram # (
   .read_address(addr),
   .read_data(data)
 );
-
-// dpram # (
-//   .DATA_WIDTH(DATA_WIDTH),
-//   .ADDRESS_WIDTH(ADDRESS_WIDTH)
-// ) dpram_i (
-//   .clk(clk),
-//   .rst(rst),
-
-//   .write_address(addr_internal),
-//   .write_data(data_in),
-//   .write_enable(1'b1),
-
-//   .read_address(addr),
-//   .read_data(data)
-// );
 
 endmodule
 
