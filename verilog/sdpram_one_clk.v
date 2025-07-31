@@ -25,8 +25,6 @@ module sdpram_one_clk #
 
 reg [DATA_WIDTH-1:0] memory [((1<<ADDRESS_WIDTH)-1):0];
 
-assign 
-
 always @ (posedge clk) begin
   if (write_enable) begin
     memory[write_address] <= write_data;
