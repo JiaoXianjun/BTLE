@@ -34,7 +34,8 @@
       "axi_iic_main": "",
       "sys_concat_intc": "",
       "sys_logic_inv": "",
-      "util_ad9361_divclk_sel_concat": ""
+      "util_ad9361_divclk_sel_concat": "",
+      "btle_controller_0": ""
     },
     "interface_ports": {
       "ddr": {
@@ -2280,6 +2281,12 @@
             "value": "2"
           }
         }
+      },
+      "btle_controller_0": {
+        "vlnv": "user.org:user:btle_controller:1.0",
+        "xci_name": "system_btle_controller_0_0",
+        "xci_path": "ip/system_btle_controller_0_0/system_btle_controller_0_0.xci",
+        "inst_hier_path": "btle_controller_0"
       }
     },
     "interface_nets": {
@@ -3003,7 +3010,8 @@
           "util_ad9361_adc_fifo/dout_clk",
           "util_ad9361_adc_pack/clk",
           "axi_ad9361_dac_fifo/din_clk",
-          "util_ad9361_dac_upack/clk"
+          "util_ad9361_dac_upack/clk",
+          "btle_controller_0/clk"
         ]
       },
       "util_ad9361_divclk_reset_peripheral_aresetn": {
