@@ -37,38 +37,39 @@ module btle_controller #
   output uart_tx,
 
   // =========================to zero-IF RF transceiver====================
-  output wire signed [(IQ_BIT_WIDTH-1) : 0] tx_i_signal,
-  output wire signed [(IQ_BIT_WIDTH-1) : 0] tx_q_signal,
-  output wire tx_iq_valid,
-  output wire tx_iq_valid_last,
+  output wire signed [(IQ_BIT_WIDTH-1) : 0]                tx_i_signal,
+  output wire signed [(IQ_BIT_WIDTH-1) : 0]                tx_q_signal,
+  output wire                                              tx_iq_valid,
+  output wire                                              tx_iq_valid_last,
 
   input wire  signed [(GFSK_DEMODULATION_BIT_WIDTH-1) : 0] rx_i_signal,
   input wire  signed [(GFSK_DEMODULATION_BIT_WIDTH-1) : 0] rx_q_signal,
-  input wire  rx_iq_valid,
+  input wire                                               rx_iq_valid,
 
   // ====baremetal phy interface. should be via uart in the future====
   input wire baremetal_phy_intf_mode, //currently 1 for external access. should be 0 in the future to let btle_ll control phy
+
   // for phy tx
-  input wire [3:0] ext_tx_gauss_filter_tap_index, // only need to set 0~8, 9~16 will be mirror of 0~7
+  input wire [3:0]                                   ext_tx_gauss_filter_tap_index, // only need to set 0~8, 9~16 will be mirror of 0~7
   input wire signed [(GAUSS_FILTER_BIT_WIDTH-1) : 0] ext_tx_gauss_filter_tap_value,
 
-  input wire [(SIN_COS_ADDR_BIT_WIDTH-1) : 0] ext_tx_cos_table_write_address,
-  input wire signed [(IQ_BIT_WIDTH-1) : 0] ext_tx_cos_table_write_data,
-  input wire [(SIN_COS_ADDR_BIT_WIDTH-1) : 0] ext_tx_sin_table_write_address,
-  input wire signed [(IQ_BIT_WIDTH-1) : 0] ext_tx_sin_table_write_data,
+  input wire [(SIN_COS_ADDR_BIT_WIDTH-1) : 0]   ext_tx_cos_table_write_address,
+  input wire signed [(IQ_BIT_WIDTH-1) : 0]      ext_tx_cos_table_write_data,
+  input wire [(SIN_COS_ADDR_BIT_WIDTH-1) : 0]   ext_tx_sin_table_write_address,
+  input wire signed [(IQ_BIT_WIDTH-1) : 0]      ext_tx_sin_table_write_data,
 
-  input wire [7:0]  ext_tx_preamble,
+  input wire [7:0]                              ext_tx_preamble,
 
-  input wire [31:0] ext_tx_access_address,
-  input wire [(CRC_STATE_BIT_WIDTH-1) : 0] ext_tx_crc_state_init_bit,
-  input wire ext_tx_crc_state_init_bit_load,
+  input wire [31:0]                             ext_tx_access_address,
+  input wire [(CRC_STATE_BIT_WIDTH-1) : 0]      ext_tx_crc_state_init_bit,
+  input wire                                    ext_tx_crc_state_init_bit_load,
   input wire [(CHANNEL_NUMBER_BIT_WIDTH-1) : 0] ext_tx_channel_number,
-  input wire ext_tx_channel_number_load,
+  input wire                                    ext_tx_channel_number_load,
 
-  input wire [7:0] ext_tx_pdu_octet_mem_data,
-  input wire [5:0] ext_tx_pdu_octet_mem_addr,
+  input wire [7:0]                              ext_tx_pdu_octet_mem_data,
+  input wire [5:0]                              ext_tx_pdu_octet_mem_addr,
 
-  input wire ext_tx_start,
+  input wire                                    ext_tx_start,
 
   // for phy tx debug purpose
   output wire ext_tx_phy_bit,
@@ -88,10 +89,10 @@ module btle_controller #
   input wire [(CHANNEL_NUMBER_BIT_WIDTH-1) : 0] ext_rx_channel_number,
   input wire [(CRC_STATE_BIT_WIDTH-1) : 0]      ext_rx_crc_state_init_bit,
 
-  output wire  ext_rx_hit_flag,
-  output wire  ext_rx_decode_run,
-  output wire  ext_rx_decode_end,
-  output wire  ext_rx_crc_ok,
+  output wire        ext_rx_hit_flag,
+  output wire        ext_rx_decode_run,
+  output wire        ext_rx_decode_end,
+  output wire        ext_rx_crc_ok,
   output wire  [2:0] ext_rx_best_phase,
   output wire  [6:0] ext_rx_payload_length,
 
@@ -104,14 +105,14 @@ wire [3:0] ll_tx_gauss_filter_tap_index;
 wire signed [(GAUSS_FILTER_BIT_WIDTH-1) : 0] ll_tx_gauss_filter_tap_value;
 
 wire [(SIN_COS_ADDR_BIT_WIDTH-1) : 0] ll_tx_cos_table_write_address;
-wire signed [(IQ_BIT_WIDTH-1) : 0] ll_tx_cos_table_write_data;
+wire signed [(IQ_BIT_WIDTH-1) : 0]    ll_tx_cos_table_write_data;
 wire [(SIN_COS_ADDR_BIT_WIDTH-1) : 0] ll_tx_sin_table_write_address;
-wire signed [(IQ_BIT_WIDTH-1) : 0] ll_tx_sin_table_write_data;
+wire signed [(IQ_BIT_WIDTH-1) : 0]    ll_tx_sin_table_write_data;
 
 wire [7:0]  ll_tx_preamble;
 
 wire [31:0] ll_tx_access_address;
-wire [(CRC_STATE_BIT_WIDTH-1) : 0] ll_tx_crc_state_init_bit;
+wire [(CRC_STATE_BIT_WIDTH-1) : 0]      ll_tx_crc_state_init_bit;
 wire [(CHANNEL_NUMBER_BIT_WIDTH-1) : 0] ll_tx_channel_number;
 
 wire [7:0] ll_tx_pdu_octet_mem_data;
@@ -123,9 +124,9 @@ wire [3:0] tx_gauss_filter_tap_index;
 wire signed [(GAUSS_FILTER_BIT_WIDTH-1) : 0] tx_gauss_filter_tap_value;
 
 wire [(SIN_COS_ADDR_BIT_WIDTH-1) : 0] tx_cos_table_write_address;
-wire signed [(IQ_BIT_WIDTH-1) : 0] tx_cos_table_write_data;
+wire signed [(IQ_BIT_WIDTH-1) : 0]    tx_cos_table_write_data;
 wire [(SIN_COS_ADDR_BIT_WIDTH-1) : 0] tx_sin_table_write_address;
-wire signed [(IQ_BIT_WIDTH-1) : 0] tx_sin_table_write_data;
+wire signed [(IQ_BIT_WIDTH-1) : 0]    tx_sin_table_write_data;
 
 wire [7:0]  tx_preamble;
 
@@ -204,34 +205,34 @@ btle_ll # (
   .uart_tx(uart_tx),
 
   // ====to phy tx====
-  .tx_gauss_filter_tap_index(ll_tx_gauss_filter_tap_index), // only need to set 0~8, 9~16 will be mirror of 0~7
-  .tx_gauss_filter_tap_value(ll_tx_gauss_filter_tap_value),
+  .tx_gauss_filter_tap_index (ll_tx_gauss_filter_tap_index), // only need to set 0~8, 9~16 will be mirror of 0~7
+  .tx_gauss_filter_tap_value (ll_tx_gauss_filter_tap_value),
 
   .tx_cos_table_write_address(ll_tx_cos_table_write_address),
-  .tx_cos_table_write_data(ll_tx_cos_table_write_data),
+  .tx_cos_table_write_data   (ll_tx_cos_table_write_data),
   .tx_sin_table_write_address(ll_tx_sin_table_write_address),
-  .tx_sin_table_write_data(ll_tx_sin_table_write_data),
+  .tx_sin_table_write_data   (ll_tx_sin_table_write_data),
 
   .tx_preamble(ll_tx_preamble),
 
-  .tx_access_address(ll_tx_access_address),
+  .tx_access_address    (ll_tx_access_address),
   .tx_crc_state_init_bit(ll_tx_crc_state_init_bit),
-  .tx_channel_number(ll_tx_channel_number),
+  .tx_channel_number    (ll_tx_channel_number),
 
   .tx_pdu_octet_mem_data(ll_tx_pdu_octet_mem_data),
   .tx_pdu_octet_mem_addr(ll_tx_pdu_octet_mem_addr),
-  .tx_start(ll_tx_start),
-  .tx_iq_valid_last(tx_iq_valid_last),
+  .tx_start             (ll_tx_start),
+  .tx_iq_valid_last     (tx_iq_valid_last),
 
   // ====to phy rx====
   .rx_unique_bit_sequence(ll_rx_unique_bit_sequence),
-  .rx_channel_number(ll_rx_channel_number),
-  .rx_crc_state_init_bit(ll_rx_crc_state_init_bit),
+  .rx_channel_number     (ll_rx_channel_number),
+  .rx_crc_state_init_bit (ll_rx_crc_state_init_bit),
 
-  .rx_hit_flag(ext_rx_hit_flag),
-  .rx_decode_run(ext_rx_decode_run),
-  .rx_decode_end(ext_rx_decode_end),
-  .rx_crc_ok(ext_rx_crc_ok),
+  .rx_hit_flag      (ext_rx_hit_flag),
+  .rx_decode_run    (ext_rx_decode_run),
+  .rx_decode_end    (ext_rx_decode_end),
+  .rx_crc_ok        (ext_rx_crc_ok),
   .rx_payload_length(ext_rx_payload_length),
 
   .rx_pdu_octet_mem_addr(ll_rx_pdu_octet_mem_addr),
