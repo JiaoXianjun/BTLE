@@ -8,7 +8,7 @@ set_param gui.addressMap 0
 # === Generate btle controller IP core for top level fpga project ===
 set current_dir [pwd]
 set ip_src_dir "${current_dir}/../../verilog/"
-set ip_core_dir "${current_dir}/ip_core/btle_controller_wrapper"
+set ip_core_dir "${current_dir}/ip_core/btle_controller"
 
 exec rm -rf project_1
 exec rm -rf $ip_core_dir
