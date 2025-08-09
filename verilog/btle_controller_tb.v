@@ -47,6 +47,9 @@ reg [1:0] test_state;
 reg clk;
 reg rst;
 
+reg s00_axi_aclk;
+reg s00_axi_aresetn;
+
 reg [64*8:0] BTLE_CONFIG_FILENAME  = "btle_config.txt";
 reg [72*8:0] RX_TEST_INPUT_I_FILENAME = "btle_rx_test_input_i.txt";
 reg [72*8:0] RX_TEST_INPUT_Q_FILENAME = "btle_rx_test_input_q.txt";
@@ -256,15 +259,28 @@ initial begin
 
   clk = 0;
   rst = 0;
-  
+
+  s00_axi_aclk = 0;
+  s00_axi_aresetn = 0;
+
   #200 rst = 1;
 
-  #200 rst = 0;
+  #200 
+  rst = 0;
+  s00_axi_aresetn = 1;
 end
 
 always begin
   #((1000.0/16.0)/2.0) clk = !clk; //16MHz
 end
+
+always begin
+  #((1000.0/16.0)/2.0) s00_axi_aclk = !s00_axi_aclk; //128MHz
+end
+
+// always begin
+//   #((1000.0/128.0)/2.0) s00_axi_aclk = !s00_axi_aclk; //128MHz
+// end
 
 reg  uart_rx;
 wire uart_tx;
@@ -327,6 +343,26 @@ wire [6:0] rx_payload_length;
 wire [7:0] rx_pdu_octet_mem_data;
 reg  [5:0] rx_pdu_octet_mem_addr;
 
+reg [S_AXI_ADDR_WIDTH-1 : 0] s00_axi_awaddr;
+reg [2 : 0] s00_axi_awprot;
+reg s00_axi_awvalid;
+wire s00_axi_awready;
+reg [S_AXI_DATA_WIDTH-1 : 0] s00_axi_wdata;
+reg [(S_AXI_DATA_WIDTH/8)-1 : 0] s00_axi_wstrb;
+reg s00_axi_wvalid;
+wire s00_axi_wready;
+wire [1 : 0] s00_axi_bresp;
+wire s00_axi_bvalid;
+reg s00_axi_bready;
+reg [S_AXI_ADDR_WIDTH-1 : 0] s00_axi_araddr;
+reg [2 : 0] s00_axi_arprot;
+reg s00_axi_arvalid;
+wire s00_axi_arready;
+wire [S_AXI_DATA_WIDTH-1 : 0] s00_axi_rdata;
+wire [1 : 0] s00_axi_rresp;
+wire s00_axi_rvalid;
+wire s00_axi_rready;
+
 assign baremetal_phy_intf_mode = 1;
 
 // test process
@@ -353,10 +389,23 @@ assign tx_start = (tx_all_init_done == 1 && tx_all_init_done_delay == 0);
 
 always @ (posedge clk) begin
   if (rst) begin
+    s00_axi_awaddr  <= 0;
+    s00_axi_awprot  <= 0;
+    s00_axi_awvalid <= 0;
+    s00_axi_wdata   <= 0;
+    s00_axi_wstrb   <= 0;
+    s00_axi_wvalid  <= 0;
+    s00_axi_bready  <= 0;
+    s00_axi_araddr  <= 0;
+    s00_axi_arprot  <= 0;
+    s00_axi_arvalid <= 0;
+
     access_address <= ACCESS_ADDRESS;
     channel_number <= CHANNEL_NUMBER;
     crc_state_init_bit <= CRC_STATE_INIT_BIT;
     preamble <= PREAMBLE;
+
+    uart_rx <= 0;
 
     rx_i_signal <= 0;
     rx_q_signal <= 0;
@@ -660,6 +709,28 @@ btle_controller # (
   .rx_i_signal(rx_i_signal),
   .rx_q_signal(rx_q_signal),
   .rx_iq_valid(rx_iq_valid),
+
+  .s00_axi_aclk(s00_axi_aclk),
+  .s00_axi_aresetn(s00_axi_aresetn),
+  .s00_axi_awaddr(s00_axi_awaddr),
+  .s00_axi_awprot(s00_axi_awprot),
+  .s00_axi_awvalid(s00_axi_awvalid),
+  .s00_axi_awready(s00_axi_awready),
+  .s00_axi_wdata(s00_axi_wdata),
+  .s00_axi_wstrb(s00_axi_wstrb),
+  .s00_axi_wvalid(s00_axi_wvalid),
+  .s00_axi_wready(s00_axi_wready),
+  .s00_axi_bresp(s00_axi_bresp),
+  .s00_axi_bvalid(s00_axi_bvalid),
+  .s00_axi_bready(s00_axi_bready),
+  .s00_axi_araddr(s00_axi_araddr),
+  .s00_axi_arprot(s00_axi_arprot),
+  .s00_axi_arvalid(s00_axi_arvalid),
+  .s00_axi_arready(s00_axi_arready),
+  .s00_axi_rdata(s00_axi_rdata),
+  .s00_axi_rresp(s00_axi_rresp),
+  .s00_axi_rvalid(s00_axi_rvalid),
+  .s00_axi_rready(s00_axi_rready),
 
   // ====baremetal phy interface. should be via uart in the future====
   .baremetal_phy_intf_mode(baremetal_phy_intf_mode), //currently 1 for external access. should be 0 in the future to let btle_ll control phy
