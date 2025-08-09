@@ -6,13 +6,18 @@
 // python3 test_vector_for_btle_verilog.py
 // (arguments can be added: example_idx snr ppm_value)
 // Run verilog simulation:
-// iverilog -o btle_controller_tb btle_controller_tb.v btle_controller.v btle_ll.v uart_frame_rx.v uart_frame_tx.v rx_clk_gen.v tx_clk_gen.v btle_phy.v btle_rx.v btle_rx_core.v gfsk_demodulation.v search_unique_bit_sequence.v scramble_core.v crc24_core.v serial_in_ram_out.v sdpram_two_clk.v sdpram_one_clk.v btle_tx.v crc24.v scramble.v gfsk_modulation.v bit_repeat_upsample.v gauss_filter.v vco.v
+// iverilog -o btle_controller_tb btle_controller_tb.v btle_controller.v btle_ll_stub.v btle_phy.v btle_rx.v btle_rx_core.v gfsk_demodulation.v search_unique_bit_sequence.v scramble_core.v crc24_core.v serial_in_ram_out.v sdpram_two_clk.v sdpram_one_clk.v btle_tx.v crc24.v scramble.v gfsk_modulation.v bit_repeat_upsample.v gauss_filter.v vco.v
 // vvp btle_controller_tb
 // Check verilog outputs to see whether test pass.
 
 `timescale 1ns / 1ps
 module btle_controller_tb #
 (
+  // Width of S_AXI data bus
+  parameter integer S_AXI_DATA_WIDTH  = 32,
+  // Width of S_AXI address bus
+  parameter integer S_AXI_ADDR_WIDTH  = 8,
+
 	parameter	CLK_FREQUENCE	= 16_000_000,	//hz
   parameter BAUD_RATE		= 115200		,		  //9600、19200 、38400 、57600 、115200、230400、460800、921600
   parameter PARITY			= "NONE"	,		  //"NONE","EVEN","ODD"
@@ -618,6 +623,9 @@ always @ (posedge clk) begin
 end
 
 btle_controller # (
+  .S_AXI_DATA_WIDTH(S_AXI_DATA_WIDTH),
+  .S_AXI_ADDR_WIDTH(S_AXI_ADDR_WIDTH),
+
   .CLK_FREQUENCE(CLK_FREQUENCE),
   .BAUD_RATE(BAUD_RATE),
   .PARITY(PARITY),
@@ -639,8 +647,6 @@ btle_controller # (
   .clk(clk),
   .rst(rst),
   
-  .clkb(clk),
-
   // ============================to host: UART HCI=========================
   .uart_rx(uart_rx),
   .uart_tx(uart_tx),

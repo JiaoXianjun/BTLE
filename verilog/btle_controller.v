@@ -4,11 +4,16 @@
 
 // btle_controller = btle_ll (link layer) + btle_phy (phy: btle_tx and btle_rx)
 
-// iverilog -o btle_controller btle_controller.v btle_ll.v uart_frame_rx.v uart_frame_tx.v rx_clk_gen.v tx_clk_gen.v btle_phy.v btle_rx.v btle_rx_core.v gfsk_demodulation.v search_unique_bit_sequence.v scramble_core.v crc24_core.v serial_in_ram_out.v sdpram_two_clk.v sdpram_one_clk.v btle_tx.v crc24.v scramble.v gfsk_modulation.v bit_repeat_upsample.v gauss_filter.v vco.v
+// iverilog -o btle_controller btle_controller.v btle_ll_stub.v btle_phy.v btle_rx.v btle_rx_core.v gfsk_demodulation.v search_unique_bit_sequence.v scramble_core.v crc24_core.v serial_in_ram_out.v sdpram_two_clk.v sdpram_one_clk.v btle_tx.v crc24.v scramble.v gfsk_modulation.v bit_repeat_upsample.v gauss_filter.v vco.v
 
 `timescale 1ns / 1ps
 module btle_controller #
 (
+  // Width of S_AXI data bus
+  parameter integer S_AXI_DATA_WIDTH  = 32,
+  // Width of S_AXI address bus
+  parameter integer S_AXI_ADDR_WIDTH  = 8,
+
   parameter	CLK_FREQUENCE	= 16_000_000,	//hz
   parameter BAUD_RATE		= 115200		,		  //9600、19200 、38400 、57600 、115200、230400、460800、921600
   parameter PARITY			= "NONE"	,		  //"NONE","EVEN","ODD"
@@ -30,8 +35,6 @@ module btle_controller #
   input clk,
   input rst,
 
-  input wire clkb,
-
   // ============================to host: UART HCI=========================
   input  uart_rx,
   output uart_tx,
@@ -45,6 +48,29 @@ module btle_controller #
   input wire  signed [(GFSK_DEMODULATION_BIT_WIDTH-1) : 0] rx_i_signal,
   input wire  signed [(GFSK_DEMODULATION_BIT_WIDTH-1) : 0] rx_q_signal,
   input wire                                               rx_iq_valid,
+
+  // Ports of Axi Slave Bus Interface
+  input  wire axi_aclk,
+  input  wire axi_aresetn,
+  input  wire [S_AXI_ADDR_WIDTH-1 : 0] axi_awaddr,
+  input  wire [2 : 0] axi_awprot,
+  input  wire axi_awvalid,
+  output wire axi_awready,
+  input  wire [S_AXI_DATA_WIDTH-1 : 0] axi_wdata,
+  input  wire [(S_AXI_DATA_WIDTH/8)-1 : 0] axi_wstrb,
+  input  wire axi_wvalid,
+  output wire axi_wready,
+  output wire [1 : 0] axi_bresp,
+  output wire axi_bvalid,
+  input  wire axi_bready,
+  input  wire [S_AXI_ADDR_WIDTH-1 : 0] axi_araddr,
+  input  wire [2 : 0] axi_arprot,
+  input  wire axi_arvalid,
+  output wire axi_arready,
+  output wire [S_AXI_DATA_WIDTH-1 : 0] axi_rdata,
+  output wire [1 : 0] axi_rresp,
+  output wire axi_rvalid,
+  input  wire axi_rready,
 
   // ====baremetal phy interface. should be via uart in the future====
   input wire baremetal_phy_intf_mode, //currently 1 for external access. should be 0 in the future to let btle_ll control phy
@@ -184,6 +210,9 @@ assign rx_crc_state_init_bit = (baremetal_phy_intf_mode? ext_rx_crc_state_init_b
 assign rx_pdu_octet_mem_addr = (baremetal_phy_intf_mode? ext_rx_pdu_octet_mem_addr : ll_rx_pdu_octet_mem_addr);
 
 btle_ll # (
+  .S_AXI_DATA_WIDTH(S_AXI_DATA_WIDTH),
+  .S_AXI_ADDR_WIDTH(S_AXI_ADDR_WIDTH),
+
   .CLK_FREQUENCE(CLK_FREQUENCE),
   .BAUD_RATE(BAUD_RATE),
   .PARITY(PARITY),
@@ -236,7 +265,29 @@ btle_ll # (
   .rx_payload_length(ext_rx_payload_length),
 
   .rx_pdu_octet_mem_addr(ll_rx_pdu_octet_mem_addr),
-  .rx_pdu_octet_mem_data(ext_rx_pdu_octet_mem_data)
+  .rx_pdu_octet_mem_data(ext_rx_pdu_octet_mem_data),
+
+  .axi_aclk(axi_aclk),
+  .axi_aresetn(axi_aresetn),
+  .axi_awaddr(axi_awaddr),
+  .axi_awprot(axi_awprot),
+  .axi_awvalid(axi_awvalid),
+  .axi_awready(axi_awready),
+  .axi_wdata(axi_wdata),
+  .axi_wstrb(axi_wstrb),
+  .axi_wvalid(axi_wvalid),
+  .axi_wready(axi_wready),
+  .axi_bresp(axi_bresp),
+  .axi_bvalid(axi_bvalid),
+  .axi_bready(axi_bready),
+  .axi_araddr(axi_araddr),
+  .axi_arprot(axi_arprot),
+  .axi_arvalid(axi_arvalid),
+  .axi_arready(axi_arready),
+  .axi_rdata(axi_rdata),
+  .axi_rresp(axi_rresp),
+  .axi_rvalid(axi_rvalid),
+  .axi_rready(axi_rready)
 );
 
 btle_phy #
@@ -257,7 +308,7 @@ btle_phy #
   .clk(clk),
   .rst(rst),
 
-  .clkb(clkb),
+  .clkb(axi_aclk),
 
   .tx_gauss_filter_tap_index(tx_gauss_filter_tap_index),
   .tx_gauss_filter_tap_value(tx_gauss_filter_tap_value),
