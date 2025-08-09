@@ -11,7 +11,7 @@ set ip_src_dir "${current_dir}/../../verilog/"
 set ip_core_dir "${current_dir}/ip_core/btle_controller"
 
 exec rm -rf project_1
-exec rm -rf $ip_core_dir
+exec rm -rf ip_core
 exec mkdir -p $ip_core_dir
 
 cd $ip_src_dir/
@@ -54,6 +54,9 @@ variable script_file
 set script_file "btle.tcl"
 
 create_project ${_xil_proj_name_} ./${_xil_proj_name_} -part xc7z020clg400-1
+
+# config_ip_cache -clear_local_cache
+# config_ip_cache -disable_cache
 
 # Set the directory path for the new project
 set proj_dir [get_property directory [current_project]]
