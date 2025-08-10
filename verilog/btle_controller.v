@@ -10,11 +10,12 @@
 module btle_controller #
 (
   // Width of S_AXI data bus
-  parameter integer S_AXI_DATA_WIDTH  = 32,
+  parameter integer C_S00_AXI_DATA_WIDTH  = 32,
   // Width of S_AXI address bus
-  parameter integer S_AXI_ADDR_WIDTH  = 8,
+  parameter integer C_S00_AXI_ADDR_WIDTH  = 8,
 
-  parameter	CLK_FREQUENCE	= 16_000_000,	//hz
+  // parameter	CLK_FREQUENCE	= 16_000_000,	//hz
+  parameter	CLK_FREQUENCE	= 100_000_000,	//hz
   parameter BAUD_RATE		= 115200		,		  //9600、19200 、38400 、57600 、115200、230400、460800、921600
   parameter PARITY			= "NONE"	,		  //"NONE","EVEN","ODD"
   parameter FRAME_WD		= 8,					    //if PARITY="NONE",it can be 5~9;else 5~8
@@ -32,8 +33,8 @@ module btle_controller #
   parameter GFSK_DEMODULATION_BIT_WIDTH = 16,
   parameter LEN_UNIQUE_BIT_SEQUENCE = 32
 ) (
-  input clk,
-  input rst,
+  input rf_clk,
+  input rf_rst,
 
   // ============================to host: UART HCI=========================
   input  uart_rx,
@@ -52,22 +53,22 @@ module btle_controller #
   // Ports of Axi Slave Bus Interface
   input  wire s00_axi_aclk,
   input  wire s00_axi_aresetn,
-  input  wire [S_AXI_ADDR_WIDTH-1 : 0] s00_axi_awaddr,
+  input  wire [C_S00_AXI_ADDR_WIDTH-1 : 0] s00_axi_awaddr,
   input  wire [2 : 0] s00_axi_awprot,
   input  wire s00_axi_awvalid,
   output wire s00_axi_awready,
-  input  wire [S_AXI_DATA_WIDTH-1 : 0] s00_axi_wdata,
-  input  wire [(S_AXI_DATA_WIDTH/8)-1 : 0] s00_axi_wstrb,
+  input  wire [C_S00_AXI_DATA_WIDTH-1 : 0] s00_axi_wdata,
+  input  wire [(C_S00_AXI_DATA_WIDTH/8)-1 : 0] s00_axi_wstrb,
   input  wire s00_axi_wvalid,
   output wire s00_axi_wready,
   output wire [1 : 0] s00_axi_bresp,
   output wire s00_axi_bvalid,
   input  wire s00_axi_bready,
-  input  wire [S_AXI_ADDR_WIDTH-1 : 0] s00_axi_araddr,
+  input  wire [C_S00_AXI_ADDR_WIDTH-1 : 0] s00_axi_araddr,
   input  wire [2 : 0] s00_axi_arprot,
   input  wire s00_axi_arvalid,
   output wire s00_axi_arready,
-  output wire [S_AXI_DATA_WIDTH-1 : 0] s00_axi_rdata,
+  output wire [C_S00_AXI_DATA_WIDTH-1 : 0] s00_axi_rdata,
   output wire [1 : 0] s00_axi_rresp,
   output wire s00_axi_rvalid,
   input  wire s00_axi_rready,
@@ -210,8 +211,8 @@ assign rx_crc_state_init_bit = (baremetal_phy_intf_mode? ext_rx_crc_state_init_b
 assign rx_pdu_octet_mem_addr = (baremetal_phy_intf_mode? ext_rx_pdu_octet_mem_addr : ll_rx_pdu_octet_mem_addr);
 
 btle_ll # (
-  .S_AXI_DATA_WIDTH(S_AXI_DATA_WIDTH),
-  .S_AXI_ADDR_WIDTH(S_AXI_ADDR_WIDTH),
+  .C_S_AXI_DATA_WIDTH(C_S00_AXI_DATA_WIDTH),
+  .C_S_AXI_ADDR_WIDTH(C_S00_AXI_ADDR_WIDTH),
 
   .CLK_FREQUENCE(CLK_FREQUENCE),
   .BAUD_RATE(BAUD_RATE),
@@ -226,8 +227,8 @@ btle_ll # (
 
   .LEN_UNIQUE_BIT_SEQUENCE(LEN_UNIQUE_BIT_SEQUENCE)
 ) btle_ll_i (
-  .clk(clk),
-  .rst(rst),
+  // .clk(clk),
+  // .rst(rst),
 
   // ====to host: UART HCI====
   .uart_rx(uart_rx),
@@ -305,8 +306,8 @@ btle_phy #
   .GFSK_DEMODULATION_BIT_WIDTH(GFSK_DEMODULATION_BIT_WIDTH),
   .LEN_UNIQUE_BIT_SEQUENCE(LEN_UNIQUE_BIT_SEQUENCE)
 ) btle_phy_i (
-  .clk(clk),
-  .rst(rst),
+  .clk(rf_clk),
+  .rst(rf_rst),
 
   .clkb(s00_axi_aclk),
 
