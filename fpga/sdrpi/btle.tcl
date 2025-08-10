@@ -1124,3 +1124,5 @@ current_dashboard default_dashboard
 
 update_compile_order -fileset sources_1
 open_bd_design "${origin_dir}/src/system.bd"
+
+# set_property CONFIG.CLK_DOMAIN system_sys_ps7_0_FCLK_CLK0 [get_bd_intf_pins /btle_controller_0/S00_AXI]
