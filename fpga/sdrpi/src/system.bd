@@ -6,7 +6,8 @@
       "name": "system",
       "rev_ctrl_bd_flag": "RevCtrlBdOff",
       "synth_flow_mode": "None",
-      "tool_version": "2022.2"
+      "tool_version": "2022.2",
+      "validated": "true"
     },
     "design_tree": {
       "sys_ps7": "",
@@ -386,7 +387,17 @@
         "right": "0"
       },
       "otg_vbusoc": {
-        "direction": "I"
+        "direction": "I",
+        "parameters": {
+          "PortType": {
+            "value": "undef",
+            "value_src": "ip_prop"
+          },
+          "PortType.PROP_SRC": {
+            "value": "false",
+            "value_src": "ip_prop"
+          }
+        }
       },
       "enable": {
         "direction": "O"
@@ -472,15 +483,73 @@
         "right": "0"
       },
       "CLK125M_OUT": {
-        "direction": "O"
+        "direction": "O",
+        "parameters": {
+          "CLK_DOMAIN": {
+            "value": "system_sys_ps7_0_FCLK_CLK2",
+            "value_src": "default_prop"
+          },
+          "FREQ_HZ": {
+            "value": "125000000",
+            "value_src": "user_prop"
+          },
+          "PHASE": {
+            "value": "0.0",
+            "value_src": "default_prop"
+          }
+        }
       },
       "ENET1_GMII_RX_CLK_0": {
         "type": "clk",
-        "direction": "I"
+        "direction": "I",
+        "parameters": {
+          "CLK_DOMAIN": {
+            "value": "system_ENET1_GMII_RX_CLK_0",
+            "value_src": "default"
+          },
+          "FREQ_HZ": {
+            "value": "100000000",
+            "value_src": "default"
+          },
+          "FREQ_TOLERANCE_HZ": {
+            "value": "0",
+            "value_src": "default"
+          },
+          "INSERT_VIP": {
+            "value": "0",
+            "value_src": "default"
+          },
+          "PHASE": {
+            "value": "0.0",
+            "value_src": "default"
+          }
+        }
       },
       "ENET1_GMII_TX_CLK_0": {
         "type": "clk",
-        "direction": "I"
+        "direction": "I",
+        "parameters": {
+          "CLK_DOMAIN": {
+            "value": "system_ENET1_GMII_TX_CLK_0",
+            "value_src": "default"
+          },
+          "FREQ_HZ": {
+            "value": "100000000",
+            "value_src": "default"
+          },
+          "FREQ_TOLERANCE_HZ": {
+            "value": "0",
+            "value_src": "default"
+          },
+          "INSERT_VIP": {
+            "value": "0",
+            "value_src": "default"
+          },
+          "PHASE": {
+            "value": "0.0",
+            "value_src": "default"
+          }
+        }
       }
     },
     "components": {
@@ -2418,8 +2487,8 @@
       },
       "axi_cpu_interconnect_M03_AXI": {
         "interface_ports": [
-          "axi_cpu_interconnect/M03_AXI",
-          "btle_controller_0/s00_axi"
+          "btle_controller_0/s00_axi",
+          "axi_cpu_interconnect/M03_AXI"
         ]
       },
       "axi_iic_main_IIC": {
@@ -3123,7 +3192,7 @@
           "util_ad9361_adc_pack/clk",
           "axi_ad9361_dac_fifo/din_clk",
           "util_ad9361_dac_upack/clk",
-          "btle_controller_0/clk"
+          "btle_controller_0/rf_clk"
         ]
       },
       "util_ad9361_divclk_reset_peripheral_aresetn": {
@@ -3138,7 +3207,7 @@
           "util_ad9361_divclk_reset/peripheral_reset",
           "util_ad9361_adc_pack/reset",
           "util_ad9361_dac_upack/reset",
-          "btle_controller_0/rst"
+          "btle_controller_0/rf_rst"
         ]
       },
       "util_ad9361_divclk_sel_Res": {
