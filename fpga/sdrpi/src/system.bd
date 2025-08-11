@@ -37,7 +37,8 @@
       "sys_concat_intc": "",
       "sys_logic_inv": "",
       "util_ad9361_divclk_sel_concat": "",
-      "btle_controller_0": ""
+      "btle_controller_0": "",
+      "xlconstant_0": ""
     },
     "interface_ports": {
       "ddr": {
@@ -2458,6 +2459,17 @@
             "memory_map_ref": "s00_axi"
           }
         }
+      },
+      "xlconstant_0": {
+        "vlnv": "xilinx.com:ip:xlconstant:1.1",
+        "xci_name": "system_xlconstant_0_0",
+        "xci_path": "ip/system_xlconstant_0_0/system_xlconstant_0_0.xci",
+        "inst_hier_path": "xlconstant_0",
+        "parameters": {
+          "CONST_VAL": {
+            "value": "0"
+          }
+        }
       }
     },
     "interface_nets": {
@@ -2826,6 +2838,18 @@
           "sys_concat_intc/In14"
         ]
       },
+      "btle_controller_0_tx_iq_signal": {
+        "ports": [
+          "btle_controller_0/tx_iq_signal",
+          "util_ad9361_dac_upack/s_axis_data"
+        ]
+      },
+      "btle_controller_0_tx_iq_valid": {
+        "ports": [
+          "btle_controller_0/tx_iq_valid",
+          "util_ad9361_dac_upack/s_axis_valid"
+        ]
+      },
       "gp_in_0_1": {
         "ports": [
           "gp_in_0",
@@ -3145,6 +3169,18 @@
           "util_ad9361_adc_fifo/dout_ovf"
         ]
       },
+      "util_ad9361_adc_pack_packed_fifo_wr_data": {
+        "ports": [
+          "util_ad9361_adc_pack/packed_fifo_wr_data",
+          "btle_controller_0/rx_iq_signal"
+        ]
+      },
+      "util_ad9361_adc_pack_packed_fifo_wr_en": {
+        "ports": [
+          "util_ad9361_adc_pack/packed_fifo_wr_en",
+          "btle_controller_0/rx_iq_valid"
+        ]
+      },
       "util_ad9361_dac_upack_fifo_rd_data_0": {
         "ports": [
           "util_ad9361_dac_upack/fifo_rd_data_0",
@@ -3227,6 +3263,12 @@
           "util_ad9361_tdd_sync/sync_out",
           "axi_ad9361/tdd_sync",
           "tdd_sync_o"
+        ]
+      },
+      "xlconstant_0_dout": {
+        "ports": [
+          "xlconstant_0/dout",
+          "btle_controller_0/baremetal_phy_intf_mode"
         ]
       }
     },
