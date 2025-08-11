@@ -127,6 +127,12 @@ module btle_controller #
   output wire  [7:0] ext_rx_pdu_octet_mem_data
 );
 
+wire slv_reg_rden;
+wire [4:0] axi_araddr_core;
+
+wire slv_reg_wren;
+wire [4:0] axi_awaddr_core;
+
 // =================link layer to phy tx======================
 wire [3:0] ll_tx_gauss_filter_tap_index;
 wire signed [(GAUSS_FILTER_BIT_WIDTH-1) : 0] ll_tx_gauss_filter_tap_value;
@@ -211,8 +217,8 @@ assign rx_crc_state_init_bit = (baremetal_phy_intf_mode? ext_rx_crc_state_init_b
 assign rx_pdu_octet_mem_addr = (baremetal_phy_intf_mode? ext_rx_pdu_octet_mem_addr : ll_rx_pdu_octet_mem_addr);
 
 btle_ll # (
-  .C_S_AXI_DATA_WIDTH(C_S00_AXI_DATA_WIDTH),
-  .C_S_AXI_ADDR_WIDTH(C_S00_AXI_ADDR_WIDTH),
+  .C_S00_AXI_DATA_WIDTH(C_S00_AXI_DATA_WIDTH),
+  .C_S00_AXI_ADDR_WIDTH(C_S00_AXI_ADDR_WIDTH),
 
   .CLK_FREQUENCE(CLK_FREQUENCE),
   .BAUD_RATE(BAUD_RATE),
@@ -267,6 +273,11 @@ btle_ll # (
 
   .rx_pdu_octet_mem_addr(ll_rx_pdu_octet_mem_addr),
   .rx_pdu_octet_mem_data(ext_rx_pdu_octet_mem_data),
+
+  .slv_reg_rden(slv_reg_rden),
+  .axi_araddr_core(axi_araddr_core),
+  .slv_reg_wren(slv_reg_wren),
+  .axi_awaddr_core(axi_awaddr_core),
 
   .axi_aclk(s00_axi_aclk),
   .axi_aresetn(s00_axi_aresetn),
