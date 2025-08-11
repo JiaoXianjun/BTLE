@@ -169,8 +169,8 @@ set obj [get_filesets sources_1]
 set files [list \
  [file normalize "${origin_dir}/bit_repeat_upsample.v"] \
  [file normalize "${origin_dir}/btle_controller.v"] \
- [file normalize "${origin_dir}/btle_ll_stub.v"] \
- [file normalize "${origin_dir}/btle_ll.edf"] \
+ [file normalize "${origin_dir}/btle_ll/hw/fpga/btle_ll_stub.v"] \
+ [file normalize "${origin_dir}/btle_ll/hw/fpga/btle_ll.edf"] \
  [file normalize "${origin_dir}/btle_phy.v"] \
  [file normalize "${origin_dir}/btle_rx.v"] \
  [file normalize "${origin_dir}/btle_rx_core.v"] \
@@ -228,7 +228,7 @@ set_property -name "used_in_implementation" -value "1" -objects $file_obj
 set_property -name "used_in_simulation" -value "1" -objects $file_obj
 set_property -name "used_in_synthesis" -value "1" -objects $file_obj
 
-set file "$origin_dir/btle_ll_stub.v"
+set file "${origin_dir}/btle_ll/hw/fpga/btle_ll_stub.v"
 set file [file normalize $file]
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "Verilog" -objects $file_obj
