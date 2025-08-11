@@ -20,6 +20,9 @@ module btle_controller #
   parameter PARITY			= "NONE"	,		  //"NONE","EVEN","ODD"
   parameter FRAME_WD		= 8,					    //if PARITY="NONE",it can be 5~9;else 5~8
 
+  parameter RF_IQ_BIT_WIDTH = 64,
+  parameter RF_I_OR_Q_BIT_WIDTH = (RF_IQ_BIT_WIDTH/4),
+
   parameter CRC_STATE_BIT_WIDTH = 24,
   parameter CHANNEL_NUMBER_BIT_WIDTH = 6,
   parameter SAMPLE_PER_SYMBOL = 8,
@@ -41,14 +44,12 @@ module btle_controller #
   output uart_tx,
 
   // =========================to zero-IF RF transceiver====================
-  output wire signed [(IQ_BIT_WIDTH-1) : 0]                tx_i_signal,
-  output wire signed [(IQ_BIT_WIDTH-1) : 0]                tx_q_signal,
-  output wire                                              tx_iq_valid,
-  output wire                                              tx_iq_valid_last,
+  output wire [(RF_IQ_BIT_WIDTH-1) : 0] tx_iq_signal,
+  output wire                           tx_iq_valid,
+  output wire                           tx_iq_valid_last,
 
-  input wire  signed [(GFSK_DEMODULATION_BIT_WIDTH-1) : 0] rx_i_signal,
-  input wire  signed [(GFSK_DEMODULATION_BIT_WIDTH-1) : 0] rx_q_signal,
-  input wire                                               rx_iq_valid,
+  input wire  [(RF_IQ_BIT_WIDTH-1) : 0] rx_iq_signal,
+  input wire                            rx_iq_valid,
 
   // Ports of Axi Slave Bus Interface
   input  wire s00_axi_aclk,
@@ -127,6 +128,13 @@ module btle_controller #
   output wire  [7:0] ext_rx_pdu_octet_mem_data
 );
 
+// =================intermediate IQ defines===================
+wire signed [(IQ_BIT_WIDTH-1) : 0]                tx_i_signal;
+wire signed [(IQ_BIT_WIDTH-1) : 0]                tx_q_signal;
+wire signed [(GFSK_DEMODULATION_BIT_WIDTH-1) : 0] rx_i_signal;
+wire signed [(GFSK_DEMODULATION_BIT_WIDTH-1) : 0] rx_q_signal;
+
+// ===========================================================
 wire slv_reg_rden;
 wire [4:0] axi_araddr_core;
 
@@ -186,6 +194,14 @@ wire [(CHANNEL_NUMBER_BIT_WIDTH-1) : 0] rx_channel_number;
 wire [(CRC_STATE_BIT_WIDTH-1) : 0]      rx_crc_state_init_bit;
 
 wire  [5:0] rx_pdu_octet_mem_addr;
+
+// =====================connect external RF iq to internal i and q========================
+assign rx_i_signal = rx_iq_signal[(RF_I_OR_Q_BIT_WIDTH-1)   : 0                  ];
+assign rx_q_signal = rx_iq_signal[(2*RF_I_OR_Q_BIT_WIDTH-1) : RF_I_OR_Q_BIT_WIDTH];
+
+assign tx_iq_signal[(RF_I_OR_Q_BIT_WIDTH-1)   : 0                   ]    = {{(RF_I_OR_Q_BIT_WIDTH-IQ_BIT_WIDTH){tx_i_signal[IQ_BIT_WIDTH-1]}}, tx_i_signal};
+assign tx_iq_signal[(2*RF_I_OR_Q_BIT_WIDTH-1) : RF_I_OR_Q_BIT_WIDTH ]    = {{(RF_I_OR_Q_BIT_WIDTH-IQ_BIT_WIDTH){tx_q_signal[IQ_BIT_WIDTH-1]}}, tx_q_signal};
+assign tx_iq_signal[(RF_IQ_BIT_WIDTH-1)       : (2*RF_I_OR_Q_BIT_WIDTH)] = 0;
 
 // =======switch between external baremetal phy control and link layer phy control========
 // phy tx
