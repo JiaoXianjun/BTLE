@@ -38,7 +38,8 @@
       "sys_logic_inv": "",
       "util_ad9361_divclk_sel_concat": "",
       "btle_controller_0": "",
-      "xlconstant_0": ""
+      "xlconstant_0": "",
+      "ila_0": ""
     },
     "interface_ports": {
       "ddr": {
@@ -2470,6 +2471,26 @@
             "value": "0"
           }
         }
+      },
+      "ila_0": {
+        "vlnv": "xilinx.com:ip:ila:6.2",
+        "xci_name": "system_ila_0_0",
+        "xci_path": "ip/system_ila_0_0/system_ila_0_0.xci",
+        "inst_hier_path": "ila_0",
+        "parameters": {
+          "C_MONITOR_TYPE": {
+            "value": "Native"
+          },
+          "C_NUM_OF_PROBES": {
+            "value": "3"
+          },
+          "C_PROBE0_TYPE": {
+            "value": "0"
+          },
+          "C_PROBE2_WIDTH": {
+            "value": "32"
+          }
+        }
       }
     },
     "interface_nets": {
@@ -2988,7 +3009,8 @@
           "sys_ps7/S_AXI_ACP_ACLK",
           "sys_ps7/S_AXI_HP3_ACLK",
           "axi_cpu_interconnect/M03_ACLK",
-          "btle_controller_0/s00_axi_aclk"
+          "btle_controller_0/s00_axi_aclk",
+          "ila_0/clk"
         ]
       },
       "sys_cpu_reset": {
@@ -3172,13 +3194,15 @@
       "util_ad9361_adc_pack_packed_fifo_wr_data": {
         "ports": [
           "util_ad9361_adc_pack/packed_fifo_wr_data",
-          "btle_controller_0/rx_iq_signal"
+          "btle_controller_0/rx_iq_signal",
+          "ila_0/probe2"
         ]
       },
       "util_ad9361_adc_pack_packed_fifo_wr_en": {
         "ports": [
           "util_ad9361_adc_pack/packed_fifo_wr_en",
-          "btle_controller_0/rx_iq_valid"
+          "btle_controller_0/rx_iq_valid",
+          "ila_0/probe1"
         ]
       },
       "util_ad9361_dac_upack_fifo_rd_data_0": {
@@ -3228,7 +3252,8 @@
           "util_ad9361_adc_pack/clk",
           "axi_ad9361_dac_fifo/din_clk",
           "util_ad9361_dac_upack/clk",
-          "btle_controller_0/rf_clk"
+          "btle_controller_0/rf_clk",
+          "ila_0/probe0"
         ]
       },
       "util_ad9361_divclk_reset_peripheral_aresetn": {
