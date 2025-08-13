@@ -4,3 +4,6 @@
 [submodule "verilog/btle_ll"]
 	path = verilog/btle_ll
 	url = git@github.com:JiaoXianjun/btle_ll.git
+[submodule "BTLE-hw-img"]
+	path = BTLE-hw-img
+	url = git@github.com:JiaoXianjun/BTLE-hw-img.git
