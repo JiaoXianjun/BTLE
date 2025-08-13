@@ -2482,7 +2482,7 @@
             "value": "Native"
           },
           "C_NUM_OF_PROBES": {
-            "value": "3"
+            "value": "5"
           },
           "C_PROBE0_TYPE": {
             "value": "0"
@@ -2788,7 +2788,8 @@
           "axi_ad9361/clk",
           "util_ad9361_divclk/clk",
           "util_ad9361_adc_fifo/din_clk",
-          "axi_ad9361_dac_fifo/dout_clk"
+          "axi_ad9361_dac_fifo/dout_clk",
+          "ila_0/probe4"
         ]
       },
       "axi_ad9361_rst": {
@@ -2982,7 +2983,8 @@
       "sys_200m_clk": {
         "ports": [
           "sys_ps7/FCLK_CLK1",
-          "axi_ad9361/delay_clk"
+          "axi_ad9361/delay_clk",
+          "ila_0/clk"
         ]
       },
       "sys_concat_intc_dout": {
@@ -3009,8 +3011,7 @@
           "sys_ps7/S_AXI_ACP_ACLK",
           "sys_ps7/S_AXI_HP3_ACLK",
           "axi_cpu_interconnect/M03_ACLK",
-          "btle_controller_0/s00_axi_aclk",
-          "ila_0/clk"
+          "btle_controller_0/s00_axi_aclk"
         ]
       },
       "sys_cpu_reset": {
@@ -3274,7 +3275,8 @@
       "util_ad9361_divclk_sel_Res": {
         "ports": [
           "util_ad9361_divclk_sel/Res",
-          "util_ad9361_divclk/clk_sel"
+          "util_ad9361_divclk/clk_sel",
+          "ila_0/probe3"
         ]
       },
       "util_ad9361_divclk_sel_concat_dout": {
