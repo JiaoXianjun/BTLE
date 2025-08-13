@@ -24,7 +24,7 @@ ipx::package_project -root_dir $ip_core_dir -vendor user.org -library user -taxo
 ipx::unload_core $ip_core_dir/component.xml
 ipx::edit_ip_in_project -upgrade true -name tmp_edit_project -directory $ip_core_dir $ip_core_dir/component.xml
 update_compile_order -fileset sources_1
-file copy ./btle_ll_stub.v $ip_core_dir/src/
+file copy ./btle_ll/hw/fpga/btle_ll_stub.v $ip_core_dir/src/
 ipx::add_file $ip_core_dir/src/btle_ll_stub.v [ipx::get_file_groups xilinx_anylanguagesynthesis -of_objects [ipx::current_core]]
 set_property type verilogSource [ipx::get_files src/btle_ll_stub.v -of_objects [ipx::get_file_groups xilinx_anylanguagesynthesis -of_objects [ipx::current_core]]]
 set_property library_name xil_defaultlib [ipx::get_files src/btle_ll_stub.v -of_objects [ipx::get_file_groups xilinx_anylanguagesynthesis -of_objects [ipx::current_core]]]
