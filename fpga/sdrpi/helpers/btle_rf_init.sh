@@ -22,3 +22,17 @@ done
 cd /sys/bus/platform/drivers/cf_axi_adc/
 echo 79020000.cf-ad9361-lpc  > unbind
 echo 79020000.cf-ad9361-lpc  > bind
+
+# set rf parameters
+cd /sys/bus/iio/devices/iio:device0
+
+cat ensm_mode_available
+cat ensm_mode
+echo rx > ensm_mode
+cat ensm_mode
+
+echo 0 >  out_altvoltage1_TX_LO_powerdown
+cat out_altvoltage1_TX_LO_powerdown
+echo 2402000000 >  out_altvoltage0_RX_LO_frequency
+cat out_altvoltage0_RX_LO_frequency
+
