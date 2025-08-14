@@ -36,3 +36,15 @@ cat out_altvoltage1_TX_LO_powerdown
 echo 2402000000 >  out_altvoltage0_RX_LO_frequency
 cat out_altvoltage0_RX_LO_frequency
 
+cat in_voltage_sampling_frequency
+echo 8000000 >  in_voltage_sampling_frequency
+cat in_voltage_sampling_frequency
+
+cat in_voltage_rf_bandwidth
+echo 2000000 >  in_voltage_rf_bandwidth
+cat in_voltage_rf_bandwidth
+
+cat in_voltage_gain_control_mode_available
+cat in_voltage0_gain_control_mode
+echo fast_attack > in_voltage0_gain_control_mode
+cat in_voltage0_gain_control_mode
