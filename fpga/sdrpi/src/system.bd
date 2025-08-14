@@ -3066,6 +3066,18 @@
           "gpio_t"
         ]
       },
+      "sys_ps7_SPI0_MOSI_O": {
+        "ports": [
+          "sys_ps7/SPI0_MOSI_O",
+          "spi0_sdo_o"
+        ]
+      },
+      "sys_ps7_SPI0_SCLK_O": {
+        "ports": [
+          "sys_ps7/SPI0_SCLK_O",
+          "spi0_clk_o"
+        ]
+      },
       "sys_ps7_SPI0_SS1_O": {
         "ports": [
           "sys_ps7/SPI0_SS1_O",
@@ -3076,6 +3088,12 @@
         "ports": [
           "sys_ps7/SPI0_SS2_O",
           "spi0_csn_2_o"
+        ]
+      },
+      "sys_ps7_SPI0_SS_O": {
+        "ports": [
+          "sys_ps7/SPI0_SS_O",
+          "spi0_csn_0_o"
         ]
       },
       "sys_ps7_SPI1_MOSI_O": {
