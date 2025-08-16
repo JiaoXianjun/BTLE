@@ -39,9 +39,8 @@
       "util_ad9361_divclk_sel_concat": "",
       "btle_controller_0": "",
       "xlconstant_0": "",
-      "ila_0": "",
       "clk_wiz_0": "",
-      "clk_wiz_1": ""
+      "util_ad9361_divclk_reset1": ""
     },
     "interface_ports": {
       "ddr": {
@@ -2474,47 +2473,6 @@
           }
         }
       },
-      "ila_0": {
-        "vlnv": "xilinx.com:ip:ila:6.2",
-        "xci_name": "system_ila_0_0",
-        "xci_path": "ip/system_ila_0_0/system_ila_0_0.xci",
-        "inst_hier_path": "ila_0",
-        "parameters": {
-          "C_DATA_DEPTH": {
-            "value": "1024"
-          },
-          "C_MONITOR_TYPE": {
-            "value": "Native"
-          },
-          "C_NUM_OF_PROBES": {
-            "value": "6"
-          },
-          "C_PROBE0_TYPE": {
-            "value": "1"
-          },
-          "C_PROBE1_TYPE": {
-            "value": "1"
-          },
-          "C_PROBE2_TYPE": {
-            "value": "1"
-          },
-          "C_PROBE2_WIDTH": {
-            "value": "16"
-          },
-          "C_PROBE3_TYPE": {
-            "value": "1"
-          },
-          "C_PROBE4_TYPE": {
-            "value": "1"
-          },
-          "C_PROBE5_TYPE": {
-            "value": "1"
-          },
-          "C_PROBE6_WIDTH": {
-            "value": "1"
-          }
-        }
-      },
       "clk_wiz_0": {
         "vlnv": "xilinx.com:ip:clk_wiz:6.0",
         "xci_name": "system_clk_wiz_0_0",
@@ -2562,52 +2520,11 @@
           }
         }
       },
-      "clk_wiz_1": {
-        "vlnv": "xilinx.com:ip:clk_wiz:6.0",
-        "xci_name": "system_clk_wiz_0_1",
-        "xci_path": "ip/system_clk_wiz_0_1/system_clk_wiz_0_1.xci",
-        "inst_hier_path": "clk_wiz_1",
-        "parameters": {
-          "CLKIN1_JITTER_PS": {
-            "value": "312.5"
-          },
-          "CLKOUT1_JITTER": {
-            "value": "173.096"
-          },
-          "CLKOUT1_PHASE_ERROR": {
-            "value": "203.212"
-          },
-          "CLKOUT1_REQUESTED_OUT_FREQ": {
-            "value": "256"
-          },
-          "CLKOUT1_REQUESTED_PHASE": {
-            "value": "0"
-          },
-          "MMCM_CLKFBOUT_MULT_F": {
-            "value": "31.000"
-          },
-          "MMCM_CLKIN1_PERIOD": {
-            "value": "31.250"
-          },
-          "MMCM_CLKIN2_PERIOD": {
-            "value": "10.0"
-          },
-          "MMCM_CLKOUT0_DIVIDE_F": {
-            "value": "3.875"
-          },
-          "MMCM_CLKOUT0_PHASE": {
-            "value": "0.000"
-          },
-          "PRIM_IN_FREQ": {
-            "value": "32"
-          },
-          "USE_LOCKED": {
-            "value": "false"
-          },
-          "USE_RESET": {
-            "value": "false"
-          }
-        }
+      "util_ad9361_divclk_reset1": {
+        "vlnv": "xilinx.com:ip:proc_sys_reset:5.0",
+        "xci_name": "system_util_ad9361_divclk_reset1_0",
+        "xci_path": "ip/system_util_ad9361_divclk_reset1_0/system_util_ad9361_divclk_reset1_0.xci",
+        "inst_hier_path": "util_ad9361_divclk_reset1"
       }
     },
     "interface_nets": {
@@ -2906,9 +2823,7 @@
           "util_ad9361_divclk/clk",
           "util_ad9361_adc_fifo/din_clk",
           "axi_ad9361_dac_fifo/dout_clk",
-          "ila_0/probe4",
-          "clk_wiz_0/clk_in1",
-          "clk_wiz_1/clk_in1"
+          "clk_wiz_0/clk_in1"
         ]
       },
       "axi_ad9361_rst": {
@@ -2981,20 +2896,14 @@
       },
       "btle_controller_0_tx_iq_signal": {
         "ports": [
-          "btle_controller_0/tx_iq_signal",
+          "btle_controller_0/tx_iq_signal_ext",
           "util_ad9361_dac_upack/s_axis_data"
         ]
       },
       "btle_controller_0_tx_iq_valid": {
         "ports": [
-          "btle_controller_0/tx_iq_valid",
+          "btle_controller_0/tx_iq_valid_ext",
           "util_ad9361_dac_upack/s_axis_valid"
-        ]
-      },
-      "clk_wiz_1_clk_out1": {
-        "ports": [
-          "clk_wiz_1/clk_out1",
-          "ila_0/clk"
         ]
       },
       "gp_in_0_1": {
@@ -3157,7 +3066,8 @@
           "axi_cpu_interconnect/M02_ARESETN",
           "axi_iic_main/s_axi_aresetn",
           "axi_cpu_interconnect/M03_ARESETN",
-          "btle_controller_0/s00_axi_aresetn"
+          "btle_controller_0/s00_axi_aresetn",
+          "util_ad9361_divclk_reset1/ext_reset_in"
         ]
       },
       "sys_logic_inv_Res": {
@@ -3337,14 +3247,13 @@
       "util_ad9361_adc_pack_packed_fifo_wr_data": {
         "ports": [
           "util_ad9361_adc_pack/packed_fifo_wr_data",
-          "btle_controller_0/rx_iq_signal",
-          "ila_0/probe2"
+          "btle_controller_0/rx_iq_signal_ext"
         ]
       },
       "util_ad9361_adc_pack_packed_fifo_wr_en": {
         "ports": [
           "util_ad9361_adc_pack/packed_fifo_wr_en",
-          "ila_0/probe1"
+          "btle_controller_0/rx_iq_valid_ext"
         ]
       },
       "util_ad9361_dac_upack_fifo_rd_data_0": {
@@ -3389,8 +3298,8 @@
       "util_ad9361_divclk1_clk_out": {
         "ports": [
           "clk_wiz_0/clk_out1",
-          "btle_controller_0/rf_clk",
-          "ila_0/probe5"
+          "util_ad9361_divclk_reset1/slowest_sync_clk",
+          "btle_controller_0/bb_clk"
         ]
       },
       "util_ad9361_divclk_clk_out": {
@@ -3401,8 +3310,13 @@
           "util_ad9361_adc_pack/clk",
           "axi_ad9361_dac_fifo/din_clk",
           "util_ad9361_dac_upack/clk",
-          "ila_0/probe0",
-          "btle_controller_0/rx_iq_valid"
+          "btle_controller_0/rf_clk"
+        ]
+      },
+      "util_ad9361_divclk_reset1_peripheral_reset": {
+        "ports": [
+          "util_ad9361_divclk_reset1/peripheral_reset",
+          "btle_controller_0/bb_rst"
         ]
       },
       "util_ad9361_divclk_reset_peripheral_aresetn": {
@@ -3423,8 +3337,7 @@
       "util_ad9361_divclk_sel_Res": {
         "ports": [
           "util_ad9361_divclk_sel/Res",
-          "util_ad9361_divclk/clk_sel",
-          "ila_0/probe3"
+          "util_ad9361_divclk/clk_sel"
         ]
       },
       "util_ad9361_divclk_sel_concat_dout": {
