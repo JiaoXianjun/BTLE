@@ -49,7 +49,7 @@ always @ (posedge bb_clk) begin
   end else begin
     rx_i_signal <= rx_iq_signal_ext[(RF_I_OR_Q_BIT_WIDTH-1)   : 0                  ];
     rx_q_signal <= rx_iq_signal_ext[(2*RF_I_OR_Q_BIT_WIDTH-1) : RF_I_OR_Q_BIT_WIDTH];
-    rx_iq_valid <= rx_iq_valid_ext;
+    rx_iq_valid <= (~rx_iq_valid); // rx_iq_valid_ext is always 1 (under 8MHz clk). we need valid every other 16MHz clk to get 8MHz valid under 16MHz (8Msps rate is half of 16MHz clk)
   end
 end
 
