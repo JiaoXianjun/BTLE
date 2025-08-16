@@ -4,7 +4,7 @@
 
 // btle_controller = btle_ll (link layer) + btle_phy (phy: btle_tx and btle_rx)
 
-// iverilog -o btle_controller btle_controller.v btle_ll_stub.v btle_phy.v btle_rx.v btle_rx_core.v gfsk_demodulation.v search_unique_bit_sequence.v scramble_core.v crc24_core.v serial_in_ram_out.v sdpram_two_clk.v sdpram_one_clk.v btle_tx.v crc24.v scramble.v gfsk_modulation.v bit_repeat_upsample.v gauss_filter.v vco.v
+// iverilog -o btle_controller btle_controller.v clock_domain_conversion_iq.v ./btle_ll/hw/fpga/btle_ll_stub.v btle_phy.v btle_rx.v btle_rx_core.v gfsk_demodulation.v search_unique_bit_sequence.v scramble_core.v crc24_core.v serial_in_ram_out.v sdpram_two_clk.v sdpram_one_clk.v btle_tx.v crc24.v scramble.v gfsk_modulation.v bit_repeat_upsample.v gauss_filter.v vco.v
 
 `timescale 1ns / 1ps
 module btle_controller #
@@ -39,17 +39,20 @@ module btle_controller #
   input rf_clk,
   input rf_rst,
 
+  input bb_clk,
+  input bb_rst,
+
   // ============================to host: UART HCI=========================
   input  uart_rx,
   output uart_tx,
 
   // =========================to zero-IF RF transceiver====================
-  output wire [(RF_IQ_BIT_WIDTH-1) : 0] tx_iq_signal,
-  output wire                           tx_iq_valid,
-  output wire                           tx_iq_valid_last,
+  output wire [(RF_IQ_BIT_WIDTH-1) : 0] tx_iq_signal_ext,
+  output wire                           tx_iq_valid_ext,
+  output wire                           tx_iq_valid_last_ext,
 
-  input wire  [(RF_IQ_BIT_WIDTH-1) : 0] rx_iq_signal,
-  input wire                            rx_iq_valid,
+  input wire  [(RF_IQ_BIT_WIDTH-1) : 0] rx_iq_signal_ext,
+  input wire                            rx_iq_valid_ext,
 
   // Ports of Axi Slave Bus Interface
   input  wire s00_axi_aclk,
@@ -131,8 +134,12 @@ module btle_controller #
 // =================intermediate IQ defines===================
 wire signed [(IQ_BIT_WIDTH-1) : 0]                tx_i_signal;
 wire signed [(IQ_BIT_WIDTH-1) : 0]                tx_q_signal;
+wire                                              tx_iq_valid;
+wire                                              tx_iq_valid_last;
+
 wire signed [(GFSK_DEMODULATION_BIT_WIDTH-1) : 0] rx_i_signal;
 wire signed [(GFSK_DEMODULATION_BIT_WIDTH-1) : 0] rx_q_signal;
+wire                                              rx_iq_valid;
 
 // ===========================================================
 wire slv_reg_rden;
@@ -195,14 +202,6 @@ wire [(CRC_STATE_BIT_WIDTH-1) : 0]      rx_crc_state_init_bit;
 
 wire  [5:0] rx_pdu_octet_mem_addr;
 
-// =====================connect external RF iq to internal i and q========================
-assign rx_i_signal = rx_iq_signal[(RF_I_OR_Q_BIT_WIDTH-1)   : 0                  ];
-assign rx_q_signal = rx_iq_signal[(2*RF_I_OR_Q_BIT_WIDTH-1) : RF_I_OR_Q_BIT_WIDTH];
-
-assign tx_iq_signal[(RF_I_OR_Q_BIT_WIDTH-1)   : 0                   ]    = {{(RF_I_OR_Q_BIT_WIDTH-IQ_BIT_WIDTH){tx_i_signal[IQ_BIT_WIDTH-1]}}, tx_i_signal};
-assign tx_iq_signal[(2*RF_I_OR_Q_BIT_WIDTH-1) : RF_I_OR_Q_BIT_WIDTH ]    = {{(RF_I_OR_Q_BIT_WIDTH-IQ_BIT_WIDTH){tx_q_signal[IQ_BIT_WIDTH-1]}}, tx_q_signal};
-assign tx_iq_signal[(RF_IQ_BIT_WIDTH-1)       : (2*RF_I_OR_Q_BIT_WIDTH)] = 0;
-
 // =======switch between external baremetal phy control and link layer phy control========
 // phy tx
 assign tx_gauss_filter_tap_index = (baremetal_phy_intf_mode? ext_tx_gauss_filter_tap_index : ll_tx_gauss_filter_tap_index);
@@ -231,6 +230,40 @@ assign rx_channel_number = (baremetal_phy_intf_mode? ext_rx_channel_number : ll_
 assign rx_crc_state_init_bit = (baremetal_phy_intf_mode? ext_rx_crc_state_init_bit : ll_rx_crc_state_init_bit);
 
 assign rx_pdu_octet_mem_addr = (baremetal_phy_intf_mode? ext_rx_pdu_octet_mem_addr : ll_rx_pdu_octet_mem_addr);
+
+clock_domain_conversion_iq #
+(
+  .RF_IQ_BIT_WIDTH(RF_IQ_BIT_WIDTH),
+  .RF_I_OR_Q_BIT_WIDTH(RF_I_OR_Q_BIT_WIDTH),
+
+  .IQ_BIT_WIDTH(IQ_BIT_WIDTH),
+
+  .GFSK_DEMODULATION_BIT_WIDTH(GFSK_DEMODULATION_BIT_WIDTH)
+) clock_domain_conversion_iq_i (
+  .rf_clk(rf_clk), // ad9361 8MHz rf clock
+  .rf_rst(rf_rst),
+
+  .bb_clk(bb_clk), // bb 16MHz clock
+  .bb_rst(bb_rst),
+
+  // rx path
+  .rx_iq_signal_ext(rx_iq_signal_ext),
+  .rx_iq_valid_ext(rx_iq_valid_ext),
+
+  .rx_i_signal(rx_i_signal),
+  .rx_q_signal(rx_q_signal),
+  .rx_iq_valid(rx_iq_valid),
+
+  // tx path
+  .tx_i_signal(tx_i_signal),
+  .tx_q_signal(tx_q_signal),
+  .tx_iq_valid(tx_iq_valid),
+  .tx_iq_valid_last(tx_iq_valid_last),
+
+  .tx_iq_signal_ext(tx_iq_signal_ext),
+  .tx_iq_valid_ext(tx_iq_valid_ext),
+  .tx_iq_valid_last_ext(tx_iq_valid_last_ext)
+);
 
 btle_ll # (
   .C_S00_AXI_DATA_WIDTH(C_S00_AXI_DATA_WIDTH),
@@ -333,8 +366,8 @@ btle_phy #
   .GFSK_DEMODULATION_BIT_WIDTH(GFSK_DEMODULATION_BIT_WIDTH),
   .LEN_UNIQUE_BIT_SEQUENCE(LEN_UNIQUE_BIT_SEQUENCE)
 ) btle_phy_i (
-  .clk(rf_clk),
-  .rst(rf_rst),
+  .clk(bb_clk),
+  .rst(bb_rst),
 
   .clkb(s00_axi_aclk),
 
