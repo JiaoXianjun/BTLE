@@ -6,6 +6,8 @@
 
 // iverilog -o btle_controller btle_controller.v clock_domain_conversion_iq.v ./btle_ll/hw/fpga/btle_ll_stub.v btle_phy.v btle_rx.v btle_rx_core.v gfsk_demodulation.v search_unique_bit_sequence.v scramble_core.v crc24_core.v serial_in_ram_out.v sdpram_two_clk.v sdpram_one_clk.v btle_tx.v crc24.v scramble.v gfsk_modulation.v bit_repeat_upsample.v gauss_filter.v vco.v
 
+`define KEEP_FOR_DBG (*mark_debug="true",DONT_TOUCH="TRUE"*)
+
 `timescale 1ns / 1ps
 module btle_controller #
 (
@@ -120,15 +122,15 @@ module btle_controller #
   input wire [(CHANNEL_NUMBER_BIT_WIDTH-1) : 0] ext_rx_channel_number,
   input wire [(CRC_STATE_BIT_WIDTH-1) : 0]      ext_rx_crc_state_init_bit,
 
-  output wire        ext_rx_hit_flag,
-  output wire        ext_rx_decode_run,
-  output wire        ext_rx_decode_end,
-  output wire        ext_rx_crc_ok,
-  output wire  [2:0] ext_rx_best_phase,
-  output wire  [6:0] ext_rx_payload_length,
+  `KEEP_FOR_DBG output wire        ext_rx_hit_flag,
+  `KEEP_FOR_DBG output wire        ext_rx_decode_run,
+  `KEEP_FOR_DBG output wire        ext_rx_decode_end,
+  `KEEP_FOR_DBG output wire        ext_rx_crc_ok,
+  `KEEP_FOR_DBG output wire  [2:0] ext_rx_best_phase,
+  `KEEP_FOR_DBG output wire  [6:0] ext_rx_payload_length,
 
   input  wire  [5:0] ext_rx_pdu_octet_mem_addr,
-  output wire  [7:0] ext_rx_pdu_octet_mem_data
+  `KEEP_FOR_DBG output wire  [7:0] ext_rx_pdu_octet_mem_data
 );
 
 // =================intermediate IQ defines===================
@@ -137,16 +139,16 @@ wire signed [(IQ_BIT_WIDTH-1) : 0]                tx_q_signal;
 wire                                              tx_iq_valid;
 wire                                              tx_iq_valid_last;
 
-wire signed [(GFSK_DEMODULATION_BIT_WIDTH-1) : 0] rx_i_signal;
-wire signed [(GFSK_DEMODULATION_BIT_WIDTH-1) : 0] rx_q_signal;
-wire                                              rx_iq_valid;
+`KEEP_FOR_DBG wire signed [(GFSK_DEMODULATION_BIT_WIDTH-1) : 0] rx_i_signal;
+`KEEP_FOR_DBG wire signed [(GFSK_DEMODULATION_BIT_WIDTH-1) : 0] rx_q_signal;
+`KEEP_FOR_DBG wire                                              rx_iq_valid;
 
 // ===========================================================
 wire slv_reg_rden;
 wire [4:0] axi_araddr_core;
 
-wire slv_reg_wren;
-wire [4:0] axi_awaddr_core;
+`KEEP_FOR_DBG wire slv_reg_wren;
+`KEEP_FOR_DBG wire [4:0] axi_awaddr_core;
 
 // =================link layer to phy tx======================
 wire [3:0] ll_tx_gauss_filter_tap_index;
@@ -196,11 +198,11 @@ wire [(CRC_STATE_BIT_WIDTH-1) : 0]      ll_rx_crc_state_init_bit;
 wire  [5:0] ll_rx_pdu_octet_mem_addr;
 
 // =======================phy rx============================
-wire [(LEN_UNIQUE_BIT_SEQUENCE-1) : 0]  rx_unique_bit_sequence;
-wire [(CHANNEL_NUMBER_BIT_WIDTH-1) : 0] rx_channel_number;
-wire [(CRC_STATE_BIT_WIDTH-1) : 0]      rx_crc_state_init_bit;
+`KEEP_FOR_DBG wire [(LEN_UNIQUE_BIT_SEQUENCE-1) : 0]  rx_unique_bit_sequence;
+`KEEP_FOR_DBG wire [(CHANNEL_NUMBER_BIT_WIDTH-1) : 0] rx_channel_number;
+`KEEP_FOR_DBG wire [(CRC_STATE_BIT_WIDTH-1) : 0]      rx_crc_state_init_bit;
 
-wire  [5:0] rx_pdu_octet_mem_addr;
+`KEEP_FOR_DBG wire  [5:0] rx_pdu_octet_mem_addr;
 
 // =======switch between external baremetal phy control and link layer phy control========
 // phy tx
