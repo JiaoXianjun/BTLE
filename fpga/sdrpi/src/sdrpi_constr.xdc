@@ -20,18 +20,24 @@ set_property -dict {PACKAGE_PIN N17 IOSTANDARD LVCMOS25} [get_ports gpio_resetb]
 set_property -dict {PACKAGE_PIN R18 IOSTANDARD LVCMOS25} [get_ports enable]
 set_property -dict {PACKAGE_PIN P14 IOSTANDARD LVCMOS25} [get_ports txnrx]
 
-set_property -dict {PACKAGE_PIN P18 IOSTANDARD LVCMOS25 PULLUP true  } [get_ports spi_csn]
-set_property -dict {PACKAGE_PIN R14 IOSTANDARD LVCMOS25 } [get_ports spi_clk]
-set_property -dict {PACKAGE_PIN P15 IOSTANDARD LVCMOS25 } [get_ports spi_mosi]
-set_property -dict {PACKAGE_PIN R19 IOSTANDARD LVCMOS25 } [get_ports spi_miso]
+set_property PACKAGE_PIN P18 [get_ports spi_csn]
+set_property IOSTANDARD LVCMOS25 [get_ports spi_csn]
+set_property PULLUP true [get_ports spi_csn]
+set_property -dict {PACKAGE_PIN R14 IOSTANDARD LVCMOS25} [get_ports spi_clk]
+set_property -dict {PACKAGE_PIN P15 IOSTANDARD LVCMOS25} [get_ports spi_mosi]
+set_property -dict {PACKAGE_PIN R19 IOSTANDARD LVCMOS25} [get_ports spi_miso]
 
-set_property -dict {PACKAGE_PIN B20 IOSTANDARD LVCMOS25 } [get_ports tx1_en]
-set_property -dict {PACKAGE_PIN C20 IOSTANDARD LVCMOS25 } [get_ports tx2_en]
-set_property -dict {PACKAGE_PIN E19 IOSTANDARD LVCMOS25 } [get_ports sel_clk_src]
+set_property -dict {PACKAGE_PIN B20 IOSTANDARD LVCMOS25} [get_ports tx1_en]
+set_property -dict {PACKAGE_PIN C20 IOSTANDARD LVCMOS25} [get_ports tx2_en]
+set_property -dict {PACKAGE_PIN E19 IOSTANDARD LVCMOS25} [get_ports sel_clk_src]
 
-# iic      
-set_property  -dict {PACKAGE_PIN  M14   IOSTANDARD LVCMOS25 PULLTYPE PULLUP} [get_ports iic_scl]          
-set_property  -dict {PACKAGE_PIN  M15   IOSTANDARD LVCMOS25 PULLTYPE PULLUP} [get_ports iic_sda]        
+# iic
+set_property PACKAGE_PIN M14 [get_ports iic_scl]
+set_property IOSTANDARD LVCMOS25 [get_ports iic_scl]
+set_property PULLUP true [get_ports iic_scl]
+set_property PACKAGE_PIN M15 [get_ports iic_sda]
+set_property IOSTANDARD LVCMOS25 [get_ports iic_sda]
+set_property PULLUP true [get_ports iic_sda]
 
 
 
@@ -69,12 +75,17 @@ set_property -dict {PACKAGE_PIN H15 IOSTANDARD LVCMOS25} [get_ports phy_gtx_clk]
 
 
 
-set_property -dict {PACKAGE_PIN G19 IOSTANDARD LVCMOS25 PULLUP true  } [get_ports mdio1_mdc]
-set_property -dict {PACKAGE_PIN G20  IOSTANDARD LVCMOS25 PULLUP true  } [get_ports mdio1_io]
-  
+set_property PACKAGE_PIN G19 [get_ports mdio1_mdc]
+set_property IOSTANDARD LVCMOS25 [get_ports mdio1_mdc]
+set_property PULLUP true [get_ports mdio1_mdc]
+set_property PACKAGE_PIN G20 [get_ports mdio1_io]
+set_property IOSTANDARD LVCMOS25 [get_ports mdio1_io]
+set_property PULLUP true [get_ports mdio1_io]
 
-set_property -dict {PACKAGE_PIN A20 IOSTANDARD LVCMOS25} [get_ports rx1_led ]
-set_property -dict {PACKAGE_PIN B19 IOSTANDARD LVCMOS25} [get_ports rx2_led ]
 
- 
- 
+set_property -dict {PACKAGE_PIN A20 IOSTANDARD LVCMOS25} [get_ports rx1_led]
+set_property -dict {PACKAGE_PIN B19 IOSTANDARD LVCMOS25} [get_ports rx2_led]
+
+
+
+

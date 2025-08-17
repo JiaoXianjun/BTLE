@@ -49,4 +49,5 @@ set_property -dict {PACKAGE_PIN U12 IOSTANDARD LVDS_25} [get_ports {tx_data_out_
 
 
 
-create_clock -name rx_clk       -period  8 [get_ports rx_clk_in_p] 
+create_clock -period 8.000 -name rx_clk [get_ports rx_clk_in_p]
+
