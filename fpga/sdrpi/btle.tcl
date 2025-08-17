@@ -24,7 +24,7 @@ ipx::package_project -root_dir $ip_core_dir -vendor user.org -library user -taxo
 ipx::unload_core $ip_core_dir/component.xml
 ipx::edit_ip_in_project -upgrade true -name tmp_edit_project -directory $ip_core_dir $ip_core_dir/component.xml
 update_compile_order -fileset sources_1
-file copy ./btle_ll/hw/fpga/btle_ll_stub.v $ip_core_dir/src/
+file copy ./btle_ll/btle_ll_stub.v $ip_core_dir/src/
 ipx::add_file $ip_core_dir/src/btle_ll_stub.v [ipx::get_file_groups xilinx_anylanguagesynthesis -of_objects [ipx::current_core]]
 set_property type verilogSource [ipx::get_files src/btle_ll_stub.v -of_objects [ipx::get_file_groups xilinx_anylanguagesynthesis -of_objects [ipx::current_core]]]
 set_property library_name xil_defaultlib [ipx::get_files src/btle_ll_stub.v -of_objects [ipx::get_file_groups xilinx_anylanguagesynthesis -of_objects [ipx::current_core]]]
@@ -1160,4 +1160,8 @@ current_dashboard default_dashboard
 update_compile_order -fileset sources_1
 open_bd_design "${origin_dir}/src/system.bd"
 
-# set_property CONFIG.CLK_DOMAIN system_sys_ps7_0_FCLK_CLK0 [get_bd_intf_pins /btle_controller_0/S00_AXI]
+set_property CONFIG.FREQ_HZ 32000000 [get_bd_pins /axi_ad9361/l_clk]
+
+update_compile_order -fileset sources_1
+
+save_bd_design
