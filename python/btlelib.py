@@ -4,6 +4,7 @@
 
 import numpy as np
 import os
+import csv
 # import matplotlib.pyplot as plt
 
 SAVE_FOR_VERILOG = 0 # Change to 1 to save files for verilog test bench
@@ -13,6 +14,24 @@ SAMPLE_PER_SYMBOL = 8
 NUM_SYMBOL_GAUSS_FILTER_SPAN = 2
 BT = 0.5
 MODULATION_INDEX = 0.5
+
+def extract_iq_from_csv_to_txt(filename_csv, filename_txt):
+  # Please DO remove the csv text headers for all columns!
+  input_file = filename_csv
+  output_file = filename_txt
+
+  # Column indices (Python is 0-based; 6th col = index 5, 12th col = index 11)
+  col_indices = [5, 11]
+
+  with open(input_file, "r", newline="") as csvfile, open(output_file, "w") as txtfile:
+      reader = csv.reader(csvfile)
+      for row in reader:
+          # Extract required columns
+          selected = [row[i] for i in col_indices]
+          # Write them space-separated (or comma if you prefer)
+          txtfile.write(" ".join(selected) + "\n")
+
+  print(f"Extracted columns written to {output_file}")
 
 def gauss_fir_gen():
 # reference: https://public.ccsds.org/Pubs/413x0g3e1.pdf page 3-2
