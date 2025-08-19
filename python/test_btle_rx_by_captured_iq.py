@@ -57,29 +57,29 @@ if __name__ == "__main__":
   print('crc_state_init_hex ', crc_state_init_hex)
   print('')
 
-
   bl.extract_iq_from_csv_to_txt(filename_csv, filename_txt)
 
   rx_iq = np.loadtxt(bl.SAVE_DIR+'/'+filename_txt, dtype=int)
   # print(rx_i.shape)
-  rx_i = rx_iq[::2, 0]
+  rx_i = rx_iq[::2, 0] # ::2 means take every second sample, because the FPGA ILA uses 16MHz but we need 8Msps
   rx_q = rx_iq[::2, 1]
 
   # plot the iq
   plt.figure(0)
   ax = plt.subplot(211)
   fo, _ = bl.check_realtime_fo(rx_i, rx_q)
-  ax.plot(fo[6:], 'k--', label='Normalized freq offset')
-  ax.legend(loc='upper right')
+  # ax.plot(fo, 'k--', label='Normalized freq offset')
+  ax.plot(fo, 'k')
+  # ax.legend(loc='upper right')
   ax.grid(True)
-  ax.set_title('Captured IQ')
+  ax.set_title('FPGA ILA IQ Normalized freq offset')
 
   ax = plt.subplot(212)
-  ax.plot(rx_i[8:], 'b', label='I')
-  ax.plot(rx_q[8:], 'r', label='Q')
+  ax.plot(rx_i, 'b', label='I')
+  ax.plot(rx_q, 'r', label='Q')
   ax.legend(loc='upper right')
   ax.grid(True)
-  ax.set_title('BTLE transmitter I and Q')
+  ax.set_title('FPGA ILA IQ')
   plt.tight_layout()
 
   print('btle_rx')
@@ -104,11 +104,13 @@ if __name__ == "__main__":
 
   # plot signal level processing in receiver.
   plt.figure(1)
+  ax = plt.subplot(211)
   fo, _ = bl.check_realtime_fo(rx_i, rx_q)
-  ax.plot(fo[6:], 'k--', label='Normalized freq offset')
-  ax.legend(loc='upper right')
+  # ax.plot(fo[6:], 'k--', label='Normalized freq offset')
+  ax.plot(fo, 'k')
+  # ax.legend(loc='upper right')
   ax.grid(True)
-  ax.set_title('Captured IQ')
+  ax.set_title('FPGA ILA IQ Normalized freq offset')
 
   ax = plt.subplot(212)
   # mimic signal_for_decision signal in receiver
@@ -130,7 +132,7 @@ if __name__ == "__main__":
   ax.plot(signal_for_decision_idx[best_sample_phase_idx::bl.SAMPLE_PER_SYMBOL] - idx_shift_left, signal_for_decision[best_sample_phase_idx::bl.SAMPLE_PER_SYMBOL], 'rs', label='best phase moment')
   ax.legend(loc='upper right')
   ax.grid(True)
-  ax.set_title('signal for decision in receiver')
+  ax.set_title('Signal for decision in receiver')
   plt.tight_layout()
 
   np.savetxt('plot_signal_for_decision_x.txt', signal_for_decision_idx - idx_shift_left, fmt='%f')
