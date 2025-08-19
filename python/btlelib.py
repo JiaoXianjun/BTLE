@@ -25,7 +25,9 @@ def extract_iq_from_csv_to_txt(filename_csv, filename_txt):
 
   with open(input_file, "r", newline="") as csvfile, open(output_file, "w") as txtfile:
       reader = csv.reader(csvfile)
-      for row in reader:
+      for j, row in enumerate(reader):
+          if j < 2:   # skip the first two rows (index 0 and 1)
+            continue
           # Extract required columns
           selected = [row[i] for i in col_indices]
           # Write them space-separated (or comma if you prefer)
@@ -108,6 +110,17 @@ def check_realtime_fo(cos_in, sin_in, *argv):
 
   iq_complex = np.double(cos_in) + 1j*np.double(sin_in)
   realtime_phase = np.angle(iq_complex)
+
+  # avoid divide by zero
+  # Find indices where element == 0+0j
+  zero_mask = (iq_complex == 0)
+  # Generate random +1 or -1 for real and imag parts
+  rand_real = np.random.choice([-1, 1], size=zero_mask.sum())
+  rand_imag = np.random.choice([-1, 1], size=zero_mask.sum())
+  # Build replacement complex numbers
+  replacement = rand_real + 1j * rand_imag
+  # Assign replacements back
+  iq_complex[zero_mask] = replacement
 
   iq_complex_diff = iq_complex[2:len(iq_complex)]/iq_complex[1:(len(iq_complex)-1)]
   iq_complex_idff_angle = np.angle(iq_complex_diff)
