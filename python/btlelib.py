@@ -15,13 +15,13 @@ NUM_SYMBOL_GAUSS_FILTER_SPAN = 2
 BT = 0.5
 MODULATION_INDEX = 0.5
 
-def extract_iq_from_csv_to_txt(filename_csv, filename_txt):
+def extract_iq_from_csv_to_txt(filename_csv, filename_txt, col_i_idx, col_q_idx):
   # Please DO remove the csv text headers for all columns!
   input_file = filename_csv
   output_file = filename_txt
 
   # Column indices (Python is 0-based; 6th col = index 5, 12th col = index 11)
-  col_indices = [5, 11]
+  col_indices = [col_i_idx, col_q_idx]
 
   with open(input_file, "r", newline="") as csvfile, open(output_file, "w") as txtfile:
       reader = csv.reader(csvfile)
