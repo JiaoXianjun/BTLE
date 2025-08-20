@@ -40,3 +40,6 @@ set_property -dict {PACKAGE_PIN V5 IOSTANDARD LVCMOS25} [get_ports {gpio_bd[25]}
 
 
 
+
+
+
