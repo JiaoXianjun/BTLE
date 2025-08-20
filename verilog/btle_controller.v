@@ -49,6 +49,7 @@ module btle_controller #
   output uart_tx,
 
   // =========================to zero-IF RF transceiver====================
+  `KEEP_FOR_DBG input wire [7:0]        rf_gpio,
   output wire [(RF_IQ_BIT_WIDTH-1) : 0] tx_iq_signal_ext,
   output wire                           tx_iq_valid_ext,
   output wire                           tx_iq_valid_last_ext,
@@ -142,6 +143,9 @@ wire                                              tx_iq_valid_last;
 `KEEP_FOR_DBG wire signed [(GFSK_DEMODULATION_BIT_WIDTH-1) : 0] rx_i_signal;
 `KEEP_FOR_DBG wire signed [(GFSK_DEMODULATION_BIT_WIDTH-1) : 0] rx_q_signal;
 `KEEP_FOR_DBG wire                                              rx_iq_valid;
+`KEEP_FOR_DBG wire [7:0]                                        bb_gpio;
+`KEEP_FOR_DBG wire [RF_I_OR_Q_BIT_WIDTH : 0]                    i_abs_add_q_abs;
+`KEEP_FOR_DBG wire                                              agc_lock_change;
 
 // ===========================================================
 wire slv_reg_rden;
@@ -249,12 +253,14 @@ clock_domain_conversion_iq #
   .bb_rst(bb_rst),
 
   // rx path
+  .rf_gpio(rf_gpio),
   .rx_iq_signal_ext(rx_iq_signal_ext),
   .rx_iq_valid_ext(rx_iq_valid_ext),
 
   .rx_i_signal(rx_i_signal),
   .rx_q_signal(rx_q_signal),
   .rx_iq_valid(rx_iq_valid),
+  .bb_gpio(bb_gpio),
 
   // tx path
   .tx_i_signal(tx_i_signal),
@@ -265,6 +271,27 @@ clock_domain_conversion_iq #
   .tx_iq_signal_ext(tx_iq_signal_ext),
   .tx_iq_valid_ext(tx_iq_valid_ext),
   .tx_iq_valid_last_ext(tx_iq_valid_last_ext)
+);
+
+auxiliary_daemon #
+(
+  .RF_IQ_BIT_WIDTH(RF_IQ_BIT_WIDTH),
+  .RF_I_OR_Q_BIT_WIDTH(RF_I_OR_Q_BIT_WIDTH),
+
+  .IQ_BIT_WIDTH(IQ_BIT_WIDTH),
+
+  .GFSK_DEMODULATION_BIT_WIDTH(GFSK_DEMODULATION_BIT_WIDTH)
+) auxiliary_daemon_i (
+  .bb_clk(bb_clk), // bb 16MHz clock
+  .bb_rst(bb_rst),
+
+  .rx_i_signal(rx_i_signal), // bb 16MHz clock
+  .rx_q_signal(rx_q_signal),
+  .rx_iq_valid(rx_iq_valid),
+  .bb_gpio(bb_gpio),
+
+  .i_abs_add_q_abs(i_abs_add_q_abs),
+  .agc_lock_change(agc_lock_change)
 );
 
 btle_ll 

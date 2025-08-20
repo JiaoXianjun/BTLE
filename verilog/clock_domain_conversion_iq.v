@@ -22,12 +22,14 @@ module clock_domain_conversion_iq #
   input bb_rst,
 
   // rx path
+  input wire [7:0]                     rf_gpio,
   input wire [(RF_IQ_BIT_WIDTH-1) : 0] rx_iq_signal_ext, // ad9361 8MHz rf clock
   input wire                           rx_iq_valid_ext,
 
   output reg signed [(GFSK_DEMODULATION_BIT_WIDTH-1) : 0] rx_i_signal, // bb 16MHz clock
   output reg signed [(GFSK_DEMODULATION_BIT_WIDTH-1) : 0] rx_q_signal,
   output reg rx_iq_valid,
+  output reg [7:0] bb_gpio,
 
   // tx path
   input wire signed [(IQ_BIT_WIDTH-1) : 0] tx_i_signal, // bb 16MHz clock
@@ -46,10 +48,12 @@ always @ (posedge bb_clk) begin
     rx_i_signal <= 0;
     rx_q_signal <= 0;
     rx_iq_valid <= 0;
+    bb_gpio     <= 0;
   end else begin
     rx_i_signal <= rx_iq_signal_ext[(RF_I_OR_Q_BIT_WIDTH-1)   : 0                  ];
     rx_q_signal <= rx_iq_signal_ext[(2*RF_I_OR_Q_BIT_WIDTH-1) : RF_I_OR_Q_BIT_WIDTH];
     rx_iq_valid <= (~rx_iq_valid); // rx_iq_valid_ext is always 1 (under 8MHz clk). we need valid every other 16MHz clk to get 8MHz valid under 16MHz (8Msps rate is half of 16MHz clk)
+    bb_gpio     <= rf_gpio;
   end
 end
 
