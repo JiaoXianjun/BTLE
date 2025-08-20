@@ -1681,7 +1681,7 @@
             "value": "0"
           },
           "TDD_DISABLE": {
-            "value": "0"
+            "value": "1"
           }
         }
       },
@@ -2537,7 +2537,10 @@
             "value": "Native"
           },
           "C_NUM_OF_PROBES": {
-            "value": "2"
+            "value": "3"
+          },
+          "C_PROBE2_WIDTH": {
+            "value": "16"
           }
         }
       }
@@ -2934,6 +2937,12 @@
           "sys_ps7/GPIO_I"
         ]
       },
+      "gpio_status_1": {
+        "ports": [
+          "gpio_status",
+          "btle_controller_0/rf_gpio"
+        ]
+      },
       "gps_pps_1": {
         "ports": [
           "gps_pps",
@@ -3263,7 +3272,8 @@
       "util_ad9361_adc_pack_packed_fifo_wr_data": {
         "ports": [
           "util_ad9361_adc_pack/packed_fifo_wr_data",
-          "btle_controller_0/rx_iq_signal_ext"
+          "btle_controller_0/rx_iq_signal_ext",
+          "ila_0/probe2"
         ]
       },
       "util_ad9361_adc_pack_packed_fifo_wr_en": {
