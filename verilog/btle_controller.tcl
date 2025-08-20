@@ -167,6 +167,7 @@ if {[string equal [get_filesets -quiet sources_1] ""]} {
 # Set 'sources_1' fileset object
 set obj [get_filesets sources_1]
 set files [list \
+ [file normalize "${origin_dir}/auxiliary_daemon.v"] \
  [file normalize "${origin_dir}/clock_domain_conversion_iq.v"] \
  [file normalize "${origin_dir}/bit_repeat_upsample.v"] \
  [file normalize "${origin_dir}/btle_controller.v"] \
@@ -202,6 +203,20 @@ add_files -norecurse -fileset $obj $files
 #  [file normalize "${origin_dir}/btle_rx_tb.v"] \
 
 # Set 'sources_1' fileset file properties for remote files
+set file "$origin_dir/auxiliary_daemon.v"
+set file [file normalize $file]
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "Verilog" -objects $file_obj
+set_property -name "is_enabled" -value "1" -objects $file_obj
+set_property -name "is_global_include" -value "0" -objects $file_obj
+set_property -name "library" -value "xil_defaultlib" -objects $file_obj
+set_property -name "path_mode" -value "RelativeFirst" -objects $file_obj
+set_property -name "used_in" -value "synthesis implementation simulation" -objects $file_obj
+set_property -name "used_in_implementation" -value "1" -objects $file_obj
+set_property -name "used_in_simulation" -value "1" -objects $file_obj
+set_property -name "used_in_synthesis" -value "1" -objects $file_obj
+
+
 set file "$origin_dir/clock_domain_conversion_iq.v"
 set file [file normalize $file]
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
