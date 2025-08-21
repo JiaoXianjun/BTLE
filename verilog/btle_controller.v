@@ -146,6 +146,8 @@ wire                                              tx_iq_valid_last;
 `KEEP_FOR_DBG wire [7:0]                                        bb_gpio;
 `KEEP_FOR_DBG wire [RF_I_OR_Q_BIT_WIDTH : 0]                    i_abs_add_q_abs;
 `KEEP_FOR_DBG wire                                              agc_lock_change;
+`KEEP_FOR_DBG wire                                              agc_lock_state;
+`KEEP_FOR_DBG wire [6:0]                                        rf_gain;
 
 // ===========================================================
 wire slv_reg_rden;
@@ -291,7 +293,9 @@ auxiliary_daemon #
   .bb_gpio(bb_gpio),
 
   .i_abs_add_q_abs(i_abs_add_q_abs),
-  .agc_lock_change(agc_lock_change)
+  .agc_lock_change(agc_lock_change),
+  .agc_lock_state(agc_lock_state),
+  .rf_gain(rf_gain)
 );
 
 btle_ll 

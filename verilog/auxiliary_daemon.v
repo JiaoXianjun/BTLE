@@ -23,7 +23,9 @@ module auxiliary_daemon #
   input wire [7:0] bb_gpio,
 
   output wire [RF_I_OR_Q_BIT_WIDTH : 0] i_abs_add_q_abs,
-  output wire agc_lock_change
+  output wire agc_lock_change,
+  output wire agc_lock_state,
+  output wire [6:0] rf_gain
 );
 
 reg [(RF_I_OR_Q_BIT_WIDTH-1) : 0] i_abs;
@@ -34,6 +36,8 @@ reg [(RF_I_OR_Q_BIT_WIDTH-1) : 0] q_abs;
 assign i_abs_add_q_abs = i_abs + q_abs;
 
 assign agc_lock_change = (bb_gpio_msb_delay != bb_gpio[7]);
+assign agc_lock_state = bb_gpio[7];
+assign rf_gain = bb_gpio[6:0];
 
 always @ (posedge bb_clk) begin
   if (bb_rst) begin
