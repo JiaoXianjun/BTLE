@@ -57,13 +57,14 @@ if __name__ == "__main__":
   print('crc_state_init_hex ', crc_state_init_hex)
   print('')
 
-  bl.extract_iq_from_csv_to_txt(filename_csv, filename_txt, 7, 5)
+  bl.extract_iq_from_csv_to_txt(filename_csv, filename_txt, 9, 11)
 
   rx_iq = np.loadtxt(bl.SAVE_DIR+'/'+filename_txt, dtype=int)
   # print(rx_i.shape)
   rx_i = rx_iq[::2, 0] # ::2 means take every second sample, because the FPGA ILA uses 16MHz but we need 8Msps
   rx_q = rx_iq[::2, 1]
   print(rx_i[0:32])
+  print(rx_q[0:32])
 
   # plot the iq
   plt.figure(0)
