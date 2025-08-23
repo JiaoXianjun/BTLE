@@ -4,9 +4,21 @@ SPDX-FileCopyrightText: 2025 Xianjun Jiao <putaoshu@msn.com>
 SPDX-License-Identifier: Apache-2.0
 -->
 
+# Bluetooth Low Energy open FPGA/chip 
+
 ![](./media/fpga-ila-btle-signal-ch37.png)
 
-Full steps from scratch to update FPGA on board.
+## Prepare SD card image
+
+Download 2022_r2 image file from https://wiki.analog.com/resources/tools-software/linux-software/kuiper-linux?redirect=1
+
+Choose and apply correct Linux kernel image file in BOOT partition according to "Configuring the SD Card for FPGA Projects".
+
+For sdrpi, use the devicetree.dtb and BOOT.BIN in BTLE/fpga/sdrpi/helpers/ (See how to generate them in the "Full steps..." section)
+
+Change the board's IP to 10.10.10.10 and password "btle".
+
+## Full steps from scratch to update FPGA on board
 
 ```
 git clone --recursive git@github.com:JiaoXianjun/BTLE.git
