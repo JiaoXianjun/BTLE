@@ -10,3 +10,4 @@ echo 0 > /sys/class/fpga_manager/fpga0/flags
 mkdir -p /lib/firmware
 cp $fpga_filename /lib/firmware/ -rf
 echo $fpga_filename > /sys/class/fpga_manager/fpga0/firmware
+
