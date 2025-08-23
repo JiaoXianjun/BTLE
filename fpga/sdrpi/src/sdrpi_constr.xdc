@@ -92,3 +92,4 @@ set_property -dict {PACKAGE_PIN B19 IOSTANDARD LVCMOS25} [get_ports rx2_led]
 
 
 
+
