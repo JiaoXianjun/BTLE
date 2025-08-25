@@ -8,5 +8,7 @@
 ./BOOT_BIN_gen.sh
 ./devicetree_gen.sh
 
+set -x
 scp BOOT.BIN root@10.10.10.10:
 scp devicetree.dtb root@10.10.10.10:
+set +x
