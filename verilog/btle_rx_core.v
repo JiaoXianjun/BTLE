@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2024 Xianjun Jiao
 // SPDX-License-Identifier: Apache-2.0 license
 
+`define KEEP_FOR_DBG (*mark_debug="true",DONT_TOUCH="TRUE"*)
+
 `timescale 1ns / 1ps
 module btle_rx_core #
 (
