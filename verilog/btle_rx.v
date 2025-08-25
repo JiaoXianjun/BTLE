@@ -4,6 +4,8 @@
 
 // iverilog -o btle_rx btle_rx.v btle_rx_core.v gfsk_demodulation.v search_unique_bit_sequence.v scramble_core.v crc24_core.v serial_in_ram_out.v sdpram_two_clk.v
 
+`define KEEP_FOR_DBG (*mark_debug="true",DONT_TOUCH="TRUE"*)
+
 `timescale 1ns / 1ps
 module btle_rx #
 (
@@ -22,9 +24,9 @@ module btle_rx #
   input wire [(CHANNEL_NUMBER_BIT_WIDTH-1) : 0] channel_number,
   input wire [(CRC_STATE_BIT_WIDTH-1) : 0] crc_state_init_bit,
 
-  input wire signed [(GFSK_DEMODULATION_BIT_WIDTH-1) : 0] i,
-  input wire signed [(GFSK_DEMODULATION_BIT_WIDTH-1) : 0] q,
-  input wire iq_valid,
+  `KEEP_FOR_DBG input wire signed [(GFSK_DEMODULATION_BIT_WIDTH-1) : 0] i,
+  `KEEP_FOR_DBG input wire signed [(GFSK_DEMODULATION_BIT_WIDTH-1) : 0] q,
+  `KEEP_FOR_DBG input wire iq_valid,
 
   output wire hit_flag,
   output reg  decode_run,
@@ -42,10 +44,10 @@ module btle_rx #
 localparam [0:0] IDLE                     = 0,
                  WAIT_DECODE_END_LONGEST  = 1;
 
-reg signed [(GFSK_DEMODULATION_BIT_WIDTH-1) : 0] i_store [0 : (SAMPLE_PER_SYMBOL-1)];
-reg signed [(GFSK_DEMODULATION_BIT_WIDTH-1) : 0] q_store [0 : (SAMPLE_PER_SYMBOL-1)];
-reg [(SAMPLE_PER_SYMBOL-1) : 0] iq_valid_store;
-reg [2:0] iq_phase;
+`KEEP_FOR_DBG reg signed [(GFSK_DEMODULATION_BIT_WIDTH-1) : 0] i_store [0 : (SAMPLE_PER_SYMBOL-1)];
+`KEEP_FOR_DBG reg signed [(GFSK_DEMODULATION_BIT_WIDTH-1) : 0] q_store [0 : (SAMPLE_PER_SYMBOL-1)];
+`KEEP_FOR_DBG reg [(SAMPLE_PER_SYMBOL-1) : 0] iq_valid_store;
+`KEEP_FOR_DBG reg [2:0] iq_phase;
 
 wire [(SAMPLE_PER_SYMBOL-1) : 0] hit_flag_internal;
 wire [6:0] payload_length_internal [0 : (SAMPLE_PER_SYMBOL-1)];
@@ -60,23 +62,24 @@ wire [(SAMPLE_PER_SYMBOL-1) : 0] crc_ok_internal;
 // reg  [5:0] addr_internal [0 : (SAMPLE_PER_SYMBOL-1)];
 wire [7:0] data_internal [0 : (SAMPLE_PER_SYMBOL-1)];
 
-reg  [6:0] payload_length_store [0 : (SAMPLE_PER_SYMBOL-1)];
-reg  [(SAMPLE_PER_SYMBOL-1) : 0] crc_ok_store;
-reg  [(SAMPLE_PER_SYMBOL-1) : 0] decode_end_store;
-wire [(SAMPLE_PER_SYMBOL-1) : 0] decode_end_and_crc_ok_store;
-reg  [(SAMPLE_PER_SYMBOL-1) : 0] hit_flag_all_phase;
+`KEEP_FOR_DBG reg  [6:0] payload_length_store [0 : (SAMPLE_PER_SYMBOL-1)];
+`KEEP_FOR_DBG reg  [(SAMPLE_PER_SYMBOL-1) : 0] crc_ok_store;
+`KEEP_FOR_DBG reg  [(SAMPLE_PER_SYMBOL-1) : 0] decode_end_store;
+`KEEP_FOR_DBG wire [(SAMPLE_PER_SYMBOL-1) : 0] decode_end_and_crc_ok_store;
+`KEEP_FOR_DBG reg  [(SAMPLE_PER_SYMBOL-1) : 0] hit_flag_all_phase;
 
 wire [6:0] payload_length_store_wire [0 : (SAMPLE_PER_SYMBOL-1)];
 
-wire hit_flag_any;
-reg  hit_flag_any_delay;
-wire decode_end_all;
-wire decode_end_any;
-wire decode_end_early;
+`KEEP_FOR_DBG wire hit_flag_any;
+`KEEP_FOR_DBG reg  hit_flag_any_delay;
+`KEEP_FOR_DBG wire decode_end_all;
+`KEEP_FOR_DBG wire decode_end_any;
+`KEEP_FOR_DBG wire decode_end_early;
 
 // reg       timeout_count_enable;
 // reg [3:0] timeout_count_sample;
-reg [0:0] decode_end_state;
+`KEEP_FOR_DBG reg [0:0] decode_end_state;
+`KEEP_FOR_DBG reg decode_restart;
 
 assign payload_length_store_wire[0] = payload_length_store[0];
 assign payload_length_store_wire[1] = payload_length_store[1];
@@ -105,10 +108,14 @@ always @ (posedge clk) begin
     best_phase <= 0;
     payload_length <= 0;
 
+    decode_restart <= 0;
+
     decode_end_state <= IDLE;
     // timeout_count_sample <= 0;
     // timeout_count_enable <= 0;
   end else begin
+    decode_restart <= decode_end;
+
     hit_flag_any_delay <= hit_flag_any;
 
     if (hit_flag) begin
@@ -298,7 +305,7 @@ generate
 
     always @ (posedge clk) begin
       // if (rst|hit_flag_internal[gen_idx]|decode_end_early|decode_end_all) begin
-      if (rst|hit_flag_internal[gen_idx]) begin
+      if (rst|hit_flag_internal[gen_idx]|decode_restart) begin
         crc_ok_store[gen_idx] <= 0;
         decode_end_store[gen_idx] <= 0;
       end else if (decode_end_internal[gen_idx]) begin
