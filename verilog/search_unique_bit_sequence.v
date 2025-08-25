@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2024 Xianjun Jiao
 // SPDX-License-Identifier: Apache-2.0 license
 
+`define KEEP_FOR_DBG (*mark_debug="true",DONT_TOUCH="TRUE"*)
+
 `timescale 1ns / 1ps
 module search_unique_bit_sequence #
 (
@@ -10,14 +12,14 @@ module search_unique_bit_sequence #
   input wire clk,
   input wire rst,
 
-  input wire phy_bit,
-  input wire bit_valid,
-  input wire [(LEN_UNIQUE_BIT_SEQUENCE-1) : 0] unique_bit_sequence,
-  output wire hit_flag
+  `KEEP_FOR_DBG input wire phy_bit,
+  `KEEP_FOR_DBG input wire bit_valid,
+  `KEEP_FOR_DBG input wire [(LEN_UNIQUE_BIT_SEQUENCE-1) : 0] unique_bit_sequence,
+  `KEEP_FOR_DBG output wire hit_flag
 );
 
 reg bit_valid_delay1;
-reg [(LEN_UNIQUE_BIT_SEQUENCE-1) : 0] bit_store;
+`KEEP_FOR_DBG reg [(LEN_UNIQUE_BIT_SEQUENCE-1) : 0] bit_store;
 
 assign hit_flag = (bit_store == unique_bit_sequence)&bit_valid_delay1;
 
