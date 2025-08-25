@@ -1165,3 +1165,14 @@ set_property CONFIG.FREQ_HZ 32000000 [get_bd_pins /axi_ad9361/l_clk]
 update_compile_order -fileset sources_1
 
 save_bd_design
+
+# https://adaptivesupport.amd.com/s/article/000034290?language=en_US
+set_param gui.addressMap 0
+
+update_compile_order -fileset sources_1
+launch_runs impl_1 -to_step write_bitstream -jobs 8
+
+wait_on_run impl_1
+
+update_compile_order -fileset sources_1
+write_hw_platform -fixed -include_bit -force -file ./btle_sdrpi/system_top.xsa
