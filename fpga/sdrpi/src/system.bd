@@ -40,7 +40,9 @@
       "btle_controller_0": "",
       "xlconstant_0": "",
       "clk_wiz_0": "",
-      "util_ad9361_divclk_reset1": ""
+      "util_ad9361_divclk_reset1": "",
+      "vio_0": "",
+      "util_vector_logic_0": ""
     },
     "interface_ports": {
       "ddr": {
@@ -2531,6 +2533,26 @@
         "xci_name": "system_util_ad9361_divclk_reset1_0",
         "xci_path": "ip/system_util_ad9361_divclk_reset1_0/system_util_ad9361_divclk_reset1_0.xci",
         "inst_hier_path": "util_ad9361_divclk_reset1"
+      },
+      "vio_0": {
+        "vlnv": "xilinx.com:ip:vio:3.0",
+        "xci_name": "system_vio_0_0",
+        "xci_path": "ip/system_vio_0_0/system_vio_0_0.xci",
+        "inst_hier_path": "vio_0"
+      },
+      "util_vector_logic_0": {
+        "vlnv": "xilinx.com:ip:util_vector_logic:2.0",
+        "xci_name": "system_util_vector_logic_0_0",
+        "xci_path": "ip/system_util_vector_logic_0_0/system_util_vector_logic_0_0.xci",
+        "inst_hier_path": "util_vector_logic_0",
+        "parameters": {
+          "C_OPERATION": {
+            "value": "or"
+          },
+          "C_SIZE": {
+            "value": "1"
+          }
+        }
       }
     },
     "interface_nets": {
@@ -3317,7 +3339,8 @@
         "ports": [
           "clk_wiz_0/clk_out1",
           "btle_controller_0/bb_clk",
-          "util_ad9361_divclk_reset1/slowest_sync_clk"
+          "util_ad9361_divclk_reset1/slowest_sync_clk",
+          "vio_0/clk"
         ]
       },
       "util_ad9361_divclk_clk_out": {
@@ -3334,7 +3357,7 @@
       "util_ad9361_divclk_reset1_peripheral_reset": {
         "ports": [
           "util_ad9361_divclk_reset1/peripheral_reset",
-          "btle_controller_0/bb_rst"
+          "util_vector_logic_0/Op2"
         ]
       },
       "util_ad9361_divclk_reset_peripheral_aresetn": {
@@ -3371,6 +3394,19 @@
           "util_ad9361_tdd_sync/sync_out",
           "axi_ad9361/tdd_sync",
           "tdd_sync_o"
+        ]
+      },
+      "util_vector_logic_0_Res": {
+        "ports": [
+          "util_vector_logic_0/Res",
+          "btle_controller_0/bb_rst",
+          "vio_0/probe_in0"
+        ]
+      },
+      "vio_0_probe_out0": {
+        "ports": [
+          "vio_0/probe_out0",
+          "util_vector_logic_0/Op1"
         ]
       },
       "xlconstant_0_dout": {
