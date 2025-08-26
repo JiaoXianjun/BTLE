@@ -11,4 +11,6 @@
 set -x
 scp BOOT.BIN root@10.10.10.10:
 scp devicetree.dtb root@10.10.10.10:
+echo "Try to run remotely on board and reboot ..."
+ssh root@10.10.10.10 "./update_BOOT_partition.sh"
 set +x
