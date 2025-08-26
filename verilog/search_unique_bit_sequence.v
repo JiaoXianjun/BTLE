@@ -18,10 +18,13 @@ module search_unique_bit_sequence #
   `KEEP_FOR_DBG output wire hit_flag
 );
 
+`KEEP_FOR_DBG wire [(LEN_UNIQUE_BIT_SEQUENCE-1) : 0] unique_bit_sequence_internal;
 reg bit_valid_delay1;
 `KEEP_FOR_DBG reg [(LEN_UNIQUE_BIT_SEQUENCE-1) : 0] bit_store;
 
-assign hit_flag = (bit_store == unique_bit_sequence)&bit_valid_delay1;
+assign unique_bit_sequence_internal = (unique_bit_sequence == 0? {32'h123a5456} : unique_bit_sequence);
+
+assign hit_flag = (bit_store == unique_bit_sequence_internal)&bit_valid_delay1;
 
 always @ (posedge clk) begin
   if (rst) begin

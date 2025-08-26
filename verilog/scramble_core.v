@@ -20,7 +20,11 @@ module scramble_core #
   output reg  data_out_valid
 );
 
+wire [(CHANNEL_NUMBER_BIT_WIDTH-1) : 0] channel_number_internal;
+
 reg [CHANNEL_NUMBER_BIT_WIDTH : 0] lfsr;
+
+assign channel_number_internal = (channel_number == 0? {CHANNEL_NUMBER_BIT_WIDTH{1'b1}} : channel_number); // in case no valid setting yet
 
 always @ (posedge clk) begin
   if (rst) begin
@@ -28,23 +32,23 @@ always @ (posedge clk) begin
     data_out_valid <= 0;
     // lfsr <= 0;
     lfsr[0] <= 1;
-    // lfsr[CHANNEL_NUMBER_BIT_WIDTH : 1] <= channel_number;
-    lfsr[1] <= channel_number[5];
-    lfsr[2] <= channel_number[4];
-    lfsr[3] <= channel_number[3];
-    lfsr[4] <= channel_number[2];
-    lfsr[5] <= channel_number[1];
-    lfsr[6] <= channel_number[0];
+    // lfsr[CHANNEL_NUMBER_BIT_WIDTH : 1] <= channel_number_internal;
+    lfsr[1] <= channel_number_internal[5];
+    lfsr[2] <= channel_number_internal[4];
+    lfsr[3] <= channel_number_internal[3];
+    lfsr[4] <= channel_number_internal[2];
+    lfsr[5] <= channel_number_internal[1];
+    lfsr[6] <= channel_number_internal[0];
   end else begin
     if (channel_number_load) begin
       lfsr[0] <= 1;
-      // lfsr[CHANNEL_NUMBER_BIT_WIDTH : 1] <= channel_number;
-      lfsr[1] <= channel_number[5];
-      lfsr[2] <= channel_number[4];
-      lfsr[3] <= channel_number[3];
-      lfsr[4] <= channel_number[2];
-      lfsr[5] <= channel_number[1];
-      lfsr[6] <= channel_number[0];
+      // lfsr[CHANNEL_NUMBER_BIT_WIDTH : 1] <= channel_number_internal;
+      lfsr[1] <= channel_number_internal[5];
+      lfsr[2] <= channel_number_internal[4];
+      lfsr[3] <= channel_number_internal[3];
+      lfsr[4] <= channel_number_internal[2];
+      lfsr[5] <= channel_number_internal[1];
+      lfsr[6] <= channel_number_internal[0];
     end else begin
       if (data_in_valid) begin
         lfsr[0] <= lfsr[6];
