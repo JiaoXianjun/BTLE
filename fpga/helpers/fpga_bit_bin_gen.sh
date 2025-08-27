@@ -6,7 +6,7 @@
 
 mkdir -p tmp
 rm tmp/* -rf
-unzip ../../../BTLE-hw-img/fpga/sdrpi/system_top.xsa -d ./tmp
+unzip ../../BTLE-hw-img/fpga/sdrpi/system_top.xsa -d ./tmp
 source ~/Xilinx/Vitis/2022.2/settings64.sh
 bootgen -image fpga_top.bif -arch zynq -process_bitstream bin -w
 cp ./tmp/system_top.bit.bin ./
