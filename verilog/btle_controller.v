@@ -38,24 +38,26 @@ module btle_controller #
   parameter GFSK_DEMODULATION_BIT_WIDTH = 16,
   parameter LEN_UNIQUE_BIT_SEQUENCE = 32
 ) (
-  input rf_clk,
-  input rf_rst,
+  input  wire rf_clk,
+  input  wire rf_rst,
 
-  input bb_clk,
-  input bb_rst,
+  input  wire bb_clk,
+  input  wire bb_rst,
+
+  input  wire ref_1pps,
 
   // ============================to host: UART HCI=========================
-  input  uart_rx,
-  output uart_tx,
+  input  wire uart_rx,
+  output wire uart_tx,
 
   // =========================to zero-IF RF transceiver====================
-  `KEEP_FOR_DBG input wire [7:0]        rf_gpio,
-  output wire [(RF_IQ_BIT_WIDTH-1) : 0] tx_iq_signal_ext,
-  output wire                           tx_iq_valid_ext,
-  output wire                           tx_iq_valid_last_ext,
+  `KEEP_FOR_DBG input wire [7:0]         rf_gpio,
+  output wire [(RF_IQ_BIT_WIDTH-1) : 0]  tx_iq_signal_ext,
+  output wire                            tx_iq_valid_ext,
+  output wire                            tx_iq_valid_last_ext,
 
-  input wire  [(RF_IQ_BIT_WIDTH-1) : 0] rx_iq_signal_ext,
-  input wire                            rx_iq_valid_ext,
+  input  wire  [(RF_IQ_BIT_WIDTH-1) : 0] rx_iq_signal_ext,
+  input  wire                            rx_iq_valid_ext,
 
   // Ports of Axi Slave Bus Interface
   input  wire s00_axi_aclk,
@@ -149,7 +151,9 @@ wire                                              tx_iq_valid_last;
 `KEEP_FOR_DBG wire                                              agc_lock_state;
 `KEEP_FOR_DBG wire [6:0]                                        rf_gain;
 
-// ===========================================================
+// =================link layer and auxiliary==================
+wire [15:00] btle_ll_rst;
+
 wire slv_reg_rden;
 wire [4:0] axi_araddr_core;
 
@@ -300,25 +304,32 @@ auxiliary_daemon #
 
 btle_ll 
 //  # (
-//   .C_S00_AXI_DATA_WIDTH(C_S00_AXI_DATA_WIDTH),
-//   .C_S00_AXI_ADDR_WIDTH(C_S00_AXI_ADDR_WIDTH),
+  // // Width of S_AXI data bus
+  // parameter integer C_S00_AXI_DATA_WIDTH  = 32,
+  // // Width of S_AXI address bus
+  // parameter integer C_S00_AXI_ADDR_WIDTH  = 8,
 
-//   .CLK_FREQUENCE(CLK_FREQUENCE),
-//   .BAUD_RATE(BAUD_RATE),
-//   .PARITY(PARITY),
-//   .FRAME_WD(FRAME_WD),
+  // // parameter CLK_FREQUENCE = 16_000_000, //hz
+  // parameter CLK_FREQUENCE = 100_000_000, //hz
+  // parameter BAUD_RATE     = 115200,     //9600、19200 、38400 、57600 、115200、230400、460800、921600
+  // parameter PARITY        = "NONE",     //"NONE","EVEN","ODD"
+  // parameter FRAME_WD      = 8,          //if PARITY="NONE",it can be 5~9;else 5~8
 
-//   .GAUSS_FILTER_BIT_WIDTH(GAUSS_FILTER_BIT_WIDTH),
-//   .SIN_COS_ADDR_BIT_WIDTH(SIN_COS_ADDR_BIT_WIDTH),
-//   .IQ_BIT_WIDTH(IQ_BIT_WIDTH),
-//   .CRC_STATE_BIT_WIDTH(CRC_STATE_BIT_WIDTH),
-//   .CHANNEL_NUMBER_BIT_WIDTH(CHANNEL_NUMBER_BIT_WIDTH),
+  // parameter GAUSS_FILTER_BIT_WIDTH = 16,
+  // parameter SIN_COS_ADDR_BIT_WIDTH = 11,
+  // parameter IQ_BIT_WIDTH = 8,
+  // parameter CRC_STATE_BIT_WIDTH = 24,
+  // parameter CHANNEL_NUMBER_BIT_WIDTH = 6,
 
-//   .LEN_UNIQUE_BIT_SEQUENCE(LEN_UNIQUE_BIT_SEQUENCE)
+  // parameter GFSK_DEMODULATION_BIT_WIDTH = 16,
+
+  // parameter LEN_UNIQUE_BIT_SEQUENCE = 32
 // ) 
 btle_ll_i (
   .bb_clk(bb_clk),
   .bb_rst(bb_rst),
+
+  .ref_1pps(ref_1pps),
 
   // ====to host: UART HCI====
   .uart_rx(uart_rx),
@@ -358,6 +369,19 @@ btle_ll_i (
   .rx_pdu_octet_mem_addr(ll_rx_pdu_octet_mem_addr),
   .rx_pdu_octet_mem_data(ext_rx_pdu_octet_mem_data),
 
+  // ===============Auxiliary Signals================
+  .rst(btle_ll_rst),
+
+  .rx_i_signal(rx_i_signal),
+  .rx_q_signal(rx_q_signal),
+  .rx_iq_valid(rx_iq_valid),
+
+  .i_abs_add_q_abs(i_abs_add_q_abs),
+  .agc_lock_change(agc_lock_change),
+  .agc_lock_state(agc_lock_state),
+  .rf_gain(rf_gain),
+
+  // Ports of Axi Slave Bus Interface
   .slv_reg_rden(slv_reg_rden),
   .axi_araddr_core(axi_araddr_core),
   .slv_reg_wren(slv_reg_wren),
