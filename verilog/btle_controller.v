@@ -44,7 +44,8 @@ module btle_controller #
   input  wire bb_clk,
   input  wire bb_rst,
 
-  input  wire ref_1pps,
+  // ===============Auxiliary Signals================
+  input  wire [7:0] gpio,
 
   // ============================to host: UART HCI=========================
   input  wire uart_rx,
@@ -152,7 +153,7 @@ wire                                              tx_iq_valid_last;
 `KEEP_FOR_DBG wire [6:0]                                        rf_gain;
 
 // =================link layer and auxiliary==================
-wire [15:00] btle_ll_rst;
+wire [15:0] ll_reg_gpio;
 
 wire slv_reg_rden;
 wire [4:0] axi_araddr_core;
@@ -302,34 +303,11 @@ auxiliary_daemon #
   .rf_gain(rf_gain)
 );
 
-btle_ll 
-//  # (
-  // // Width of S_AXI data bus
-  // parameter integer C_S00_AXI_DATA_WIDTH  = 32,
-  // // Width of S_AXI address bus
-  // parameter integer C_S00_AXI_ADDR_WIDTH  = 8,
-
-  // // parameter CLK_FREQUENCE = 16_000_000, //hz
-  // parameter CLK_FREQUENCE = 100_000_000, //hz
-  // parameter BAUD_RATE     = 115200,     //9600、19200 、38400 、57600 、115200、230400、460800、921600
-  // parameter PARITY        = "NONE",     //"NONE","EVEN","ODD"
-  // parameter FRAME_WD      = 8,          //if PARITY="NONE",it can be 5~9;else 5~8
-
-  // parameter GAUSS_FILTER_BIT_WIDTH = 16,
-  // parameter SIN_COS_ADDR_BIT_WIDTH = 11,
-  // parameter IQ_BIT_WIDTH = 8,
-  // parameter CRC_STATE_BIT_WIDTH = 24,
-  // parameter CHANNEL_NUMBER_BIT_WIDTH = 6,
-
-  // parameter GFSK_DEMODULATION_BIT_WIDTH = 16,
-
-  // parameter LEN_UNIQUE_BIT_SEQUENCE = 32
-// ) 
-btle_ll_i (
+btle_ll btle_ll_i (
   .bb_clk(bb_clk),
   .bb_rst(bb_rst),
 
-  .ref_1pps(ref_1pps),
+  .ref_1pps(gpio[0]),
 
   // ====to host: UART HCI====
   .uart_rx(uart_rx),
@@ -370,7 +348,7 @@ btle_ll_i (
   .rx_pdu_octet_mem_data(ext_rx_pdu_octet_mem_data),
 
   // ===============Auxiliary Signals================
-  .rst(btle_ll_rst),
+  .reg_gpio(ll_reg_gpio),
 
   .rx_i_signal(rx_i_signal),
   .rx_q_signal(rx_q_signal),
@@ -490,4 +468,3 @@ btle_phy #
 );
 
 endmodule
-
