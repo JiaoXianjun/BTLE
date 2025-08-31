@@ -42,7 +42,13 @@
       "clk_wiz_0": "",
       "util_ad9361_divclk_reset1": "",
       "vio_0": "",
-      "util_vector_logic_0": ""
+      "util_vector_logic_0": "",
+      "xlslice_0": "",
+      "GPIO21": "",
+      "GPIO22": "",
+      "GPIO20": "",
+      "GPIO19": "",
+      "xlconcat_0": ""
     },
     "interface_ports": {
       "ddr": {
@@ -2553,6 +2559,99 @@
             "value": "1"
           }
         }
+      },
+      "xlslice_0": {
+        "vlnv": "xilinx.com:ip:xlslice:1.0",
+        "xci_name": "system_xlslice_0_0",
+        "xci_path": "ip/system_xlslice_0_0/system_xlslice_0_0.xci",
+        "inst_hier_path": "xlslice_0",
+        "parameters": {
+          "DIN_FROM": {
+            "value": "25"
+          },
+          "DIN_WIDTH": {
+            "value": "64"
+          }
+        }
+      },
+      "GPIO21": {
+        "vlnv": "xilinx.com:ip:xlslice:1.0",
+        "xci_name": "system_GPIO21_0",
+        "xci_path": "ip/system_GPIO21_0/system_GPIO21_0.xci",
+        "inst_hier_path": "GPIO21",
+        "parameters": {
+          "DIN_FROM": {
+            "value": "20"
+          },
+          "DIN_TO": {
+            "value": "20"
+          },
+          "DIN_WIDTH": {
+            "value": "26"
+          }
+        }
+      },
+      "GPIO22": {
+        "vlnv": "xilinx.com:ip:xlslice:1.0",
+        "xci_name": "system_GPIO22_0",
+        "xci_path": "ip/system_GPIO22_0/system_GPIO22_0.xci",
+        "inst_hier_path": "GPIO22",
+        "parameters": {
+          "DIN_FROM": {
+            "value": "21"
+          },
+          "DIN_TO": {
+            "value": "21"
+          },
+          "DIN_WIDTH": {
+            "value": "26"
+          }
+        }
+      },
+      "GPIO20": {
+        "vlnv": "xilinx.com:ip:xlslice:1.0",
+        "xci_name": "system_GPIO20_0",
+        "xci_path": "ip/system_GPIO20_0/system_GPIO20_0.xci",
+        "inst_hier_path": "GPIO20",
+        "parameters": {
+          "DIN_FROM": {
+            "value": "19"
+          },
+          "DIN_TO": {
+            "value": "19"
+          },
+          "DIN_WIDTH": {
+            "value": "26"
+          }
+        }
+      },
+      "GPIO19": {
+        "vlnv": "xilinx.com:ip:xlslice:1.0",
+        "xci_name": "system_GPIO19_0",
+        "xci_path": "ip/system_GPIO19_0/system_GPIO19_0.xci",
+        "inst_hier_path": "GPIO19",
+        "parameters": {
+          "DIN_FROM": {
+            "value": "18"
+          },
+          "DIN_TO": {
+            "value": "18"
+          },
+          "DIN_WIDTH": {
+            "value": "26"
+          }
+        }
+      },
+      "xlconcat_0": {
+        "vlnv": "xilinx.com:ip:xlconcat:2.1",
+        "xci_name": "system_xlconcat_0_0",
+        "xci_path": "ip/system_xlconcat_0_0/system_xlconcat_0_0.xci",
+        "inst_hier_path": "xlconcat_0",
+        "parameters": {
+          "NUM_PORTS": {
+            "value": "4"
+          }
+        }
       }
     },
     "interface_nets": {
@@ -2638,6 +2737,30 @@
           "sys_concat_intc/In9",
           "sys_concat_intc/In10",
           "sys_concat_intc/In15"
+        ]
+      },
+      "GPIO19_Dout": {
+        "ports": [
+          "GPIO19/Dout",
+          "xlconcat_0/In0"
+        ]
+      },
+      "GPIO20_Dout": {
+        "ports": [
+          "GPIO20/Dout",
+          "xlconcat_0/In1"
+        ]
+      },
+      "GPIO21_Dout": {
+        "ports": [
+          "GPIO21/Dout",
+          "xlconcat_0/In2"
+        ]
+      },
+      "GPIO22_Dout": {
+        "ports": [
+          "GPIO22/Dout",
+          "xlconcat_0/In3"
         ]
       },
       "axi_ad9361_adc_data_i0": {
@@ -2950,7 +3073,8 @@
       "gpio_i_1": {
         "ports": [
           "gpio_i",
-          "sys_ps7/GPIO_I"
+          "sys_ps7/GPIO_I",
+          "xlslice_0/Din"
         ]
       },
       "gpio_status_1": {
@@ -3409,11 +3533,26 @@
           "util_vector_logic_0/Op1"
         ]
       },
+      "xlconcat_0_dout": {
+        "ports": [
+          "xlconcat_0/dout",
+          "btle_controller_0/gpio"
+        ]
+      },
       "xlconstant_0_dout": {
         "ports": [
           "xlconstant_0/dout",
           "btle_controller_0/baremetal_phy_intf_mode",
           "util_ad9361_adc_pack/packed_fifo_wr_overflow"
+        ]
+      },
+      "xlslice_0_Dout": {
+        "ports": [
+          "xlslice_0/Dout",
+          "GPIO21/Din",
+          "GPIO22/Din",
+          "GPIO19/Din",
+          "GPIO20/Din"
         ]
       }
     },
