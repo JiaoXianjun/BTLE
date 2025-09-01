@@ -19,5 +19,6 @@ scp ../../BTLE-hw-img/fpga/btle_ll root@10.10.10.10:
 scp BOOT.BIN root@10.10.10.10:
 scp ../$HARDWARE/devicetree.dtb root@10.10.10.10:
 echo "Try to run remotely on board and reboot ..."
+ssh root@10.10.10.10 "sync"
 ssh root@10.10.10.10 "./update_BOOT_partition.sh"
 set +x
