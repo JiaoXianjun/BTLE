@@ -15,6 +15,7 @@ fi
 # ./devicetree_gen.sh
 
 set -x
+scp ../../BTLE-hw-img/fpga/btle_ll root@10.10.10.10:
 scp BOOT.BIN root@10.10.10.10:
 scp ../$HARDWARE/devicetree.dtb root@10.10.10.10:
 echo "Try to run remotely on board and reboot ..."
