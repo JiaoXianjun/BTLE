@@ -45,7 +45,8 @@ module btle_controller #
   input  wire bb_rst,
 
   // ===============Auxiliary Signals================
-  input  wire [7:0] gpio,
+  `KEEP_FOR_DBG input  wire [7:0] gpio,
+  `KEEP_FOR_DBG output wire [15:0] ll_reg_gpio,
 
   // ============================to host: UART HCI=========================
   input  wire uart_rx,
@@ -153,7 +154,7 @@ wire                                              tx_iq_valid_last;
 `KEEP_FOR_DBG wire [6:0]                                        rf_gain;
 
 // =================link layer and auxiliary==================
-wire [15:0] ll_reg_gpio;
+// `KEEP_FOR_DBG wire [15:0] ll_reg_gpio;
 
 wire slv_reg_rden;
 wire [4:0] axi_araddr_core;
