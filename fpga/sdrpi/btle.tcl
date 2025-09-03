@@ -258,59 +258,6 @@ if {[string equal [get_filesets -quiet constrs_1] ""]} {
 set obj [get_filesets constrs_1]
 
 # Add/Import constrs file and set constrs file properties
-set file "[file normalize "${origin_dir}/src/sdrpi_constr.xdc"]"
-set file_added [add_files -norecurse -fileset $obj [list $file]]
-set file "${origin_dir}/src/sdrpi_constr.xdc"
-set file [file normalize $file]
-set file_obj [get_files -of_objects [get_filesets constrs_1] [list "*$file"]]
-set_property -name "file_type" -value "XDC" -objects $file_obj
-set_property -name "is_enabled" -value "1" -objects $file_obj
-set_property -name "is_global_include" -value "0" -objects $file_obj
-set_property -name "library" -value "xil_defaultlib" -objects $file_obj
-set_property -name "path_mode" -value "RelativeFirst" -objects $file_obj
-set_property -name "processing_order" -value "NORMAL" -objects $file_obj
-set_property -name "scoped_to_cells" -value "" -objects $file_obj
-set_property -name "scoped_to_ref" -value "" -objects $file_obj
-set_property -name "used_in" -value "synthesis implementation" -objects $file_obj
-set_property -name "used_in_implementation" -value "1" -objects $file_obj
-set_property -name "used_in_synthesis" -value "1" -objects $file_obj
-
-# Add/Import constrs file and set constrs file properties
-set file "[file normalize "${origin_dir}/src/sdrpi_constr_lvds.xdc"]"
-set file_added [add_files -norecurse -fileset $obj [list $file]]
-set file "${origin_dir}/src/sdrpi_constr_lvds.xdc"
-set file [file normalize $file]
-set file_obj [get_files -of_objects [get_filesets constrs_1] [list "*$file"]]
-set_property -name "file_type" -value "XDC" -objects $file_obj
-set_property -name "is_enabled" -value "1" -objects $file_obj
-set_property -name "is_global_include" -value "0" -objects $file_obj
-set_property -name "library" -value "xil_defaultlib" -objects $file_obj
-set_property -name "path_mode" -value "RelativeFirst" -objects $file_obj
-set_property -name "processing_order" -value "NORMAL" -objects $file_obj
-set_property -name "scoped_to_cells" -value "" -objects $file_obj
-set_property -name "scoped_to_ref" -value "" -objects $file_obj
-set_property -name "used_in" -value "synthesis implementation" -objects $file_obj
-set_property -name "used_in_implementation" -value "1" -objects $file_obj
-set_property -name "used_in_synthesis" -value "1" -objects $file_obj
-
-# Add/Import constrs file and set constrs file properties
-set file "[file normalize "${origin_dir}/src/ccbob_constr.xdc"]"
-set file_added [add_files -norecurse -fileset $obj [list $file]]
-set file "${origin_dir}/src/ccbob_constr.xdc"
-set file [file normalize $file]
-set file_obj [get_files -of_objects [get_filesets constrs_1] [list "*$file"]]
-set_property -name "file_type" -value "XDC" -objects $file_obj
-set_property -name "is_enabled" -value "1" -objects $file_obj
-set_property -name "is_global_include" -value "0" -objects $file_obj
-set_property -name "library" -value "xil_defaultlib" -objects $file_obj
-set_property -name "path_mode" -value "RelativeFirst" -objects $file_obj
-set_property -name "processing_order" -value "NORMAL" -objects $file_obj
-set_property -name "scoped_to_cells" -value "" -objects $file_obj
-set_property -name "scoped_to_ref" -value "" -objects $file_obj
-set_property -name "used_in" -value "synthesis implementation" -objects $file_obj
-set_property -name "used_in_implementation" -value "1" -objects $file_obj
-set_property -name "used_in_synthesis" -value "1" -objects $file_obj
-
 set file "[file normalize "$origin_dir/src/system.xdc"]"
 set file_added [add_files -norecurse -fileset $obj $file]
 set file "./src/system.xdc"
