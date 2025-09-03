@@ -6,8 +6,7 @@
       "name": "system",
       "rev_ctrl_bd_flag": "RevCtrlBdOff",
       "synth_flow_mode": "None",
-      "tool_version": "2022.2",
-      "validated": "true"
+      "tool_version": "2022.2"
     },
     "design_tree": {
       "sys_ps7": "",
@@ -378,17 +377,7 @@
         "right": "0"
       },
       "otg_vbusoc": {
-        "direction": "I",
-        "parameters": {
-          "PortType": {
-            "value": "undef",
-            "value_src": "ip_prop"
-          },
-          "PortType.PROP_SRC": {
-            "value": "false",
-            "value_src": "ip_prop"
-          }
-        }
+        "direction": "I"
       },
       "enable": {
         "direction": "O"
@@ -2381,16 +2370,19 @@
             "value": "312.5"
           },
           "CLKOUT1_JITTER": {
-            "value": "397.320"
+            "value": "373.261"
           },
           "CLKOUT1_PHASE_ERROR": {
-            "value": "246.438"
+            "value": "201.345"
           },
           "CLKOUT1_REQUESTED_OUT_FREQ": {
             "value": "16"
           },
+          "CLKOUT1_REQUESTED_PHASE": {
+            "value": "180"
+          },
           "MMCM_CLKFBOUT_MULT_F": {
-            "value": "25.000"
+            "value": "31.250"
           },
           "MMCM_CLKIN1_PERIOD": {
             "value": "31.250"
@@ -2399,7 +2391,10 @@
             "value": "10.0"
           },
           "MMCM_CLKOUT0_DIVIDE_F": {
-            "value": "50.000"
+            "value": "62.500"
+          },
+          "MMCM_CLKOUT0_PHASE": {
+            "value": "180.000"
           },
           "PRIM_IN_FREQ": {
             "value": "32.000"
