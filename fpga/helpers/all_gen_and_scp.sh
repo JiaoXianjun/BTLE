@@ -5,7 +5,7 @@
 # // SPDX-License-Identifier: Apache-2.0 license
 
 if [ "$#" -lt 1 ]; then
-  HARDWARE="sdrpi"
+  HARDWARE="antsdr"
 else
   HARDWARE=$1
 fi

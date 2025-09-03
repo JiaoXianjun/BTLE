@@ -6,7 +6,7 @@
 
 set -x
 
-HARDWARES="sdrpi antsdr_e200"
+HARDWARES="sdrpi antsdr_e200 antsdr"
 
 for hw in $HARDWARES; do
     cp ../$hw/btle_$hw/system_top.xsa ../../BTLE-hw-img/fpga/$hw/system_top.xsa
