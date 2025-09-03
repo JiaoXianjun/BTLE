@@ -1,12 +1,8 @@
-//Copyright 1986-2018 Xilinx, Inc. All Rights Reserved.
-//--------------------------------------------------------------------------------
-//Tool Version: Vivado v.2018.3 (lin64) Build 2405991 Thu Dec  6 23:36:41 MST 2018
-//Date        : Mon Oct 10 11:02:00 2022
-//Host        : mp-dev running 64-bit Kylin V10 SP1
-//Command     : generate_target system_wrapper.bd
-//Design      : system_wrapper
-//Purpose     : IP block netlist
-//--------------------------------------------------------------------------------
+// ***************************************************************************
+// Xianjun jiao. putaoshu@msn.com
+// based on Analog Devices HDL reference design. add necessary modules/modifications.
+// ***************************************************************************
+
 `timescale 1 ps / 1 ps
 
 module system_wrapper
