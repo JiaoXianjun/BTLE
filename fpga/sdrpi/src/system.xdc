@@ -45,37 +45,174 @@ set_false_path -through [get_pins {i_system_wrapper/system_i/btle_controller_0/i
 
 set_false_path -through [get_pins {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_tx_i/btle_tx_sdpram_two_clk_i/read_data_reg[*]/D}]
 
+# ports connect to P1 in sdrpi board.
+
+#   // gpio_bd[0]  -> P1.gpio1
+#   // gpio_bd[1]  -> P1.gpio2
+#   // gpio_bd[2]  -> P1.gpio3
+#   // ......
+#   // gpio_bd[24] -> P1.gpio25
+#   // gpio_bd[25] -> P1.gpio26
+set_property -dict {PACKAGE_PIN G14 IOSTANDARD LVCMOS25} [get_ports {gpio_bd[0]}]
+set_property -dict {PACKAGE_PIN V10 IOSTANDARD LVCMOS25} [get_ports {gpio_bd[1]}]
+set_property -dict {PACKAGE_PIN W10 IOSTANDARD LVCMOS25} [get_ports {gpio_bd[2]}]
+set_property -dict {PACKAGE_PIN Y9 IOSTANDARD LVCMOS25} [get_ports {gpio_bd[3]}]
+set_property -dict {PACKAGE_PIN U9 IOSTANDARD LVCMOS25} [get_ports {gpio_bd[4]}]
+set_property -dict {PACKAGE_PIN V8 IOSTANDARD LVCMOS25} [get_ports {gpio_bd[5]}]
+set_property -dict {PACKAGE_PIN Y7 IOSTANDARD LVCMOS25} [get_ports {gpio_bd[6]}]
+set_property -dict {PACKAGE_PIN Y13 IOSTANDARD LVCMOS25} [get_ports {gpio_bd[7]}]
+set_property -dict {PACKAGE_PIN V6 IOSTANDARD LVCMOS25} [get_ports {gpio_bd[8]}]
+set_property -dict {PACKAGE_PIN Y12 IOSTANDARD LVCMOS25} [get_ports {gpio_bd[9]}]
+set_property -dict {PACKAGE_PIN W11 IOSTANDARD LVCMOS25} [get_ports {gpio_bd[10]}]
+set_property -dict {PACKAGE_PIN T9 IOSTANDARD LVCMOS25} [get_ports {gpio_bd[11]}]
+set_property -dict {PACKAGE_PIN W9 IOSTANDARD LVCMOS25} [get_ports {gpio_bd[12]}]
+set_property -dict {PACKAGE_PIN V7 IOSTANDARD LVCMOS25} [get_ports {gpio_bd[13]}]
+set_property -dict {PACKAGE_PIN U10 IOSTANDARD LVCMOS25} [get_ports {gpio_bd[14]}]
+set_property -dict {PACKAGE_PIN V11 IOSTANDARD LVCMOS25} [get_ports {gpio_bd[15]}]
+set_property -dict {PACKAGE_PIN Y8 IOSTANDARD LVCMOS25} [get_ports {gpio_bd[16]}]
+set_property -dict {PACKAGE_PIN Y6 IOSTANDARD LVCMOS25} [get_ports {gpio_bd[17]}]
+set_property -dict {PACKAGE_PIN U8 IOSTANDARD LVCMOS25} [get_ports {gpio_bd[18]}]
+set_property -dict {PACKAGE_PIN W6 IOSTANDARD LVCMOS25} [get_ports {gpio_bd[19]}]
+set_property -dict {PACKAGE_PIN U5 IOSTANDARD LVCMOS25} [get_ports {gpio_bd[20]}]
+set_property -dict {PACKAGE_PIN T5 IOSTANDARD LVCMOS25} [get_ports {gpio_bd[21]}]
+set_property -dict {PACKAGE_PIN Y11 IOSTANDARD LVCMOS25} [get_ports {gpio_bd[22]}]
+set_property -dict {PACKAGE_PIN U7 IOSTANDARD LVCMOS25} [get_ports {gpio_bd[23]}]
+set_property -dict {PACKAGE_PIN W8 IOSTANDARD LVCMOS25} [get_ports {gpio_bd[24]}]
+set_property -dict {PACKAGE_PIN V5 IOSTANDARD LVCMOS25} [get_ports {gpio_bd[25]}]
+
+## ad9361 
+set_property -dict {PACKAGE_PIN N20 IOSTANDARD LVDS_25 DIFF_TERM 1} [get_ports rx_clk_in_p]
+set_property -dict {PACKAGE_PIN P20 IOSTANDARD LVDS_25 DIFF_TERM 1} [get_ports rx_clk_in_n]
+
+set_property -dict {PACKAGE_PIN U18 IOSTANDARD LVDS_25 DIFF_TERM 1} [get_ports rx_frame_in_p]
+set_property -dict {PACKAGE_PIN U19 IOSTANDARD LVDS_25 DIFF_TERM 1} [get_ports rx_frame_in_n]
+
+set_property -dict {PACKAGE_PIN Y18 IOSTANDARD LVDS_25 DIFF_TERM 1} [get_ports {rx_data_in_p[0]}]
+set_property -dict {PACKAGE_PIN Y19 IOSTANDARD LVDS_25 DIFF_TERM 1} [get_ports {rx_data_in_n[0]}]
+
+set_property -dict {PACKAGE_PIN V20 IOSTANDARD LVDS_25 DIFF_TERM 1} [get_ports {rx_data_in_p[1]}]
+set_property -dict {PACKAGE_PIN W20 IOSTANDARD LVDS_25 DIFF_TERM 1} [get_ports {rx_data_in_n[1]}]
+
+set_property -dict {PACKAGE_PIN W18 IOSTANDARD LVDS_25 DIFF_TERM 1} [get_ports {rx_data_in_p[2]}]
+set_property -dict {PACKAGE_PIN W19 IOSTANDARD LVDS_25 DIFF_TERM 1} [get_ports {rx_data_in_n[2]}]
+
+set_property -dict {PACKAGE_PIN R16 IOSTANDARD LVDS_25 DIFF_TERM 1} [get_ports {rx_data_in_p[3]}]
+set_property -dict {PACKAGE_PIN R17 IOSTANDARD LVDS_25 DIFF_TERM 1} [get_ports {rx_data_in_n[3]}]
+
+set_property -dict {PACKAGE_PIN V17 IOSTANDARD LVDS_25 DIFF_TERM 1} [get_ports {rx_data_in_p[4]}]
+set_property -dict {PACKAGE_PIN V18 IOSTANDARD LVDS_25 DIFF_TERM 1} [get_ports {rx_data_in_n[4]}]
+
+set_property -dict {PACKAGE_PIN V16 IOSTANDARD LVDS_25 DIFF_TERM 1} [get_ports {rx_data_in_p[5]}]
+set_property -dict {PACKAGE_PIN W16 IOSTANDARD LVDS_25 DIFF_TERM 1} [get_ports {rx_data_in_n[5]}]
+
+set_property -dict {PACKAGE_PIN N18 IOSTANDARD LVDS_25} [get_ports tx_clk_out_p]
+set_property -dict {PACKAGE_PIN P19 IOSTANDARD LVDS_25} [get_ports tx_clk_out_n]
+
+set_property -dict {PACKAGE_PIN T16 IOSTANDARD LVDS_25} [get_ports tx_frame_out_p]
+set_property -dict {PACKAGE_PIN U17 IOSTANDARD LVDS_25} [get_ports tx_frame_out_n]
+
+set_property -dict {PACKAGE_PIN Y16 IOSTANDARD LVDS_25} [get_ports {tx_data_out_p[0]}]
+set_property -dict {PACKAGE_PIN Y17 IOSTANDARD LVDS_25} [get_ports {tx_data_out_n[0]}]
+
+set_property -dict {PACKAGE_PIN U14 IOSTANDARD LVDS_25} [get_ports {tx_data_out_p[1]}]
+set_property -dict {PACKAGE_PIN U15 IOSTANDARD LVDS_25} [get_ports {tx_data_out_n[1]}]
+
+set_property -dict {PACKAGE_PIN V15 IOSTANDARD LVDS_25} [get_ports {tx_data_out_p[2]}]
+set_property -dict {PACKAGE_PIN W15 IOSTANDARD LVDS_25} [get_ports {tx_data_out_n[2]}]
+
+set_property -dict {PACKAGE_PIN W14 IOSTANDARD LVDS_25} [get_ports {tx_data_out_p[3]}]
+set_property -dict {PACKAGE_PIN Y14 IOSTANDARD LVDS_25} [get_ports {tx_data_out_n[3]}]
+
+set_property -dict {PACKAGE_PIN V12 IOSTANDARD LVDS_25} [get_ports {tx_data_out_p[4]}]
+set_property -dict {PACKAGE_PIN W13 IOSTANDARD LVDS_25} [get_ports {tx_data_out_n[4]}]
+
+set_property -dict {PACKAGE_PIN T12 IOSTANDARD LVDS_25} [get_ports {tx_data_out_p[5]}]
+set_property -dict {PACKAGE_PIN U12 IOSTANDARD LVDS_25} [get_ports {tx_data_out_n[5]}]
+
+create_clock -period 8.000 -name rx_clk [get_ports rx_clk_in_p]
+
+## other constrains
+set_property -dict {PACKAGE_PIN T11 IOSTANDARD LVCMOS25} [get_ports {gpio_status[0]}]
+set_property -dict {PACKAGE_PIN T14 IOSTANDARD LVCMOS25} [get_ports {gpio_status[1]}]
+set_property -dict {PACKAGE_PIN T15 IOSTANDARD LVCMOS25} [get_ports {gpio_status[2]}]
+set_property -dict {PACKAGE_PIN T17 IOSTANDARD LVCMOS25} [get_ports {gpio_status[3]}]
+set_property -dict {PACKAGE_PIN T19 IOSTANDARD LVCMOS25} [get_ports {gpio_status[4]}]
+set_property -dict {PACKAGE_PIN T20 IOSTANDARD LVCMOS25} [get_ports {gpio_status[5]}]
+set_property -dict {PACKAGE_PIN U13 IOSTANDARD LVCMOS25} [get_ports {gpio_status[6]}]
+set_property -dict {PACKAGE_PIN V13 IOSTANDARD LVCMOS25} [get_ports {gpio_status[7]}]
+
+set_property -dict {PACKAGE_PIN T10 IOSTANDARD LVCMOS25} [get_ports {gpio_ctl[0]}]
+set_property -dict {PACKAGE_PIN J14 IOSTANDARD LVCMOS25} [get_ports {gpio_ctl[1]}]
+set_property -dict {PACKAGE_PIN N15 IOSTANDARD LVCMOS25} [get_ports {gpio_ctl[2]}]
+set_property -dict {PACKAGE_PIN N16 IOSTANDARD LVCMOS25} [get_ports {gpio_ctl[3]}]
 
 
+set_property -dict {PACKAGE_PIN P16 IOSTANDARD LVCMOS25} [get_ports gpio_en_agc]
+set_property -dict {PACKAGE_PIN U20 IOSTANDARD LVCMOS25} [get_ports gpio_sync]
+set_property -dict {PACKAGE_PIN N17 IOSTANDARD LVCMOS25} [get_ports gpio_resetb]
+set_property -dict {PACKAGE_PIN R18 IOSTANDARD LVCMOS25} [get_ports enable]
+set_property -dict {PACKAGE_PIN P14 IOSTANDARD LVCMOS25} [get_ports txnrx]
 
+set_property PACKAGE_PIN P18 [get_ports spi_csn]
+set_property IOSTANDARD LVCMOS25 [get_ports spi_csn]
+set_property PULLUP true [get_ports spi_csn]
+set_property -dict {PACKAGE_PIN R14 IOSTANDARD LVCMOS25} [get_ports spi_clk]
+set_property -dict {PACKAGE_PIN P15 IOSTANDARD LVCMOS25} [get_ports spi_mosi]
+set_property -dict {PACKAGE_PIN R19 IOSTANDARD LVCMOS25} [get_ports spi_miso]
 
+set_property -dict {PACKAGE_PIN B20 IOSTANDARD LVCMOS25} [get_ports tx1_en]
+set_property -dict {PACKAGE_PIN C20 IOSTANDARD LVCMOS25} [get_ports tx2_en]
+set_property -dict {PACKAGE_PIN E19 IOSTANDARD LVCMOS25} [get_ports sel_clk_src]
 
+# iic
+set_property PACKAGE_PIN M14 [get_ports iic_scl]
+set_property IOSTANDARD LVCMOS25 [get_ports iic_scl]
+set_property PULLUP true [get_ports iic_scl]
+set_property PACKAGE_PIN M15 [get_ports iic_sda]
+set_property IOSTANDARD LVCMOS25 [get_ports iic_sda]
+set_property PULLUP true [get_ports iic_sda]
 
+set_property -dict {PACKAGE_PIN D20 IOSTANDARD LVCMOS25} [get_ports phy_tx_en]
+set_property -dict {PACKAGE_PIN E18 IOSTANDARD LVCMOS25} [get_ports phy_tx_err]
+set_property -dict {PACKAGE_PIN F17 IOSTANDARD LVCMOS25} [get_ports phy_reset_n]
+set_property -dict {PACKAGE_PIN M19 IOSTANDARD LVCMOS25} [get_ports {phy_tx_dout[0]}]
+set_property -dict {PACKAGE_PIN M20 IOSTANDARD LVCMOS25} [get_ports {phy_tx_dout[1]}]
+set_property -dict {PACKAGE_PIN M17 IOSTANDARD LVCMOS25} [get_ports {phy_tx_dout[2]}]
+set_property -dict {PACKAGE_PIN M18 IOSTANDARD LVCMOS25} [get_ports {phy_tx_dout[3]}]
+set_property -dict {PACKAGE_PIN L19 IOSTANDARD LVCMOS25} [get_ports {phy_tx_dout[4]}]
+set_property -dict {PACKAGE_PIN L20 IOSTANDARD LVCMOS25} [get_ports {phy_tx_dout[5]}]
+set_property -dict {PACKAGE_PIN K19 IOSTANDARD LVCMOS25} [get_ports {phy_tx_dout[6]}]
+set_property -dict {PACKAGE_PIN J19 IOSTANDARD LVCMOS25} [get_ports {phy_tx_dout[7]}]
+set_property -dict {PACKAGE_PIN L16 IOSTANDARD LVCMOS25} [get_ports phy_tx_clk]
 
+set_property -dict {PACKAGE_PIN L17 IOSTANDARD LVCMOS25} [get_ports phy_rx_err]
+set_property -dict {PACKAGE_PIN K17 IOSTANDARD LVCMOS25} [get_ports phy_rx_clk]
 
+create_clock -period 8.000 -name phy_rx_clk [get_ports phy_rx_clk]
 
+set_property -dict {PACKAGE_PIN H17 IOSTANDARD LVCMOS25} [get_ports {phy_rx_din[0]}]
+set_property -dict {PACKAGE_PIN G15 IOSTANDARD LVCMOS25} [get_ports {phy_rx_din[1]}]
+set_property -dict {PACKAGE_PIN H18 IOSTANDARD LVCMOS25} [get_ports {phy_rx_din[2]}]
+set_property -dict {PACKAGE_PIN F19 IOSTANDARD LVCMOS25} [get_ports {phy_rx_din[3]}]
+set_property -dict {PACKAGE_PIN F20 IOSTANDARD LVCMOS25} [get_ports {phy_rx_din[4]}]
+set_property -dict {PACKAGE_PIN G17 IOSTANDARD LVCMOS25} [get_ports {phy_rx_din[5]}]
+set_property -dict {PACKAGE_PIN G18 IOSTANDARD LVCMOS25} [get_ports {phy_rx_din[6]}]
+set_property -dict {PACKAGE_PIN J20 IOSTANDARD LVCMOS25} [get_ports {phy_rx_din[7]}]
 
+set_property -dict {PACKAGE_PIN H20 IOSTANDARD LVCMOS25} [get_ports phy_rx_dv]
+set_property -dict {PACKAGE_PIN H15 IOSTANDARD LVCMOS25} [get_ports phy_gtx_clk]
 
+set_property PACKAGE_PIN G19 [get_ports mdio1_mdc]
+set_property IOSTANDARD LVCMOS25 [get_ports mdio1_mdc]
+set_property PULLUP true [get_ports mdio1_mdc]
+set_property PACKAGE_PIN G20 [get_ports mdio1_io]
+set_property IOSTANDARD LVCMOS25 [get_ports mdio1_io]
+set_property PULLUP true [get_ports mdio1_io]
 
+set_property -dict {PACKAGE_PIN A20 IOSTANDARD LVCMOS25} [get_ports rx1_led]
+set_property -dict {PACKAGE_PIN B19 IOSTANDARD LVCMOS25} [get_ports rx2_led]
 
-
-connect_debug_port dbg_hub/clk [get_nets u_ila_0_clk_out1]
-
-
-
-
-
-connect_debug_port u_ila_0/probe0 [get_nets [list {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/timestamp_rx_hit_flag[0]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/timestamp_rx_hit_flag[1]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/timestamp_rx_hit_flag[2]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/timestamp_rx_hit_flag[3]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/timestamp_rx_hit_flag[4]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/timestamp_rx_hit_flag[5]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/timestamp_rx_hit_flag[6]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/timestamp_rx_hit_flag[7]}]]
-connect_debug_port u_ila_0/probe1 [get_nets [list {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/timestamp[0]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/timestamp[1]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/timestamp[2]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/timestamp[3]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/timestamp[4]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/timestamp[5]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/timestamp[6]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/timestamp[7]}]]
-connect_debug_port u_ila_0/probe2 [get_nets [list {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/event1_counter[0]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/event1_counter[1]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/event1_counter[2]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/event1_counter[3]}]]
-connect_debug_port u_ila_0/probe3 [get_nets [list {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/event0_counter[0]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/event0_counter[1]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/event0_counter[2]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/event0_counter[3]}]]
-connect_debug_port u_ila_1/probe0 [get_nets [list {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/timestamp_rx_hit_flag_axi[0]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/timestamp_rx_hit_flag_axi[1]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/timestamp_rx_hit_flag_axi[2]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/timestamp_rx_hit_flag_axi[3]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/timestamp_rx_hit_flag_axi[4]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/timestamp_rx_hit_flag_axi[5]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/timestamp_rx_hit_flag_axi[6]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/timestamp_rx_hit_flag_axi[7]}]]
-connect_debug_port u_ila_1/probe1 [get_nets [list {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_payload_length_axi[0]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_payload_length_axi[1]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_payload_length_axi[2]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_payload_length_axi[3]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_payload_length_axi[4]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_payload_length_axi[5]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_payload_length_axi[6]}]]
-connect_debug_port u_ila_1/probe2 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_crc_ok_axi]]
-connect_debug_port u_ila_1/probe3 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_hit_flag_axi]]
-
-
-
+# # end
 
 create_debug_core u_ila_0 ila
 set_property ALL_PROBE_SAME_MU true [get_debug_cores u_ila_0]
@@ -101,40 +238,52 @@ set_property port_width 7 [get_debug_ports u_ila_0/probe2]
 connect_debug_port u_ila_0/probe2 [get_nets [list {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_payload_length_axi[0]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_payload_length_axi[1]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_payload_length_axi[2]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_payload_length_axi[3]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_payload_length_axi[4]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_payload_length_axi[5]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_payload_length_axi[6]}]]
 create_debug_port u_ila_0 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_0/probe3]
-set_property port_width 1 [get_debug_ports u_ila_0/probe3]
-connect_debug_port u_ila_0/probe3 [get_nets [list {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/reg_gpio_axi[0]}]]
+set_property port_width 6 [get_debug_ports u_ila_0/probe3]
+connect_debug_port u_ila_0/probe3 [get_nets [list {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_channel_number_axi[0]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_channel_number_axi[1]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_channel_number_axi[2]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_channel_number_axi[3]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_channel_number_axi[4]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_channel_number_axi[5]}]]
 create_debug_port u_ila_0 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_0/probe4]
-set_property port_width 4 [get_debug_ports u_ila_0/probe4]
-connect_debug_port u_ila_0/probe4 [get_nets [list {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/event1_counter_axi[0]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/event1_counter_axi[1]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/event1_counter_axi[2]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/event1_counter_axi[3]}]]
+set_property port_width 2 [get_debug_ports u_ila_0/probe4]
+connect_debug_port u_ila_0/probe4 [get_nets [list {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/reg_gpio_axi[0]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/reg_gpio_axi[15]}]]
 create_debug_port u_ila_0 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_0/probe5]
-set_property port_width 5 [get_debug_ports u_ila_0/probe5]
-connect_debug_port u_ila_0/probe5 [get_nets [list {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/axi_awaddr_core[0]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/axi_awaddr_core[1]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/axi_awaddr_core[2]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/axi_awaddr_core[3]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/axi_awaddr_core[4]}]]
+set_property port_width 4 [get_debug_ports u_ila_0/probe5]
+connect_debug_port u_ila_0/probe5 [get_nets [list {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/event1_counter_axi[0]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/event1_counter_axi[1]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/event1_counter_axi[2]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/event1_counter_axi[3]}]]
 create_debug_port u_ila_0 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_0/probe6]
 set_property port_width 5 [get_debug_ports u_ila_0/probe6]
-connect_debug_port u_ila_0/probe6 [get_nets [list {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/axi_araddr_core[0]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/axi_araddr_core[1]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/axi_araddr_core[2]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/axi_araddr_core[3]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/axi_araddr_core[4]}]]
+connect_debug_port u_ila_0/probe6 [get_nets [list {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/axi_awaddr_core[0]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/axi_awaddr_core[1]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/axi_awaddr_core[2]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/axi_awaddr_core[3]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/axi_awaddr_core[4]}]]
 create_debug_port u_ila_0 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_0/probe7]
-set_property port_width 1 [get_debug_ports u_ila_0/probe7]
-connect_debug_port u_ila_0/probe7 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_crc_ok_axi]]
+set_property port_width 5 [get_debug_ports u_ila_0/probe7]
+connect_debug_port u_ila_0/probe7 [get_nets [list {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/axi_araddr_core[0]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/axi_araddr_core[1]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/axi_araddr_core[2]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/axi_araddr_core[3]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/axi_araddr_core[4]}]]
 create_debug_port u_ila_0 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_0/probe8]
 set_property port_width 1 [get_debug_ports u_ila_0/probe8]
-connect_debug_port u_ila_0/probe8 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_hit_flag_axi]]
+connect_debug_port u_ila_0/probe8 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_crc_ok_axi]]
 create_debug_port u_ila_0 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_0/probe9]
 set_property port_width 1 [get_debug_ports u_ila_0/probe9]
-connect_debug_port u_ila_0/probe9 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/slv_reg_rden]]
+connect_debug_port u_ila_0/probe9 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_crc_ok_capture_by_decode_end_axi]]
 create_debug_port u_ila_0 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_0/probe10]
 set_property port_width 1 [get_debug_ports u_ila_0/probe10]
-connect_debug_port u_ila_0/probe10 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/slv_reg_wren]]
+connect_debug_port u_ila_0/probe10 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_decode_end_axi]]
 create_debug_port u_ila_0 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_0/probe11]
 set_property port_width 1 [get_debug_ports u_ila_0/probe11]
-connect_debug_port u_ila_0/probe11 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_crc_ok_capture_by_decode_end_axi]]
+connect_debug_port u_ila_0/probe11 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_decode_run_axi]]
+create_debug_port u_ila_0 probe
+set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_0/probe12]
+set_property port_width 1 [get_debug_ports u_ila_0/probe12]
+connect_debug_port u_ila_0/probe12 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_hit_flag_axi]]
+create_debug_port u_ila_0 probe
+set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_0/probe13]
+set_property port_width 1 [get_debug_ports u_ila_0/probe13]
+connect_debug_port u_ila_0/probe13 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/slv_reg_rden]]
+create_debug_port u_ila_0 probe
+set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_0/probe14]
+set_property port_width 1 [get_debug_ports u_ila_0/probe14]
+connect_debug_port u_ila_0/probe14 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/slv_reg_wren]]
 create_debug_core u_ila_1 ila
 set_property ALL_PROBE_SAME_MU true [get_debug_cores u_ila_1]
 set_property ALL_PROBE_SAME_MU_CNT 1 [get_debug_cores u_ila_1]
@@ -147,108 +296,116 @@ set_property C_TRIGOUT_EN false [get_debug_cores u_ila_1]
 set_property port_width 1 [get_debug_ports u_ila_1/clk]
 connect_debug_port u_ila_1/clk [get_nets [list i_system_wrapper/system_i/clk_wiz_0/inst/clk_out1]]
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe0]
-set_property port_width 7 [get_debug_ports u_ila_1/probe0]
-connect_debug_port u_ila_1/probe0 [get_nets [list {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/rx_payload_length[0]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/rx_payload_length[1]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/rx_payload_length[2]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/rx_payload_length[3]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/rx_payload_length[4]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/rx_payload_length[5]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/rx_payload_length[6]}]]
+set_property port_width 16 [get_debug_ports u_ila_1/probe0]
+connect_debug_port u_ila_1/probe0 [get_nets [list {i_system_wrapper/system_i/btle_controller_0/inst/rx_q_signal[0]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_q_signal[1]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_q_signal[2]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_q_signal[3]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_q_signal[4]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_q_signal[5]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_q_signal[6]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_q_signal[7]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_q_signal[8]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_q_signal[9]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_q_signal[10]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_q_signal[11]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_q_signal[12]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_q_signal[13]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_q_signal[14]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_q_signal[15]}]]
 create_debug_port u_ila_1 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe1]
-set_property port_width 3 [get_debug_ports u_ila_1/probe1]
-connect_debug_port u_ila_1/probe1 [get_nets [list {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/rx_best_phase[0]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/rx_best_phase[1]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/rx_best_phase[2]}]]
+set_property port_width 16 [get_debug_ports u_ila_1/probe1]
+connect_debug_port u_ila_1/probe1 [get_nets [list {i_system_wrapper/system_i/btle_controller_0/inst/rx_i_signal[0]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_i_signal[1]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_i_signal[2]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_i_signal[3]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_i_signal[4]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_i_signal[5]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_i_signal[6]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_i_signal[7]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_i_signal[8]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_i_signal[9]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_i_signal[10]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_i_signal[11]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_i_signal[12]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_i_signal[13]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_i_signal[14]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_i_signal[15]}]]
 create_debug_port u_ila_1 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe2]
-set_property port_width 8 [get_debug_ports u_ila_1/probe2]
-connect_debug_port u_ila_1/probe2 [get_nets [list {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[3][0]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[3][1]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[3][2]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[3][3]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[3][4]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[3][5]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[3][6]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[3][7]}]]
+set_property port_width 7 [get_debug_ports u_ila_1/probe2]
+connect_debug_port u_ila_1/probe2 [get_nets [list {i_system_wrapper/system_i/btle_controller_0/inst/rf_gain[0]} {i_system_wrapper/system_i/btle_controller_0/inst/rf_gain[1]} {i_system_wrapper/system_i/btle_controller_0/inst/rf_gain[2]} {i_system_wrapper/system_i/btle_controller_0/inst/rf_gain[3]} {i_system_wrapper/system_i/btle_controller_0/inst/rf_gain[4]} {i_system_wrapper/system_i/btle_controller_0/inst/rf_gain[5]} {i_system_wrapper/system_i/btle_controller_0/inst/rf_gain[6]}]]
 create_debug_port u_ila_1 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe3]
-set_property port_width 8 [get_debug_ports u_ila_1/probe3]
-connect_debug_port u_ila_1/probe3 [get_nets [list {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[2][0]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[2][1]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[2][2]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[2][3]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[2][4]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[2][5]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[2][6]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[2][7]}]]
+set_property port_width 7 [get_debug_ports u_ila_1/probe3]
+connect_debug_port u_ila_1/probe3 [get_nets [list {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/rx_payload_length[0]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/rx_payload_length[1]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/rx_payload_length[2]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/rx_payload_length[3]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/rx_payload_length[4]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/rx_payload_length[5]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/rx_payload_length[6]}]]
 create_debug_port u_ila_1 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe4]
-set_property port_width 8 [get_debug_ports u_ila_1/probe4]
-connect_debug_port u_ila_1/probe4 [get_nets [list {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[1][0]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[1][1]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[1][2]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[1][3]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[1][4]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[1][5]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[1][6]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[1][7]}]]
+set_property port_width 3 [get_debug_ports u_ila_1/probe4]
+connect_debug_port u_ila_1/probe4 [get_nets [list {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/rx_best_phase[0]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/rx_best_phase[1]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/rx_best_phase[2]}]]
 create_debug_port u_ila_1 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe5]
 set_property port_width 8 [get_debug_ports u_ila_1/probe5]
-connect_debug_port u_ila_1/probe5 [get_nets [list {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[0][0]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[0][1]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[0][2]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[0][3]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[0][4]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[0][5]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[0][6]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[0][7]}]]
+connect_debug_port u_ila_1/probe5 [get_nets [list {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[3][0]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[3][1]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[3][2]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[3][3]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[3][4]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[3][5]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[3][6]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[3][7]}]]
 create_debug_port u_ila_1 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe6]
-set_property port_width 1 [get_debug_ports u_ila_1/probe6]
-connect_debug_port u_ila_1/probe6 [get_nets [list {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/reg_gpio[0]}]]
+set_property port_width 8 [get_debug_ports u_ila_1/probe6]
+connect_debug_port u_ila_1/probe6 [get_nets [list {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[2][0]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[2][1]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[2][2]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[2][3]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[2][4]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[2][5]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[2][6]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[2][7]}]]
 create_debug_port u_ila_1 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe7]
-set_property port_width 4 [get_debug_ports u_ila_1/probe7]
-connect_debug_port u_ila_1/probe7 [get_nets [list {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/event1_counter[0]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/event1_counter[1]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/event1_counter[2]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/event1_counter[3]}]]
+set_property port_width 8 [get_debug_ports u_ila_1/probe7]
+connect_debug_port u_ila_1/probe7 [get_nets [list {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[1][0]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[1][1]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[1][2]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[1][3]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[1][4]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[1][5]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[1][6]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[1][7]}]]
 create_debug_port u_ila_1 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe8]
-set_property port_width 16 [get_debug_ports u_ila_1/probe8]
-connect_debug_port u_ila_1/probe8 [get_nets [list {i_system_wrapper/system_i/btle_controller_0/inst/rx_q_signal[0]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_q_signal[1]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_q_signal[2]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_q_signal[3]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_q_signal[4]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_q_signal[5]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_q_signal[6]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_q_signal[7]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_q_signal[8]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_q_signal[9]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_q_signal[10]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_q_signal[11]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_q_signal[12]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_q_signal[13]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_q_signal[14]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_q_signal[15]}]]
+set_property port_width 8 [get_debug_ports u_ila_1/probe8]
+connect_debug_port u_ila_1/probe8 [get_nets [list {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[0][0]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[0][1]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[0][2]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[0][3]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[0][4]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[0][5]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[0][6]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_internal[0][7]}]]
 create_debug_port u_ila_1 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe9]
-set_property port_width 16 [get_debug_ports u_ila_1/probe9]
-connect_debug_port u_ila_1/probe9 [get_nets [list {i_system_wrapper/system_i/btle_controller_0/inst/rx_i_signal[0]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_i_signal[1]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_i_signal[2]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_i_signal[3]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_i_signal[4]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_i_signal[5]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_i_signal[6]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_i_signal[7]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_i_signal[8]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_i_signal[9]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_i_signal[10]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_i_signal[11]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_i_signal[12]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_i_signal[13]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_i_signal[14]} {i_system_wrapper/system_i/btle_controller_0/inst/rx_i_signal[15]}]]
+set_property port_width 6 [get_debug_ports u_ila_1/probe9]
+connect_debug_port u_ila_1/probe9 [get_nets [list {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_channel_number[0]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_channel_number[1]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_channel_number[2]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_channel_number[3]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_channel_number[4]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_channel_number[5]}]]
 create_debug_port u_ila_1 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe10]
-set_property port_width 7 [get_debug_ports u_ila_1/probe10]
-connect_debug_port u_ila_1/probe10 [get_nets [list {i_system_wrapper/system_i/btle_controller_0/inst/rf_gain[0]} {i_system_wrapper/system_i/btle_controller_0/inst/rf_gain[1]} {i_system_wrapper/system_i/btle_controller_0/inst/rf_gain[2]} {i_system_wrapper/system_i/btle_controller_0/inst/rf_gain[3]} {i_system_wrapper/system_i/btle_controller_0/inst/rf_gain[4]} {i_system_wrapper/system_i/btle_controller_0/inst/rf_gain[5]} {i_system_wrapper/system_i/btle_controller_0/inst/rf_gain[6]}]]
+set_property port_width 2 [get_debug_ports u_ila_1/probe10]
+connect_debug_port u_ila_1/probe10 [get_nets [list {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/reg_gpio[0]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/reg_gpio[15]}]]
 create_debug_port u_ila_1 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe11]
-set_property port_width 1 [get_debug_ports u_ila_1/probe11]
-connect_debug_port u_ila_1/probe11 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/agc_lock_state]]
+set_property port_width 4 [get_debug_ports u_ila_1/probe11]
+connect_debug_port u_ila_1/probe11 [get_nets [list {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/event1_counter[0]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/event1_counter[1]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/event1_counter[2]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/event1_counter[3]}]]
 create_debug_port u_ila_1 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe12]
 set_property port_width 1 [get_debug_ports u_ila_1/probe12]
-connect_debug_port u_ila_1/probe12 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/decode_end_all]]
+connect_debug_port u_ila_1/probe12 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/agc_lock_state]]
 create_debug_port u_ila_1 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe13]
 set_property port_width 1 [get_debug_ports u_ila_1/probe13]
-connect_debug_port u_ila_1/probe13 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/decode_end_early]]
+connect_debug_port u_ila_1/probe13 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/decode_end_all]]
 create_debug_port u_ila_1 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe14]
 set_property port_width 1 [get_debug_ports u_ila_1/probe14]
-connect_debug_port u_ila_1/probe14 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/decode_end_state]]
+connect_debug_port u_ila_1/probe14 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/decode_end_early]]
 create_debug_port u_ila_1 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe15]
 set_property port_width 1 [get_debug_ports u_ila_1/probe15]
-connect_debug_port u_ila_1/probe15 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/decode_restart]]
+connect_debug_port u_ila_1/probe15 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/decode_end_state]]
 create_debug_port u_ila_1 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe16]
 set_property port_width 1 [get_debug_ports u_ila_1/probe16]
-connect_debug_port u_ila_1/probe16 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_valid_0]]
+connect_debug_port u_ila_1/probe16 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/decode_restart]]
 create_debug_port u_ila_1 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe17]
 set_property port_width 1 [get_debug_ports u_ila_1/probe17]
-connect_debug_port u_ila_1/probe17 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_valid_1]]
+connect_debug_port u_ila_1/probe17 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/event_counter_level_decode_run_i/level_signal_delay]]
 create_debug_port u_ila_1 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe18]
 set_property port_width 1 [get_debug_ports u_ila_1/probe18]
-connect_debug_port u_ila_1/probe18 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_valid_2]]
+connect_debug_port u_ila_1/probe18 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_valid_0]]
 create_debug_port u_ila_1 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe19]
 set_property port_width 1 [get_debug_ports u_ila_1/probe19]
-connect_debug_port u_ila_1/probe19 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_valid_3]]
+connect_debug_port u_ila_1/probe19 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_valid_1]]
 create_debug_port u_ila_1 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe20]
 set_property port_width 1 [get_debug_ports u_ila_1/probe20]
-connect_debug_port u_ila_1/probe20 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/rx_crc_ok]]
+connect_debug_port u_ila_1/probe20 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_valid_2]]
 create_debug_port u_ila_1 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe21]
 set_property port_width 1 [get_debug_ports u_ila_1/probe21]
-connect_debug_port u_ila_1/probe21 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/rx_decode_end]]
+connect_debug_port u_ila_1/probe21 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_valid_3]]
 create_debug_port u_ila_1 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe22]
 set_property port_width 1 [get_debug_ports u_ila_1/probe22]
-connect_debug_port u_ila_1/probe22 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/rx_decode_run]]
+connect_debug_port u_ila_1/probe22 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/rx_crc_ok]]
 create_debug_port u_ila_1 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe23]
 set_property port_width 1 [get_debug_ports u_ila_1/probe23]
-connect_debug_port u_ila_1/probe23 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/rx_hit_flag]]
+connect_debug_port u_ila_1/probe23 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_crc_ok_capture_by_decode_end]]
 create_debug_port u_ila_1 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe24]
 set_property port_width 1 [get_debug_ports u_ila_1/probe24]
-connect_debug_port u_ila_1/probe24 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/rx_iq_valid]]
+connect_debug_port u_ila_1/probe24 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/rx_decode_end]]
 create_debug_port u_ila_1 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe25]
 set_property port_width 1 [get_debug_ports u_ila_1/probe25]
-connect_debug_port u_ila_1/probe25 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_crc_ok_capture_by_decode_end]]
+connect_debug_port u_ila_1/probe25 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/rx_decode_run]]
+create_debug_port u_ila_1 probe
+set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe26]
+set_property port_width 1 [get_debug_ports u_ila_1/probe26]
+connect_debug_port u_ila_1/probe26 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/rx_hit_flag]]
+create_debug_port u_ila_1 probe
+set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe27]
+set_property port_width 1 [get_debug_ports u_ila_1/probe27]
+connect_debug_port u_ila_1/probe27 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/rx_iq_valid]]
 set_property C_CLK_INPUT_FREQ_HZ 300000000 [get_debug_cores dbg_hub]
 set_property C_ENABLE_CLK_DIVIDER false [get_debug_cores dbg_hub]
 set_property C_USER_SCAN_CHAIN 1 [get_debug_cores dbg_hub]
