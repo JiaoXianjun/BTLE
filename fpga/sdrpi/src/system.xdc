@@ -80,7 +80,7 @@ set_property -dict {PACKAGE_PIN U7 IOSTANDARD LVCMOS25} [get_ports {gpio_bd[23]}
 set_property -dict {PACKAGE_PIN W8 IOSTANDARD LVCMOS25} [get_ports {gpio_bd[24]}]
 set_property -dict {PACKAGE_PIN V5 IOSTANDARD LVCMOS25} [get_ports {gpio_bd[25]}]
 
-## ad9361 
+## ad9361
 set_property -dict {PACKAGE_PIN N20 IOSTANDARD LVDS_25 DIFF_TERM 1} [get_ports rx_clk_in_p]
 set_property -dict {PACKAGE_PIN P20 IOSTANDARD LVDS_25 DIFF_TERM 1} [get_ports rx_clk_in_n]
 
@@ -214,6 +214,7 @@ set_property -dict {PACKAGE_PIN B19 IOSTANDARD LVCMOS25} [get_ports rx2_led]
 
 # # end
 
+
 create_debug_core u_ila_0 ila
 set_property ALL_PROBE_SAME_MU true [get_debug_cores u_ila_0]
 set_property ALL_PROBE_SAME_MU_CNT 1 [get_debug_cores u_ila_0]
@@ -259,31 +260,43 @@ connect_debug_port u_ila_0/probe7 [get_nets [list {i_system_wrapper/system_i/btl
 create_debug_port u_ila_0 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_0/probe8]
 set_property port_width 1 [get_debug_ports u_ila_0/probe8]
-connect_debug_port u_ila_0/probe8 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_crc_ok_axi]]
+connect_debug_port u_ila_0/probe8 [get_nets [list {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/clk_cross_by_xpm_fifo_async_s_axi_to_bb_i/write_data_delay[206]}]]
 create_debug_port u_ila_0 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_0/probe9]
-set_property port_width 1 [get_debug_ports u_ila_0/probe9]
-connect_debug_port u_ila_0/probe9 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_crc_ok_capture_by_decode_end_axi]]
+set_property port_width 4 [get_debug_ports u_ila_0/probe9]
+connect_debug_port u_ila_0/probe9 [get_nets [list {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/clk_cross_by_xpm_fifo_async_s_axi_to_bb_i/wr_data_count[0]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/clk_cross_by_xpm_fifo_async_s_axi_to_bb_i/wr_data_count[1]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/clk_cross_by_xpm_fifo_async_s_axi_to_bb_i/wr_data_count[2]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/clk_cross_by_xpm_fifo_async_s_axi_to_bb_i/wr_data_count[3]}]]
 create_debug_port u_ila_0 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_0/probe10]
 set_property port_width 1 [get_debug_ports u_ila_0/probe10]
-connect_debug_port u_ila_0/probe10 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_decode_end_axi]]
+connect_debug_port u_ila_0/probe10 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_crc_ok_axi]]
 create_debug_port u_ila_0 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_0/probe11]
 set_property port_width 1 [get_debug_ports u_ila_0/probe11]
-connect_debug_port u_ila_0/probe11 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_decode_run_axi]]
+connect_debug_port u_ila_0/probe11 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_crc_ok_capture_by_decode_end_axi]]
 create_debug_port u_ila_0 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_0/probe12]
 set_property port_width 1 [get_debug_ports u_ila_0/probe12]
-connect_debug_port u_ila_0/probe12 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_hit_flag_axi]]
+connect_debug_port u_ila_0/probe12 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_decode_end_axi]]
 create_debug_port u_ila_0 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_0/probe13]
 set_property port_width 1 [get_debug_ports u_ila_0/probe13]
-connect_debug_port u_ila_0/probe13 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/slv_reg_rden]]
+connect_debug_port u_ila_0/probe13 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_decode_run_axi]]
 create_debug_port u_ila_0 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_0/probe14]
 set_property port_width 1 [get_debug_ports u_ila_0/probe14]
-connect_debug_port u_ila_0/probe14 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/slv_reg_wren]]
+connect_debug_port u_ila_0/probe14 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_hit_flag_axi]]
+create_debug_port u_ila_0 probe
+set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_0/probe15]
+set_property port_width 1 [get_debug_ports u_ila_0/probe15]
+connect_debug_port u_ila_0/probe15 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/slv_reg_rden]]
+create_debug_port u_ila_0 probe
+set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_0/probe16]
+set_property port_width 1 [get_debug_ports u_ila_0/probe16]
+connect_debug_port u_ila_0/probe16 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/slv_reg_wren]]
+create_debug_port u_ila_0 probe
+set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_0/probe17]
+set_property port_width 1 [get_debug_ports u_ila_0/probe17]
+connect_debug_port u_ila_0/probe17 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/clk_cross_by_xpm_fifo_async_s_axi_to_bb_i/wr_en]]
 create_debug_core u_ila_1 ila
 set_property ALL_PROBE_SAME_MU true [get_debug_cores u_ila_1]
 set_property ALL_PROBE_SAME_MU_CNT 1 [get_debug_cores u_ila_1]
@@ -345,67 +358,75 @@ connect_debug_port u_ila_1/probe11 [get_nets [list {i_system_wrapper/system_i/bt
 create_debug_port u_ila_1 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe12]
 set_property port_width 1 [get_debug_ports u_ila_1/probe12]
-connect_debug_port u_ila_1/probe12 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/agc_lock_state]]
+connect_debug_port u_ila_1/probe12 [get_nets [list {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/clk_cross_by_xpm_fifo_async_s_axi_to_bb_i/read_data[206]}]]
 create_debug_port u_ila_1 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe13]
-set_property port_width 1 [get_debug_ports u_ila_1/probe13]
-connect_debug_port u_ila_1/probe13 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/decode_end_all]]
+set_property port_width 4 [get_debug_ports u_ila_1/probe13]
+connect_debug_port u_ila_1/probe13 [get_nets [list {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/clk_cross_by_xpm_fifo_async_s_axi_to_bb_i/rd_data_count[0]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/clk_cross_by_xpm_fifo_async_s_axi_to_bb_i/rd_data_count[1]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/clk_cross_by_xpm_fifo_async_s_axi_to_bb_i/rd_data_count[2]} {i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/clk_cross_by_xpm_fifo_async_s_axi_to_bb_i/rd_data_count[3]}]]
 create_debug_port u_ila_1 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe14]
 set_property port_width 1 [get_debug_ports u_ila_1/probe14]
-connect_debug_port u_ila_1/probe14 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/decode_end_early]]
+connect_debug_port u_ila_1/probe14 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/agc_lock_state]]
 create_debug_port u_ila_1 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe15]
 set_property port_width 1 [get_debug_ports u_ila_1/probe15]
-connect_debug_port u_ila_1/probe15 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/decode_end_state]]
+connect_debug_port u_ila_1/probe15 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/decode_end_all]]
 create_debug_port u_ila_1 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe16]
 set_property port_width 1 [get_debug_ports u_ila_1/probe16]
-connect_debug_port u_ila_1/probe16 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/decode_restart]]
+connect_debug_port u_ila_1/probe16 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/decode_end_early]]
 create_debug_port u_ila_1 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe17]
 set_property port_width 1 [get_debug_ports u_ila_1/probe17]
-connect_debug_port u_ila_1/probe17 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/event_counter_level_decode_run_i/level_signal_delay]]
+connect_debug_port u_ila_1/probe17 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/decode_end_state]]
 create_debug_port u_ila_1 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe18]
 set_property port_width 1 [get_debug_ports u_ila_1/probe18]
-connect_debug_port u_ila_1/probe18 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_valid_0]]
+connect_debug_port u_ila_1/probe18 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/decode_restart]]
 create_debug_port u_ila_1 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe19]
 set_property port_width 1 [get_debug_ports u_ila_1/probe19]
-connect_debug_port u_ila_1/probe19 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_valid_1]]
+connect_debug_port u_ila_1/probe19 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/event_counter_level_decode_run_i/level_signal_delay]]
 create_debug_port u_ila_1 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe20]
 set_property port_width 1 [get_debug_ports u_ila_1/probe20]
-connect_debug_port u_ila_1/probe20 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_valid_2]]
+connect_debug_port u_ila_1/probe20 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_valid_0]]
 create_debug_port u_ila_1 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe21]
 set_property port_width 1 [get_debug_ports u_ila_1/probe21]
-connect_debug_port u_ila_1/probe21 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_valid_3]]
+connect_debug_port u_ila_1/probe21 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_valid_1]]
 create_debug_port u_ila_1 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe22]
 set_property port_width 1 [get_debug_ports u_ila_1/probe22]
-connect_debug_port u_ila_1/probe22 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/rx_crc_ok]]
+connect_debug_port u_ila_1/probe22 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_valid_2]]
 create_debug_port u_ila_1 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe23]
 set_property port_width 1 [get_debug_ports u_ila_1/probe23]
-connect_debug_port u_ila_1/probe23 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_crc_ok_capture_by_decode_end]]
+connect_debug_port u_ila_1/probe23 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/btle_rx_i/octet_valid_3]]
 create_debug_port u_ila_1 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe24]
 set_property port_width 1 [get_debug_ports u_ila_1/probe24]
-connect_debug_port u_ila_1/probe24 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/rx_decode_end]]
+connect_debug_port u_ila_1/probe24 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/rx_crc_ok]]
 create_debug_port u_ila_1 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe25]
 set_property port_width 1 [get_debug_ports u_ila_1/probe25]
-connect_debug_port u_ila_1/probe25 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/rx_decode_run]]
+connect_debug_port u_ila_1/probe25 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i/rx_crc_ok_capture_by_decode_end]]
 create_debug_port u_ila_1 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe26]
 set_property port_width 1 [get_debug_ports u_ila_1/probe26]
-connect_debug_port u_ila_1/probe26 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/rx_hit_flag]]
+connect_debug_port u_ila_1/probe26 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/rx_decode_end]]
 create_debug_port u_ila_1 probe
 set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe27]
 set_property port_width 1 [get_debug_ports u_ila_1/probe27]
-connect_debug_port u_ila_1/probe27 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/rx_iq_valid]]
+connect_debug_port u_ila_1/probe27 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/rx_decode_run]]
+create_debug_port u_ila_1 probe
+set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe28]
+set_property port_width 1 [get_debug_ports u_ila_1/probe28]
+connect_debug_port u_ila_1/probe28 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/btle_phy_i/rx_hit_flag]]
+create_debug_port u_ila_1 probe
+set_property PROBE_TYPE DATA_AND_TRIGGER [get_debug_ports u_ila_1/probe29]
+set_property port_width 1 [get_debug_ports u_ila_1/probe29]
+connect_debug_port u_ila_1/probe29 [get_nets [list i_system_wrapper/system_i/btle_controller_0/inst/rx_iq_valid]]
 set_property C_CLK_INPUT_FREQ_HZ 300000000 [get_debug_cores dbg_hub]
 set_property C_ENABLE_CLK_DIVIDER false [get_debug_cores dbg_hub]
 set_property C_USER_SCAN_CHAIN 1 [get_debug_cores dbg_hub]
