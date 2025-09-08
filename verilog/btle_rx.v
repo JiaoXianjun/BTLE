@@ -37,7 +37,7 @@ module btle_rx #
   output reg  [6:0] payload_length,
 
   output reg  [7:0] pdu_octet_mem_data,
-  input  wire [5:0] pdu_octet_mem_addr
+  `KEEP_FOR_DBG input  wire [5:0] pdu_octet_mem_addr
 );
 
 // state machine output decode end
@@ -49,18 +49,18 @@ localparam [0:0] IDLE                     = 0,
 `KEEP_FOR_DBG reg [(SAMPLE_PER_SYMBOL-1) : 0] iq_valid_store;
 `KEEP_FOR_DBG reg [2:0] iq_phase;
 
-wire [(SAMPLE_PER_SYMBOL-1) : 0] hit_flag_internal;
-wire [6:0] payload_length_internal [0 : (SAMPLE_PER_SYMBOL-1)];
-wire [(SAMPLE_PER_SYMBOL-1) : 0] payload_length_valid;
-wire [(SAMPLE_PER_SYMBOL-1) : 0] bit_internal;
-wire [(SAMPLE_PER_SYMBOL-1) : 0] bit_valid;
-wire [7:0] octet_internal [0 : (SAMPLE_PER_SYMBOL-1)];
-wire [(SAMPLE_PER_SYMBOL-1) : 0] octet_valid;
-wire [(SAMPLE_PER_SYMBOL-1) : 0] decode_end_internal;
-wire [(SAMPLE_PER_SYMBOL-1) : 0] crc_ok_internal;
+`KEEP_FOR_DBG wire [(SAMPLE_PER_SYMBOL-1) : 0] hit_flag_internal;
+`KEEP_FOR_DBG wire [6:0] payload_length_internal [0 : (SAMPLE_PER_SYMBOL-1)];
+`KEEP_FOR_DBG wire [(SAMPLE_PER_SYMBOL-1) : 0] payload_length_valid;
+`KEEP_FOR_DBG wire [(SAMPLE_PER_SYMBOL-1) : 0] bit_internal;
+`KEEP_FOR_DBG wire [(SAMPLE_PER_SYMBOL-1) : 0] bit_valid;
+`KEEP_FOR_DBG wire [7:0] octet_internal [0 : (SAMPLE_PER_SYMBOL-1)];
+`KEEP_FOR_DBG wire [(SAMPLE_PER_SYMBOL-1) : 0] octet_valid;
+`KEEP_FOR_DBG wire [(SAMPLE_PER_SYMBOL-1) : 0] decode_end_internal;
+`KEEP_FOR_DBG wire [(SAMPLE_PER_SYMBOL-1) : 0] crc_ok_internal;
 
 // reg  [5:0] addr_internal [0 : (SAMPLE_PER_SYMBOL-1)];
-wire [7:0] data_internal [0 : (SAMPLE_PER_SYMBOL-1)];
+`KEEP_FOR_DBG wire [7:0] data_internal [0 : (SAMPLE_PER_SYMBOL-1)];
 
 `KEEP_FOR_DBG reg  [6:0] payload_length_store [0 : (SAMPLE_PER_SYMBOL-1)];
 `KEEP_FOR_DBG reg  [(SAMPLE_PER_SYMBOL-1) : 0] crc_ok_store;

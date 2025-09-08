@@ -54,12 +54,12 @@ module btle_controller #
 
   // =========================to zero-IF RF transceiver====================
   `KEEP_FOR_DBG input wire [7:0]         rf_gpio,
-  output wire [(RF_IQ_BIT_WIDTH-1) : 0]  tx_iq_signal_ext,
-  output wire                            tx_iq_valid_ext,
-  output wire                            tx_iq_valid_last_ext,
+  `KEEP_FOR_DBG output wire [(RF_IQ_BIT_WIDTH-1) : 0]  tx_iq_signal_ext,
+  `KEEP_FOR_DBG output wire                            tx_iq_valid_ext,
+  `KEEP_FOR_DBG output wire                            tx_iq_valid_last_ext,
 
-  input  wire  [(RF_IQ_BIT_WIDTH-1) : 0] rx_iq_signal_ext,
-  input  wire                            rx_iq_valid_ext,
+  `KEEP_FOR_DBG input  wire  [(RF_IQ_BIT_WIDTH-1) : 0] rx_iq_signal_ext,
+  `KEEP_FOR_DBG input  wire                            rx_iq_valid_ext,
 
   // Ports of Axi Slave Bus Interface
   input  wire s00_axi_aclk,
