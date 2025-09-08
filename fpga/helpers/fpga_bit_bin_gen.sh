@@ -5,7 +5,8 @@
 # // SPDX-License-Identifier: Apache-2.0 license
 
 if [ "$#" -lt 1 ]; then
-  HARDWARE="antsdr"
+  echo "Please specify hardware platform: antsdr sdrpi antsdr_e200"
+  exit 1
 else
   HARDWARE=$1
 fi
