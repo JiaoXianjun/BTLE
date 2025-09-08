@@ -2309,8 +2309,8 @@
       },
       "clk_wiz_0": {
         "vlnv": "xilinx.com:ip:clk_wiz:6.0",
-        "xci_name": "system_clk_wiz_1_0",
-        "xci_path": "ip/system_clk_wiz_1_0/system_clk_wiz_1_0.xci",
+        "xci_name": "system_clk_wiz_0_0",
+        "xci_path": "ip/system_clk_wiz_0_0/system_clk_wiz_0_0.xci",
         "inst_hier_path": "clk_wiz_0",
         "parameters": {
           "CLKIN1_JITTER_PS": {
