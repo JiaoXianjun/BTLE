@@ -65,6 +65,7 @@ localparam [0:0] IDLE                     = 0,
 `KEEP_FOR_DBG reg  [6:0] payload_length_store [0 : (SAMPLE_PER_SYMBOL-1)];
 `KEEP_FOR_DBG reg  [(SAMPLE_PER_SYMBOL-1) : 0] crc_ok_store;
 `KEEP_FOR_DBG reg  [(SAMPLE_PER_SYMBOL-1) : 0] decode_end_store;
+`KEEP_FOR_DBG reg  [(SAMPLE_PER_SYMBOL-1) : 0] decode_end_store_effective; // for those sub-decoders never hit, they should be treated as decode end already
 `KEEP_FOR_DBG wire [(SAMPLE_PER_SYMBOL-1) : 0] decode_end_and_crc_ok_store;
 `KEEP_FOR_DBG reg  [(SAMPLE_PER_SYMBOL-1) : 0] hit_flag_all_phase;
 
@@ -73,7 +74,7 @@ wire [6:0] payload_length_store_wire [0 : (SAMPLE_PER_SYMBOL-1)];
 `KEEP_FOR_DBG wire hit_flag_any;
 `KEEP_FOR_DBG reg  hit_flag_any_delay;
 `KEEP_FOR_DBG wire decode_end_all;
-`KEEP_FOR_DBG wire decode_end_any;
+// `KEEP_FOR_DBG wire decode_end_any;
 `KEEP_FOR_DBG wire decode_end_early;
 
 // reg       timeout_count_enable;
@@ -91,9 +92,9 @@ assign payload_length_store_wire[6] = payload_length_store[6];
 assign payload_length_store_wire[7] = payload_length_store[7];
 
 assign hit_flag_any = (|hit_flag_all_phase);
-assign decode_end_all = (&decode_end_store);
-assign decode_end_any = (|decode_end_store);
-assign decode_end_and_crc_ok_store = (decode_end_store&crc_ok_store);
+assign decode_end_all = (&decode_end_store_effective);
+// assign decode_end_any = (|decode_end_store);
+assign decode_end_and_crc_ok_store = (decode_end_store_effective&crc_ok_store);
 assign decode_end_early = (|decode_end_and_crc_ok_store);
 
 assign hit_flag = (hit_flag_any==1 && hit_flag_any_delay==0);
@@ -107,6 +108,8 @@ always @ (posedge clk) begin
     crc_ok <= 0;
     best_phase <= 0;
     payload_length <= 0;
+
+    decode_end_store_effective <= 0;
 
     decode_restart <= 0;
 
@@ -167,6 +170,7 @@ always @ (posedge clk) begin
       IDLE: begin
         decode_end <= 0;
         crc_ok <= 0;
+        decode_end_store_effective <= 0;
         // timeout_count_sample <= 0;
         // timeout_count_enable <= 0;
         decode_end_state <= (hit_flag? WAIT_DECODE_END_LONGEST : decode_end_state);
@@ -175,6 +179,7 @@ always @ (posedge clk) begin
       WAIT_DECODE_END_LONGEST: begin
         // timeout_count_enable <= (decode_end_any == 1? 1 : timeout_count_enable);
         // timeout_count_sample <= ( (iq_valid && timeout_count_enable)? (timeout_count_sample+1) : timeout_count_sample);
+        decode_end_store_effective <= (decode_end_store | (~hit_flag_all_phase));
 
         if (decode_end_early) begin
           decode_end <= 1;

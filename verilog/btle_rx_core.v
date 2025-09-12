@@ -13,7 +13,7 @@ module btle_rx_core #
   parameter CRC_STATE_BIT_WIDTH = 24
 ) (
   input wire clk,
-  input wire rst,
+  `KEEP_FOR_DBG input wire rst,
 
   input wire [(LEN_UNIQUE_BIT_SEQUENCE-1) : 0] unique_bit_sequence,
   input wire [(CHANNEL_NUMBER_BIT_WIDTH-1) : 0] channel_number,
@@ -23,35 +23,35 @@ module btle_rx_core #
   input wire signed [(GFSK_DEMODULATION_BIT_WIDTH-1) : 0] q,
   input wire iq_valid,
 
-  output wire hit_flag,
-  output reg  [6:0] payload_length,
-  output reg  payload_length_valid,
+  `KEEP_FOR_DBG output wire hit_flag,
+  `KEEP_FOR_DBG output reg  [6:0] payload_length,
+  `KEEP_FOR_DBG output reg  payload_length_valid,
 
-  output wire info_bit,
-  output wire bit_valid,
+  `KEEP_FOR_DBG output wire info_bit,
+  `KEEP_FOR_DBG output wire bit_valid,
 
-  output reg  [7:0] octet,
-  output reg  octet_valid,
+  `KEEP_FOR_DBG output reg  [7:0] octet,
+  `KEEP_FOR_DBG output reg  octet_valid,
 
-  output reg  decode_end,
-  output reg  crc_ok
+  `KEEP_FOR_DBG output reg  decode_end,
+  `KEEP_FOR_DBG output reg  crc_ok
 );
 
 localparam [1:0] IDLE           = 0,
                  EXTRACT_LENGTH = 1,
                  CHECK_CRC      = 2;
 
-wire adv_pdu_flag;
+`KEEP_FOR_DBG wire adv_pdu_flag;
 // wire hit_flag;
-wire phy_bit;
-wire phy_bit_valid;
+`KEEP_FOR_DBG wire phy_bit;
+`KEEP_FOR_DBG wire phy_bit_valid;
 wire [(CRC_STATE_BIT_WIDTH-1) : 0] lfsr;
 wire [(CRC_STATE_BIT_WIDTH-1) : 0] crc24_bit;
 
-reg        bit_valid_delay;
-reg  [1:0] phy_rx_state;
-reg  [9:0] bit_count;
-wire [6:0] octet_count;
+`KEEP_FOR_DBG reg        bit_valid_delay;
+`KEEP_FOR_DBG reg  [1:0] phy_rx_state;
+`KEEP_FOR_DBG reg  [9:0] bit_count;
+`KEEP_FOR_DBG wire [6:0] octet_count;
 // reg  [6:0] payload_length;
 
 assign adv_pdu_flag = (channel_number==37 || channel_number==38 || channel_number==39);
@@ -123,7 +123,7 @@ always @ (posedge clk) begin
           crc_ok <= (crc24_bit == 0);
 
           phy_rx_state <= IDLE;
-        end else if (octet_count >= 1 && octet_count <= payload_length) begin
+        end else if (octet_count <= payload_length) begin
           octet_valid <= (bit_valid_delay && bit_count[2:0] == 0);
         end else begin
           octet_valid <= 0;
