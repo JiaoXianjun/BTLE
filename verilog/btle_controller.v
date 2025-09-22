@@ -46,7 +46,7 @@ module btle_controller #
 
   // ===============Auxiliary Signals================
   `KEEP_FOR_DBG input  wire [7:0] gpio,
-  `KEEP_FOR_DBG output wire [15:0] ll_reg_gpio,
+  `KEEP_FOR_DBG output wire [23:0] ll_gpio,
 
   // ============================to host: UART HCI=========================
   input  wire uart_rx,
@@ -349,7 +349,7 @@ btle_ll btle_ll_i (
   .rx_pdu_octet_mem_data(ext_rx_pdu_octet_mem_data),
 
   // ===============Auxiliary Signals================
-  .reg_gpio(ll_reg_gpio),
+  .ll_gpio(ll_gpio),
 
   .rx_i_signal(rx_i_signal),
   .rx_q_signal(rx_q_signal),
