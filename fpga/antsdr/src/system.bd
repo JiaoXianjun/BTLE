@@ -39,7 +39,9 @@
       "util_ad9361_divclk_sel_concat": "",
       "btle_controller_0": "",
       "clk_wiz_0": "",
-      "util_ad9361_divclk_reset1": ""
+      "util_ad9361_divclk_reset1": "",
+      "xlslice_0": "",
+      "xlslice_1": ""
     },
     "interface_ports": {
       "ddr": {
@@ -2353,6 +2355,40 @@
         "xci_name": "system_util_ad9361_divclk_reset1_0",
         "xci_path": "ip/system_util_ad9361_divclk_reset1_0/system_util_ad9361_divclk_reset1_0.xci",
         "inst_hier_path": "util_ad9361_divclk_reset1"
+      },
+      "xlslice_0": {
+        "vlnv": "xilinx.com:ip:xlslice:1.0",
+        "xci_name": "system_xlslice_0_0",
+        "xci_path": "ip/system_xlslice_0_0/system_xlslice_0_0.xci",
+        "inst_hier_path": "xlslice_0",
+        "parameters": {
+          "DIN_FROM": {
+            "value": "16"
+          },
+          "DIN_TO": {
+            "value": "16"
+          },
+          "DIN_WIDTH": {
+            "value": "24"
+          }
+        }
+      },
+      "xlslice_1": {
+        "vlnv": "xilinx.com:ip:xlslice:1.0",
+        "xci_name": "system_xlslice_0_1",
+        "xci_path": "ip/system_xlslice_0_1/system_xlslice_0_1.xci",
+        "inst_hier_path": "xlslice_1",
+        "parameters": {
+          "DIN_FROM": {
+            "value": "17"
+          },
+          "DIN_TO": {
+            "value": "17"
+          },
+          "DIN_WIDTH": {
+            "value": "24"
+          }
+        }
       }
     },
     "interface_nets": {
@@ -2411,14 +2447,21 @@
           "GND_1/dout",
           "sys_ps7/ENET1_GMII_RX_CLK",
           "sys_ps7/ENET1_GMII_TX_CLK",
-          "sys_concat_intc/In0",
           "sys_concat_intc/In8",
           "sys_concat_intc/In9",
           "sys_concat_intc/In10",
           "sys_concat_intc/In15",
           "btle_controller_0/gpio",
           "util_ad9361_adc_pack/packed_fifo_wr_overflow",
-          "btle_controller_0/baremetal_phy_intf_mode"
+          "btle_controller_0/baremetal_phy_intf_mode",
+          "sys_concat_intc/In2",
+          "sys_concat_intc/In3",
+          "sys_concat_intc/In4",
+          "sys_concat_intc/In5",
+          "sys_concat_intc/In6",
+          "sys_concat_intc/In7",
+          "sys_concat_intc/In12",
+          "sys_concat_intc/In13"
         ]
       },
       "axi_ad9361_adc_data_i0": {
@@ -2701,6 +2744,13 @@
         "ports": [
           "axi_iic_main/iic2intc_irpt",
           "sys_concat_intc/In14"
+        ]
+      },
+      "btle_controller_0_ll_gpio": {
+        "ports": [
+          "btle_controller_0/ll_gpio",
+          "xlslice_0/Din",
+          "xlslice_1/Din"
         ]
       },
       "btle_controller_0_tx_iq_signal_ext": {
@@ -3168,6 +3218,18 @@
           "util_ad9361_tdd_sync/sync_out",
           "axi_ad9361/tdd_sync",
           "tdd_sync_o"
+        ]
+      },
+      "xlslice_0_Dout": {
+        "ports": [
+          "xlslice_0/Dout",
+          "sys_concat_intc/In0"
+        ]
+      },
+      "xlslice_1_Dout": {
+        "ports": [
+          "xlslice_1/Dout",
+          "sys_concat_intc/In1"
         ]
       }
     },
