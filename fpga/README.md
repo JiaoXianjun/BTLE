@@ -18,7 +18,7 @@ Use the devicetree.dtb and BOOT.BIN in BTLE/fpga/$HARDWARE/ and BTLE/fpga/helper
 
 $HARDWARE could be sdrpi, antsdr_e200. Please also put BTLE/fpga/helpers/update_BOOT_partition.sh into the /root/ directory on board Linux.
 
-Change the board's IP to **10.10.10.10** and password **btle**.
+Change the board's IP to **10.10.10.10** (by changing /etc/dhcpcd.conf) and password **btle**.
 
 ## Full steps from scratch to update FPGA on board
 
