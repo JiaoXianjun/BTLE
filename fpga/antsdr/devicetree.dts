@@ -656,36 +656,6 @@
 			};
 		};
 
-    btle_controller_ll_gpio16@0 {
-        compatible = "generic-uio";
-        interrupts = <0 29 1>;
-    };
-
-    btle_controller_ll_gpio17@0 {
-        compatible = "generic-uio";
-        interrupts = <0 30 1>;
-    };
-
-    btle_controller_ll_gpio18@0 {
-        compatible = "generic-uio";
-        interrupts = <0 31 1>;
-    };
-
-    btle_controller_ll_gpio19@0 {
-        compatible = "generic-uio";
-        interrupts = <0 32 1>;
-    };
-
-    btle_controller_ll_gpio20@0 {
-        compatible = "generic-uio";
-        interrupts = <0 33 1>;
-    };
-
-    btle_controller_ll_gpio21@0 {
-        compatible = "generic-uio";
-        interrupts = <0 34 1>;
-    };
-
     btle_controller_0: btle_controller@40000000 {
       clock-names = "s00_axi_aclk";
       clocks = <0x2 0x11>;

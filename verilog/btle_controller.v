@@ -46,7 +46,15 @@ module btle_controller #
 
   // ===============Auxiliary Signals================
   `KEEP_FOR_DBG input  wire [7:0] gpio,
-  `KEEP_FOR_DBG output wire [23:0] ll_gpio,
+  `KEEP_FOR_DBG output wire [15:0] ll_gpio,
+  output wire ll_itrpt0,
+  output wire ll_itrpt1,
+  output wire ll_itrpt2,
+  output wire ll_itrpt3,
+  output wire ll_itrpt4,
+  output wire ll_itrpt5,
+  output wire ll_itrpt6,
+  output wire ll_itrpt7,
 
   // ============================to host: UART HCI=========================
   input  wire uart_rx,
@@ -350,6 +358,14 @@ btle_ll btle_ll_i (
 
   // ===============Auxiliary Signals================
   .ll_gpio(ll_gpio),
+  .ll_itrpt0(ll_itrpt0),
+  .ll_itrpt1(ll_itrpt1),
+  .ll_itrpt2(ll_itrpt2),
+  .ll_itrpt3(ll_itrpt3),
+  .ll_itrpt4(ll_itrpt4),
+  .ll_itrpt5(ll_itrpt5),
+  .ll_itrpt6(ll_itrpt6),
+  .ll_itrpt7(ll_itrpt7),
 
   .rx_i_signal(rx_i_signal),
   .rx_q_signal(rx_q_signal),
