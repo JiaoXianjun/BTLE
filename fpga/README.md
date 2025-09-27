@@ -12,13 +12,17 @@ SPDX-License-Identifier: Apache-2.0
 
 Download 2022_r2 image file from https://wiki.analog.com/resources/tools-software/linux-software/kuiper-linux?redirect=1
 
-Choose and apply correct Linux kernel image file in BOOT partition according to "Configuring the SD Card for FPGA Projects".
-
-Use the devicetree.dtb and BOOT.BIN in BTLE/fpga/$HARDWARE/ and BTLE/fpga/helpers/ (See how to generate them in the "Full steps..." section)
+For BOOT partition:
+- Choose and apply correct Linux kernel image file according to "Configuring the SD Card for FPGA Projects".
+- Use the devicetree.dtb and BOOT.BIN in BTLE/fpga/$HARDWARE/ and BTLE/fpga/helpers/ (See how to generate them in the "Full steps..." section)
+- Use the following bootargs for uEnv.txt
+  `bootargs=console=ttyPS0,115200 root=/dev/mmcblk0p2 rw earlycon rootfstype=ext4 rootwait clk_ignore_unused cpuidle.off=1 uio_pdrv_genirq.of_id=generic-uio`
 
 $HARDWARE could be sdrpi, antsdr_e200. Please also put BTLE/fpga/helpers/update_BOOT_partition.sh into the /root/ directory on board Linux.
 
-Change the board's IP to **10.10.10.10** (by changing /etc/dhcpcd.conf) and password **btle**.
+For rootfs partition:
+- Change the board's IP to **10.10.10.10** (by changing /etc/dhcpcd.conf) and password **btle**.
+- Add `nohup ./btle_ll &` at the end of /root/.profile
 
 ## Full steps from scratch to update FPGA on board
 
@@ -45,6 +49,12 @@ cd ../helpers/
 # "btle" is the password of the ssh to board
 
 # wait for board fully rebooting
-# Use Vivado Hardware Manager to observe on FPGA ILA.
-# probe file: BTLE/BTLE-hw-img/fpga/$HARDWARE/system_top.ltx
 ```
+
+## See Bluetooth run
+
+Use Vivado Hardware Manager to observe on FPGA ILA.
+
+probe file: BTLE/BTLE-hw-img/fpga/$HARDWARE/system_top.ltx
+
+Use ext_rx_crc_ok == 1 as trigger condition to capture BLE waveform and related AGC procedure in the ILA window.
