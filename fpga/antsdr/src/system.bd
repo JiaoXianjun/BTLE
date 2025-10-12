@@ -15,7 +15,6 @@
       "axi_ad9361": "",
       "util_ad9361_tdd_sync": "",
       "util_ad9361_divclk_sel": "",
-      "util_ad9361_divclk": "",
       "util_ad9361_divclk_reset": "",
       "util_ad9361_adc_fifo": "",
       "util_ad9361_adc_pack": "",
@@ -39,7 +38,8 @@
       "util_ad9361_divclk_sel_concat": "",
       "btle_controller_0": "",
       "clk_wiz_0": "",
-      "util_ad9361_divclk_reset1": ""
+      "util_ad9361_divclk_reset1": "",
+      "clk_wiz_1": ""
     },
     "interface_ports": {
       "ddr": {
@@ -2397,12 +2397,6 @@
           }
         }
       },
-      "util_ad9361_divclk": {
-        "vlnv": "analog.com:user:util_clkdiv:1.0",
-        "xci_name": "system_util_ad9361_divclk_0",
-        "xci_path": "ip/system_util_ad9361_divclk_0/system_util_ad9361_divclk_0.xci",
-        "inst_hier_path": "util_ad9361_divclk"
-      },
       "util_ad9361_divclk_reset": {
         "vlnv": "xilinx.com:ip:proc_sys_reset:5.0",
         "xci_name": "system_util_ad9361_divclk_reset_0",
@@ -3163,19 +3157,19 @@
             "value": "312.5"
           },
           "CLKOUT1_JITTER": {
-            "value": "373.261"
+            "value": "397.320"
           },
           "CLKOUT1_PHASE_ERROR": {
-            "value": "201.345"
+            "value": "246.438"
           },
           "CLKOUT1_REQUESTED_OUT_FREQ": {
             "value": "16"
           },
           "CLKOUT1_REQUESTED_PHASE": {
-            "value": "180"
+            "value": "0"
           },
           "MMCM_CLKFBOUT_MULT_F": {
-            "value": "31.250"
+            "value": "25.000"
           },
           "MMCM_CLKIN1_PERIOD": {
             "value": "31.250"
@@ -3184,10 +3178,10 @@
             "value": "10.0"
           },
           "MMCM_CLKOUT0_DIVIDE_F": {
-            "value": "62.500"
+            "value": "50.000"
           },
           "MMCM_CLKOUT0_PHASE": {
-            "value": "180.000"
+            "value": "0.000"
           },
           "PRIM_IN_FREQ": {
             "value": "32"
@@ -3199,6 +3193,41 @@
         "xci_name": "system_util_ad9361_divclk_reset1_0",
         "xci_path": "ip/system_util_ad9361_divclk_reset1_0/system_util_ad9361_divclk_reset1_0.xci",
         "inst_hier_path": "util_ad9361_divclk_reset1"
+      },
+      "clk_wiz_1": {
+        "vlnv": "xilinx.com:ip:clk_wiz:6.0",
+        "xci_name": "system_clk_wiz_1_0",
+        "xci_path": "ip/system_clk_wiz_1_0/system_clk_wiz_1_0.xci",
+        "inst_hier_path": "clk_wiz_1",
+        "parameters": {
+          "CLKIN1_JITTER_PS": {
+            "value": "312.5"
+          },
+          "CLKOUT1_JITTER": {
+            "value": "455.542"
+          },
+          "CLKOUT1_PHASE_ERROR": {
+            "value": "246.438"
+          },
+          "CLKOUT1_REQUESTED_OUT_FREQ": {
+            "value": "8"
+          },
+          "MMCM_CLKFBOUT_MULT_F": {
+            "value": "25.000"
+          },
+          "MMCM_CLKIN1_PERIOD": {
+            "value": "31.250"
+          },
+          "MMCM_CLKIN2_PERIOD": {
+            "value": "10.0"
+          },
+          "MMCM_CLKOUT0_DIVIDE_F": {
+            "value": "100.000"
+          },
+          "PRIM_IN_FREQ": {
+            "value": "32"
+          }
+        }
       }
     },
     "interface_nets": {
@@ -3482,10 +3511,10 @@
         "ports": [
           "axi_ad9361/l_clk",
           "axi_ad9361/clk",
-          "util_ad9361_divclk/clk",
           "util_ad9361_adc_fifo/din_clk",
           "axi_ad9361_dac_fifo/dout_clk",
-          "clk_wiz_0/clk_in1"
+          "clk_wiz_0/clk_in1",
+          "clk_wiz_1/clk_in1"
         ]
       },
       "axi_ad9361_rst": {
@@ -3743,7 +3772,8 @@
       },
       "sys_cpu_reset": {
         "ports": [
-          "sys_rstgen/peripheral_reset"
+          "sys_rstgen/peripheral_reset",
+          "clk_wiz_1/reset"
         ]
       },
       "sys_cpu_resetn": {
@@ -3984,7 +4014,7 @@
       },
       "util_ad9361_divclk_clk_out": {
         "ports": [
-          "util_ad9361_divclk/clk_out",
+          "clk_wiz_1/clk_out1",
           "util_ad9361_divclk_reset/slowest_sync_clk",
           "util_ad9361_adc_fifo/dout_clk",
           "util_ad9361_adc_pack/clk",
@@ -4014,12 +4044,6 @@
           "util_ad9361_dac_upack/reset",
           "btle_controller_0/rf_rst",
           "clk_wiz_0/reset"
-        ]
-      },
-      "util_ad9361_divclk_sel_Res": {
-        "ports": [
-          "util_ad9361_divclk_sel/Res",
-          "util_ad9361_divclk/clk_sel"
         ]
       },
       "util_ad9361_divclk_sel_concat_dout": {
