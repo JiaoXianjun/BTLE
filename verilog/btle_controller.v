@@ -382,6 +382,9 @@ btle_ll btle_ll_i (
   .slv_reg_wren(slv_reg_wren),
   .axi_awaddr_core(axi_awaddr_core),
 
+  .emulation_en(1'b0), //disable emulation mode
+  .emulation_rx_ram_read_en(1'b0), //disable emulation mode
+
   .axi_aclk(s00_axi_aclk),
   .axi_aresetn(s00_axi_aresetn),
   .axi_awaddr(s00_axi_awaddr),
