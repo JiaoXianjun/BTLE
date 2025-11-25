@@ -115,6 +115,8 @@ always @ (posedge clk) begin
           bit_count <= bit_count + 1;
         end
 
+        octet_valid <= (bit_valid_delay && bit_count[2:0] == 0);
+
         if (octet_count == (payload_length+3)) begin
           // $display("payload_length %d", payload_length);
           // $display("crc24_bit    %06h", crc24_bit);
@@ -123,11 +125,12 @@ always @ (posedge clk) begin
           crc_ok <= (crc24_bit == 0);
 
           phy_rx_state <= IDLE;
-        end else if (octet_count <= payload_length) begin
-          octet_valid <= (bit_valid_delay && bit_count[2:0] == 0);
-        end else begin
-          octet_valid <= 0;
-        end
+        end 
+        // else if (octet_count <= payload_length) begin
+        //   octet_valid <= (bit_valid_delay && bit_count[2:0] == 0);
+        // end else begin
+        //   octet_valid <= 0;
+        // end
       end
     endcase
   end
