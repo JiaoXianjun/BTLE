@@ -12,6 +12,6 @@ else
 fi
 
 source ~/Xilinx/Vitis/2022.2/settings64.sh
-./build_boot_bin.sh ../../BTLE-hw-img/fpga/$HARDWARE/system_top.xsa ./u-boot.elf
+./build_boot_bin.sh ./BTLE-hw-img/fpga/$HARDWARE/system_top.xsa ./u-boot.elf
 cp ./output_boot_bin/BOOT.BIN ./
 echo "BOOT.BIN"
