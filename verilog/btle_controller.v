@@ -164,12 +164,6 @@ wire                                              tx_iq_valid_last;
 // =================link layer and auxiliary==================
 // `KEEP_FOR_DBG wire [15:0] ll_reg_gpio;
 
-wire slv_reg_rden;
-wire [4:0] axi_araddr_core;
-
-`KEEP_FOR_DBG wire slv_reg_wren;
-`KEEP_FOR_DBG wire [4:0] axi_awaddr_core;
-
 // =================link layer to phy tx======================
 wire [3:0] ll_tx_gauss_filter_tap_index;
 wire signed [(GAUSS_FILTER_BIT_WIDTH-1) : 0] ll_tx_gauss_filter_tap_value;
@@ -376,15 +370,10 @@ btle_ll btle_ll_i (
   .agc_lock_state(agc_lock_state),
   .rf_gain(rf_gain),
 
-  // Ports of Axi Slave Bus Interface
-  .slv_reg_rden(slv_reg_rden),
-  .axi_araddr_core(axi_araddr_core),
-  .slv_reg_wren(slv_reg_wren),
-  .axi_awaddr_core(axi_awaddr_core),
-
   .simulation_en(1'b0), //disable simulation mode
   .simulation_rx_ram_read_en(1'b0), //disable simulation mode
 
+  // Ports of Axi Slave Bus Interface
   .axi_aclk(s00_axi_aclk),
   .axi_aresetn(s00_axi_aresetn),
   .axi_awaddr(s00_axi_awaddr),
