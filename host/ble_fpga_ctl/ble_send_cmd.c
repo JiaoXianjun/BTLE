@@ -157,10 +157,10 @@ int parse_mac(const char *mac_str, unsigned char mac[6]) {
 }
 
 static inline void print_usage() {
-  printf("Usage: btle_ll\n");
+  printf("Usage: ble_send_cmd\n");
   printf("  -i local ethernet interface name : such as eth0\n");
   printf("  -m target MAC address of the SDR device : example 01:23:45:67:89:ab (default: ff:ff:ff:ff:ff:ff)\n");
-  printf("  -n channel number : such as 37\n");
+  printf("  -n channel number : such as 37, 38, 39, etc.\n");
   printf("  -c CRC init value : such as 0x555555\n");
   printf("  -a access address : such as 0x8E89BED6\n");
 }
@@ -168,7 +168,7 @@ static inline void print_usage() {
 int main(int argc, char *argv[])
 {
   unsigned long tmp;
-  int opt;
+  int opt, reg_idx = -1;
 
   char ifname[32] = "eno1";
   // unsigned char dest_mac[6] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xab};
@@ -176,6 +176,7 @@ int main(int argc, char *argv[])
   uint32_t channel_number = 37; // default to channel 37
   uint32_t crc_init = 0x555555; // default to 0x555555
   uint32_t unique_bit_seq = 0x8E89BED6; // default to 0x8E89BED6
+  uint32_t reg_val = 0;
 
   const uint32_t magic_header_len = 4;
   const uint32_t timestamp_len = 8;
@@ -199,6 +200,8 @@ int main(int argc, char *argv[])
         break;
       case 'n':
         channel_number = atoi(optarg);
+        reg_idx = 11;
+        reg_val = channel_number;
         break;
       case 'c':
         errno = 0;
@@ -208,6 +211,8 @@ int main(int argc, char *argv[])
           return EXIT_FAILURE;
         }
         crc_init = (uint32_t)tmp;
+        reg_idx = 12;
+        reg_val = crc_init;
         break;
       case 'a':
         errno = 0;
@@ -217,6 +222,8 @@ int main(int argc, char *argv[])
           return EXIT_FAILURE;
         }
         unique_bit_seq = (uint32_t)tmp;
+        reg_idx = 10;
+        reg_val = unique_bit_seq;
         break;
       default:
         print_usage();
@@ -227,31 +234,13 @@ int main(int argc, char *argv[])
   printf("Destination MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
          dest_mac[0], dest_mac[1], dest_mac[2],
          dest_mac[3], dest_mac[4], dest_mac[5]);
-  printf("Channel number: %u\n", channel_number);
-  printf("CRC init: 0x%06X\n", crc_init);
-  printf("Access address: 0x%08X\n", unique_bit_seq);
+  // printf("Channel number: %u\n", channel_number);
+  // printf("CRC init: 0x%06X\n", crc_init);
+  // printf("Access address: 0x%08X\n", unique_bit_seq);
 
   pin_to_cpu(1);            // Bind to CPU1
   set_realtime_priority();  // RT scheduling
   
-  // if (set_irq_affinity(56, "2") == 0) {
-  //   DEBUG_PRINT(printf("IRQ %d affinity set to mask %s\n", 56, "2");)
-  // } else {
-  //   printf("Failed to set IRQ affinity\n");
-  //   close(fd_uio0);
-  //   return -1;
-  // }
-
-  // for (i = 34; i<= 37; i++) {
-  //   if (set_irq_affinity(i, "1") == 0) {
-  //     DEBUG_PRINT(printf("IRQ %d affinity set to mask %s\n", i, "1");)
-  //   } else {
-  //     printf("Failed to set IRQ affinity\n");
-  //     close(fd_uio0);
-  //     return -1;
-  //   }
-  // }
-
   if (eth_raw_socket_init(ifname, dest_mac) != 0) {
     return -1;
   }
@@ -261,7 +250,9 @@ int main(int argc, char *argv[])
 
   __sync_synchronize();
 
-  while (!signal_stop) {
+  // while (!signal_stop) {
+
+  if (reg_idx >= 0) {
     runtime_len = 0;
     // 4 bytes magic header
     ((uint32_t*)(packet_byte + runtime_len))[0] = 0x64838364;
@@ -272,22 +263,27 @@ int main(int argc, char *argv[])
 
     runtime_len = runtime_len + timestamp_len;
     // 4 bytes control
-    ((uint32_t*)(packet_byte + runtime_len))[0] = 0;
+    ((uint32_t*)(packet_byte + runtime_len))[0] = 0; // 0 for register write
 
     runtime_len = runtime_len + control_len;
     // 4 bytes unit_field0
-    ((uint32_t*)(packet_byte + runtime_len))[0] = 11; // register index
+    ((uint32_t*)(packet_byte + runtime_len))[0] = reg_idx; // register index
     runtime_len = runtime_len + unit_field_len;
     // 4 bytes unit_field1
-    ((uint32_t*)(packet_byte + runtime_len))[0] = 37;
+    ((uint32_t*)(packet_byte + runtime_len))[0] = reg_val; // register value
 
     num_byte = runtime_len + unit_field_len;
     if (eth_raw_socket_send(num_byte, packet_byte) < 0) {
-      break;
+      // break;
     }
     printf("cmd sent at (us) %llu\n", (unsigned long long)get_time_us());
-    break;
+    printf("write %u (0x%08X) to register %d\n", reg_val, reg_val, reg_idx);
+  } else {
+    printf("No register setting to send.\n");
   }
+
+  //   break;
+  // }
 
   DEBUG_PRINT(printf("num_byte %d\n", num_byte);)
 
