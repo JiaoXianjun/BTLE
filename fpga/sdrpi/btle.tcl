@@ -25,8 +25,8 @@ ipx::unload_core $ip_core_dir/component.xml
 ipx::edit_ip_in_project -upgrade true -name tmp_edit_project -directory $ip_core_dir $ip_core_dir/component.xml
 update_compile_order -fileset sources_1
 file copy ./btle_ll/btle_ll_stub.v $ip_core_dir/src/
+file copy ./btle_ll/btle_ll.dcp $ip_core_dir/src/
 ipx::add_file $ip_core_dir/src/btle_ll_stub.v [ipx::get_file_groups xilinx_anylanguagesynthesis -of_objects [ipx::current_core]]
-set_property type verilogSource [ipx::get_files src/btle_ll_stub.v -of_objects [ipx::get_file_groups xilinx_anylanguagesynthesis -of_objects [ipx::current_core]]]
 set_property library_name xil_defaultlib [ipx::get_files src/btle_ll_stub.v -of_objects [ipx::get_file_groups xilinx_anylanguagesynthesis -of_objects [ipx::current_core]]]
 set_property core_revision 2 [ipx::current_core]
 ipx::update_source_project_archive -component [ipx::current_core]
@@ -258,6 +258,23 @@ if {[string equal [get_filesets -quiet constrs_1] ""]} {
 set obj [get_filesets constrs_1]
 
 # Add/Import constrs file and set constrs file properties
+set file "[file normalize "$origin_dir/src/system_no_ila.xdc"]"
+set file_added [add_files -norecurse -fileset $obj $file]
+set file "./src/system_no_ila.xdc"
+set file [file normalize $file]
+set file_obj [get_files -of_objects [get_filesets constrs_1] [list "*$file"]]
+set_property -name "file_type" -value "XDC" -objects $file_obj
+set_property -name "is_enabled" -value "1" -objects $file_obj
+set_property -name "is_global_include" -value "0" -objects $file_obj
+set_property -name "library" -value "xil_defaultlib" -objects $file_obj
+set_property -name "path_mode" -value "RelativeFirst" -objects $file_obj
+set_property -name "processing_order" -value "NORMAL" -objects $file_obj
+set_property -name "scoped_to_cells" -value "" -objects $file_obj
+set_property -name "scoped_to_ref" -value "" -objects $file_obj
+set_property -name "used_in" -value "synthesis implementation" -objects $file_obj
+set_property -name "used_in_implementation" -value "1" -objects $file_obj
+set_property -name "used_in_synthesis" -value "1" -objects $file_obj
+
 set file "[file normalize "$origin_dir/src/system.xdc"]"
 set file_added [add_files -norecurse -fileset $obj $file]
 set file "./src/system.xdc"
@@ -373,6 +390,18 @@ catch {
  set_param runs.disableIDRFlowPropertyConstraints 1
 }
 
+update_compile_order -fileset sources_1
+open_bd_design "${origin_dir}/src/system.bd"
+
+set_property CONFIG.FREQ_HZ 32000000 [get_bd_pins /axi_ad9361/l_clk]
+
+update_compile_order -fileset sources_1
+
+save_bd_design
+
+# https://adaptivesupport.amd.com/s/article/000034290?language=en_US
+set_param gui.addressMap 0
+
 # Create 'synth_1' run (if not found)
 if {[string equal [get_runs -quiet synth_1] ""]} {
     create_run -name synth_1 -part xc7z020clg400-1 -flow {Vivado Synthesis 2022} -strategy "Vivado Synthesis Defaults" -report_strategy {No Reports} -constrset constrs_1
@@ -418,7 +447,7 @@ set_property -name "incremental_checkpoint.more_options" -value "" -objects $obj
 set_property -name "include_in_archive" -value "1" -objects $obj
 set_property -name "gen_full_bitstream" -value "1" -objects $obj
 set_property -name "write_incremental_synth_checkpoint" -value "0" -objects $obj
-set_property -name "auto_incremental_checkpoint.directory" -value "$proj_dir/btle_sdrpi.srcs/utils_1/imports/synth_1" -objects $obj
+set_property -name "auto_incremental_checkpoint.directory" -value "$proj_dir/${_xil_proj_name_}.srcs/utils_1/imports/synth_1" -objects $obj
 set_property -name "min_rqa_score" -value "0" -objects $obj
 set_property -name "strategy" -value "Vivado Synthesis Defaults" -objects $obj
 set_property -name "steps.synth_design.tcl.pre" -value "" -objects $obj
@@ -448,6 +477,16 @@ set_property -name "steps.synth_design.args.more options" -value "" -objects $ob
 
 # set the current synth run
 current_run -synthesis [get_runs synth_1]
+
+launch_runs synth_1 -jobs 6
+
+wait_on_run synth_1
+
+update_compile_order -fileset sources_1
+open_run synth_1 -name synth_1
+
+# read btle_ll.dcp
+read_checkpoint -cell i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i $ip_core_dir/src/btle_ll.dcp
 
 # Create 'impl_1' run (if not found)
 if {[string equal [get_runs -quiet impl_1] ""]} {
@@ -878,11 +917,11 @@ set_property -name "incremental_checkpoint.directive" -value "" -objects $obj
 set_property -name "rqs_files" -value "" -objects $obj
 set_property -name "ml_strategy_runs" -value "" -objects $obj
 set_property -name "auto_rqs" -value "0" -objects $obj
-set_property -name "auto_rqs.directory" -value "$proj_dir/btle_sdrpi.srcs/utils_1/imports/impl_1" -objects $obj
+set_property -name "auto_rqs.directory" -value "$proj_dir/${_xil_proj_name_}.srcs/utils_1/imports/impl_1" -objects $obj
 set_property -name "incremental_checkpoint.more_options" -value "" -objects $obj
 set_property -name "include_in_archive" -value "1" -objects $obj
 set_property -name "gen_full_bitstream" -value "1" -objects $obj
-set_property -name "auto_incremental_checkpoint.directory" -value "$proj_dir/btle_sdrpi.srcs/utils_1/imports/impl_1" -objects $obj
+set_property -name "auto_incremental_checkpoint.directory" -value "$proj_dir/${_xil_proj_name_}.srcs/utils_1/imports/impl_1" -objects $obj
 set_property -name "min_rqa_score" -value "0" -objects $obj
 set_property -name "strategy" -value "Vivado Implementation Defaults" -objects $obj
 set_property -name "steps.init_design.tcl.pre" -value "" -objects $obj
@@ -1105,21 +1144,9 @@ move_dashboard_gadget -name {methodology_1} -row 2 -col 1
 current_dashboard default_dashboard 
 
 update_compile_order -fileset sources_1
-open_bd_design "${origin_dir}/src/system.bd"
-
-set_property CONFIG.FREQ_HZ 32000000 [get_bd_pins /axi_ad9361/l_clk]
-
-update_compile_order -fileset sources_1
-
-save_bd_design
-
-# https://adaptivesupport.amd.com/s/article/000034290?language=en_US
-set_param gui.addressMap 0
-
-update_compile_order -fileset sources_1
 launch_runs impl_1 -to_step write_bitstream -jobs 8
 
 wait_on_run impl_1
 
 update_compile_order -fileset sources_1
-write_hw_platform -fixed -include_bit -force -file ./btle_sdrpi/system_top.xsa
+write_hw_platform -fixed -include_bit -force -file ./${_xil_proj_name_}/system_top.xsa
