@@ -37,9 +37,10 @@
       "sys_logic_inv": "",
       "util_ad9361_divclk_sel_concat": "",
       "btle_controller_0": "",
-      "clk_wiz_0": "",
       "util_ad9361_divclk_reset1": "",
-      "clk_wiz_1": ""
+      "clk_wiz_1": "",
+      "ila_0": "",
+      "ila_1": ""
     },
     "interface_ports": {
       "ddr": {
@@ -3147,47 +3148,6 @@
           }
         }
       },
-      "clk_wiz_0": {
-        "vlnv": "xilinx.com:ip:clk_wiz:6.0",
-        "xci_name": "system_clk_wiz_0_0",
-        "xci_path": "ip/system_clk_wiz_0_0/system_clk_wiz_0_0.xci",
-        "inst_hier_path": "clk_wiz_0",
-        "parameters": {
-          "CLKIN1_JITTER_PS": {
-            "value": "312.5"
-          },
-          "CLKOUT1_JITTER": {
-            "value": "397.320"
-          },
-          "CLKOUT1_PHASE_ERROR": {
-            "value": "246.438"
-          },
-          "CLKOUT1_REQUESTED_OUT_FREQ": {
-            "value": "16"
-          },
-          "CLKOUT1_REQUESTED_PHASE": {
-            "value": "0"
-          },
-          "MMCM_CLKFBOUT_MULT_F": {
-            "value": "25.000"
-          },
-          "MMCM_CLKIN1_PERIOD": {
-            "value": "31.250"
-          },
-          "MMCM_CLKIN2_PERIOD": {
-            "value": "10.0"
-          },
-          "MMCM_CLKOUT0_DIVIDE_F": {
-            "value": "50.000"
-          },
-          "MMCM_CLKOUT0_PHASE": {
-            "value": "0.000"
-          },
-          "PRIM_IN_FREQ": {
-            "value": "32"
-          }
-        }
-      },
       "util_ad9361_divclk_reset1": {
         "vlnv": "xilinx.com:ip:proc_sys_reset:5.0",
         "xci_name": "system_util_ad9361_divclk_reset1_0",
@@ -3204,16 +3164,28 @@
             "value": "312.5"
           },
           "CLKOUT1_JITTER": {
-            "value": "455.542"
+            "value": "429.931"
           },
           "CLKOUT1_PHASE_ERROR": {
-            "value": "246.438"
+            "value": "203.212"
           },
           "CLKOUT1_REQUESTED_OUT_FREQ": {
             "value": "8"
           },
+          "CLKOUT2_JITTER": {
+            "value": "375.198"
+          },
+          "CLKOUT2_PHASE_ERROR": {
+            "value": "203.212"
+          },
+          "CLKOUT2_REQUESTED_OUT_FREQ": {
+            "value": "16"
+          },
+          "CLKOUT2_USED": {
+            "value": "true"
+          },
           "MMCM_CLKFBOUT_MULT_F": {
-            "value": "25.000"
+            "value": "31.000"
           },
           "MMCM_CLKIN1_PERIOD": {
             "value": "31.250"
@@ -3222,10 +3194,44 @@
             "value": "10.0"
           },
           "MMCM_CLKOUT0_DIVIDE_F": {
-            "value": "100.000"
+            "value": "124.000"
+          },
+          "MMCM_CLKOUT1_DIVIDE": {
+            "value": "62"
+          },
+          "NUM_OUT_CLKS": {
+            "value": "2"
           },
           "PRIM_IN_FREQ": {
             "value": "32"
+          }
+        }
+      },
+      "ila_0": {
+        "vlnv": "xilinx.com:ip:ila:6.2",
+        "xci_name": "system_ila_0_0",
+        "xci_path": "ip/system_ila_0_0/system_ila_0_0.xci",
+        "inst_hier_path": "ila_0",
+        "parameters": {
+          "C_MONITOR_TYPE": {
+            "value": "Native"
+          },
+          "C_NUM_OF_PROBES": {
+            "value": "3"
+          }
+        }
+      },
+      "ila_1": {
+        "vlnv": "xilinx.com:ip:ila:6.2",
+        "xci_name": "system_ila_1_0",
+        "xci_path": "ip/system_ila_1_0/system_ila_1_0.xci",
+        "inst_hier_path": "ila_1",
+        "parameters": {
+          "C_MONITOR_TYPE": {
+            "value": "Native"
+          },
+          "C_NUM_OF_PROBES": {
+            "value": "3"
           }
         }
       }
@@ -3513,8 +3519,8 @@
           "axi_ad9361/clk",
           "util_ad9361_adc_fifo/din_clk",
           "axi_ad9361_dac_fifo/dout_clk",
-          "clk_wiz_0/clk_in1",
-          "clk_wiz_1/clk_in1"
+          "clk_wiz_1/clk_in1",
+          "ila_0/clk"
         ]
       },
       "axi_ad9361_rst": {
@@ -3611,16 +3617,22 @@
       },
       "clk_wiz_1_clk_out1": {
         "ports": [
-          "clk_wiz_0/clk_out1",
+          "clk_wiz_1/clk_out2",
           "util_ad9361_divclk_reset1/slowest_sync_clk",
-          "btle_controller_0/bb_clk"
+          "btle_controller_0/bb_clk",
+          "ila_0/probe1",
+          "ila_1/probe1"
         ]
       },
       "clk_wiz_1_locked": {
         "ports": [
-          "clk_wiz_0/locked",
+          "clk_wiz_1/locked",
           "util_ad9361_divclk_reset1/dcm_locked",
-          "util_ad9361_divclk_reset1/aux_reset_in"
+          "util_ad9361_divclk_reset1/aux_reset_in",
+          "ila_0/probe2",
+          "ila_1/probe2",
+          "util_ad9361_divclk_reset/dcm_locked",
+          "util_ad9361_divclk_reset/aux_reset_in"
         ]
       },
       "gp_in_0_1": {
@@ -3767,7 +3779,8 @@
           "btle_controller_0/s00_axi_aclk",
           "sys_ps7/M_AXI_GP1_ACLK",
           "sys_ps7/S_AXI_ACP_ACLK",
-          "sys_ps7/S_AXI_HP3_ACLK"
+          "sys_ps7/S_AXI_HP3_ACLK",
+          "ila_1/clk"
         ]
       },
       "sys_cpu_reset": {
@@ -4020,13 +4033,9 @@
           "util_ad9361_adc_pack/clk",
           "axi_ad9361_dac_fifo/din_clk",
           "util_ad9361_dac_upack/clk",
-          "btle_controller_0/rf_clk"
-        ]
-      },
-      "util_ad9361_divclk_reset1_peripheral_reset": {
-        "ports": [
-          "util_ad9361_divclk_reset1/peripheral_reset",
-          "btle_controller_0/bb_rst"
+          "btle_controller_0/rf_clk",
+          "ila_0/probe0",
+          "ila_1/probe0"
         ]
       },
       "util_ad9361_divclk_reset_peripheral_aresetn": {
@@ -4043,7 +4052,7 @@
           "util_ad9361_adc_pack/reset",
           "util_ad9361_dac_upack/reset",
           "btle_controller_0/rf_rst",
-          "clk_wiz_0/reset"
+          "btle_controller_0/bb_rst"
         ]
       },
       "util_ad9361_divclk_sel_concat_dout": {
