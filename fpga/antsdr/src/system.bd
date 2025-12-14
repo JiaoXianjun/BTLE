@@ -37,10 +37,7 @@
       "sys_logic_inv": "",
       "util_ad9361_divclk_sel_concat": "",
       "btle_controller_0": "",
-      "util_ad9361_divclk_reset1": "",
-      "clk_wiz_1": "",
-      "ila_0": "",
-      "ila_1": ""
+      "clk_wiz_1": ""
     },
     "interface_ports": {
       "ddr": {
@@ -3148,12 +3145,6 @@
           }
         }
       },
-      "util_ad9361_divclk_reset1": {
-        "vlnv": "xilinx.com:ip:proc_sys_reset:5.0",
-        "xci_name": "system_util_ad9361_divclk_reset1_0",
-        "xci_path": "ip/system_util_ad9361_divclk_reset1_0/system_util_ad9361_divclk_reset1_0.xci",
-        "inst_hier_path": "util_ad9361_divclk_reset1"
-      },
       "clk_wiz_1": {
         "vlnv": "xilinx.com:ip:clk_wiz:6.0",
         "xci_name": "system_clk_wiz_1_0",
@@ -3204,34 +3195,6 @@
           },
           "PRIM_IN_FREQ": {
             "value": "32"
-          }
-        }
-      },
-      "ila_0": {
-        "vlnv": "xilinx.com:ip:ila:6.2",
-        "xci_name": "system_ila_0_0",
-        "xci_path": "ip/system_ila_0_0/system_ila_0_0.xci",
-        "inst_hier_path": "ila_0",
-        "parameters": {
-          "C_MONITOR_TYPE": {
-            "value": "Native"
-          },
-          "C_NUM_OF_PROBES": {
-            "value": "3"
-          }
-        }
-      },
-      "ila_1": {
-        "vlnv": "xilinx.com:ip:ila:6.2",
-        "xci_name": "system_ila_1_0",
-        "xci_path": "ip/system_ila_1_0/system_ila_1_0.xci",
-        "inst_hier_path": "ila_1",
-        "parameters": {
-          "C_MONITOR_TYPE": {
-            "value": "Native"
-          },
-          "C_NUM_OF_PROBES": {
-            "value": "3"
           }
         }
       }
@@ -3519,8 +3482,7 @@
           "axi_ad9361/clk",
           "util_ad9361_adc_fifo/din_clk",
           "axi_ad9361_dac_fifo/dout_clk",
-          "clk_wiz_1/clk_in1",
-          "ila_0/clk"
+          "clk_wiz_1/clk_in1"
         ]
       },
       "axi_ad9361_rst": {
@@ -3618,19 +3580,12 @@
       "clk_wiz_1_clk_out1": {
         "ports": [
           "clk_wiz_1/clk_out2",
-          "util_ad9361_divclk_reset1/slowest_sync_clk",
-          "btle_controller_0/bb_clk",
-          "ila_0/probe1",
-          "ila_1/probe1"
+          "btle_controller_0/bb_clk"
         ]
       },
       "clk_wiz_1_locked": {
         "ports": [
           "clk_wiz_1/locked",
-          "util_ad9361_divclk_reset1/dcm_locked",
-          "util_ad9361_divclk_reset1/aux_reset_in",
-          "ila_0/probe2",
-          "ila_1/probe2",
           "util_ad9361_divclk_reset/dcm_locked",
           "util_ad9361_divclk_reset/aux_reset_in"
         ]
@@ -3779,8 +3734,7 @@
           "btle_controller_0/s00_axi_aclk",
           "sys_ps7/M_AXI_GP1_ACLK",
           "sys_ps7/S_AXI_ACP_ACLK",
-          "sys_ps7/S_AXI_HP3_ACLK",
-          "ila_1/clk"
+          "sys_ps7/S_AXI_HP3_ACLK"
         ]
       },
       "sys_cpu_reset": {
@@ -4033,17 +3987,14 @@
           "util_ad9361_adc_pack/clk",
           "axi_ad9361_dac_fifo/din_clk",
           "util_ad9361_dac_upack/clk",
-          "btle_controller_0/rf_clk",
-          "ila_0/probe0",
-          "ila_1/probe0"
+          "btle_controller_0/rf_clk"
         ]
       },
       "util_ad9361_divclk_reset_peripheral_aresetn": {
         "ports": [
           "util_ad9361_divclk_reset/peripheral_aresetn",
           "util_ad9361_adc_fifo/dout_rstn",
-          "axi_ad9361_dac_fifo/din_rstn",
-          "util_ad9361_divclk_reset1/ext_reset_in"
+          "axi_ad9361_dac_fifo/din_rstn"
         ]
       },
       "util_ad9361_divclk_reset_peripheral_reset": {
