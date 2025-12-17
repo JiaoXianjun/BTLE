@@ -25,8 +25,8 @@ ipx::unload_core $ip_core_dir/component.xml
 ipx::edit_ip_in_project -upgrade true -name tmp_edit_project -directory $ip_core_dir $ip_core_dir/component.xml
 update_compile_order -fileset sources_1
 file copy ./btle_ll/btle_ll_stub.v $ip_core_dir/src/
+file copy ./btle_ll/btle_ll.dcp $ip_core_dir/src/
 ipx::add_file $ip_core_dir/src/btle_ll_stub.v [ipx::get_file_groups xilinx_anylanguagesynthesis -of_objects [ipx::current_core]]
-set_property type verilogSource [ipx::get_files src/btle_ll_stub.v -of_objects [ipx::get_file_groups xilinx_anylanguagesynthesis -of_objects [ipx::current_core]]]
 set_property library_name xil_defaultlib [ipx::get_files src/btle_ll_stub.v -of_objects [ipx::get_file_groups xilinx_anylanguagesynthesis -of_objects [ipx::current_core]]]
 set_property core_revision 2 [ipx::current_core]
 ipx::update_source_project_archive -component [ipx::current_core]
@@ -258,6 +258,23 @@ if {[string equal [get_filesets -quiet constrs_1] ""]} {
 set obj [get_filesets constrs_1]
 
 # Add/Import constrs file and set constrs file properties
+set file "[file normalize "$origin_dir/src/system_no_ila.xdc"]"
+set file_added [add_files -norecurse -fileset $obj $file]
+set file "./src/system_no_ila.xdc"
+set file [file normalize $file]
+set file_obj [get_files -of_objects [get_filesets constrs_1] [list "*$file"]]
+set_property -name "file_type" -value "XDC" -objects $file_obj
+set_property -name "is_enabled" -value "1" -objects $file_obj
+set_property -name "is_global_include" -value "0" -objects $file_obj
+set_property -name "library" -value "xil_defaultlib" -objects $file_obj
+set_property -name "path_mode" -value "RelativeFirst" -objects $file_obj
+set_property -name "processing_order" -value "NORMAL" -objects $file_obj
+set_property -name "scoped_to_cells" -value "" -objects $file_obj
+set_property -name "scoped_to_ref" -value "" -objects $file_obj
+set_property -name "used_in" -value "synthesis implementation" -objects $file_obj
+set_property -name "used_in_implementation" -value "1" -objects $file_obj
+set_property -name "used_in_synthesis" -value "1" -objects $file_obj
+
 set file "[file normalize "$origin_dir/src/system.xdc"]"
 set file_added [add_files -norecurse -fileset $obj $file]
 set file "./src/system.xdc"
@@ -373,6 +390,18 @@ catch {
  set_param runs.disableIDRFlowPropertyConstraints 1
 }
 
+update_compile_order -fileset sources_1
+open_bd_design "${origin_dir}/src/system.bd"
+
+set_property CONFIG.FREQ_HZ 32000000 [get_bd_pins /axi_ad9361/l_clk]
+
+update_compile_order -fileset sources_1
+
+save_bd_design
+
+# https://adaptivesupport.amd.com/s/article/000034290?language=en_US
+set_param gui.addressMap 0
+
 # Create 'synth_1' run (if not found)
 if {[string equal [get_runs -quiet synth_1] ""]} {
     create_run -name synth_1 -part xc7z020clg400-1 -flow {Vivado Synthesis 2022} -strategy "Vivado Synthesis Defaults" -report_strategy {No Reports} -constrset constrs_1
@@ -448,6 +477,16 @@ set_property -name "steps.synth_design.args.more options" -value "" -objects $ob
 
 # set the current synth run
 current_run -synthesis [get_runs synth_1]
+
+launch_runs synth_1 -jobs 6
+
+wait_on_run synth_1
+
+update_compile_order -fileset sources_1
+open_run synth_1 -name synth_1
+
+# read btle_ll.dcp
+read_checkpoint -cell i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i $ip_core_dir/src/btle_ll.dcp
 
 # Create 'impl_1' run (if not found)
 if {[string equal [get_runs -quiet impl_1] ""]} {
@@ -1103,18 +1142,6 @@ move_dashboard_gadget -name {utilization_2} -row 1 -col 1
 move_dashboard_gadget -name {methodology_1} -row 2 -col 1
 # Set current dashboard to 'default_dashboard' 
 current_dashboard default_dashboard 
-
-update_compile_order -fileset sources_1
-open_bd_design "${origin_dir}/src/system.bd"
-
-set_property CONFIG.FREQ_HZ 32000000 [get_bd_pins /axi_ad9361/l_clk]
-
-update_compile_order -fileset sources_1
-
-save_bd_design
-
-# https://adaptivesupport.amd.com/s/article/000034290?language=en_US
-set_param gui.addressMap 0
 
 update_compile_order -fileset sources_1
 launch_runs impl_1 -to_step write_bitstream -jobs 8
