@@ -662,11 +662,23 @@
       };
     };
 
+    // btle_controller_0: btle_controller@40000000 {
+    //   clock-names = "s00_axi_aclk";
+    //   clocks = <0x2 0x11>;
+    //   compatible = "sdr,btle_controller";
+    //   reg = <0x40000000 0x1000>;
+    // };
+
     btle_controller_0: btle_controller@40000000 {
+      // compatible = "btle_controller";
+      compatible = "generic-uio";
+      // compatible = "dmem-uio";
+      status = "okay";
       clock-names = "s00_axi_aclk";
       clocks = <0x2 0x11>;
-      compatible = "sdr,btle_controller";
       reg = <0x40000000 0x1000>;
+      interrupts = <0 29 1>;
+      interrupt-parent = <1>;
     };
     
     cf-ad9361-lpc@79020000 {
