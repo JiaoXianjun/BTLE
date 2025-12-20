@@ -81,7 +81,7 @@ cd BTLE
 git checkout fpga_dev
 git submodule update
 
-# Change the Vivado install directory ~/Xilinx/ accordingly!
+# Change the Vivado install directory ~/Xilinx/ in all the following scripts accordingly!
 
 cd fpga/
 ./build-adi-ip.sh ~/Xilinx/
@@ -95,9 +95,9 @@ cd $HARDWARE/
 
 cd ../helpers/
 ./all_gen_and_scp.sh $HARDWARE
-# "btle" is the password of the ssh to board
 
-# wait for board fully rebooting
+# Wait for board fully rebooting
+# Start from ssh root@10.10.10.10 in the quick start guide
 ```
 
 ## See Bluetooth run
