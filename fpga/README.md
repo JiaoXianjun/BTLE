@@ -70,6 +70,9 @@ Show received BLE packets in wireshark on the host PC.
     -a access address : such as 0x8E89BED6
   ```
 
+Principle of the full chain
+- BTLE baseband (FPGA/PL) <--> ARM (btle_ll) <--> host PC (ble_fpga_ctl, ble_send_cmd) --> wireshark
+
 ## Full steps from scratch to update FPGA on board
 
 ```
