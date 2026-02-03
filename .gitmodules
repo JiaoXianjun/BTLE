@@ -1,6 +1,3 @@
 [submodule "fpga/adi-hdl"]
 	path = fpga/adi-hdl
 	url = git@github.com:analogdevicesinc/hdl.git
-[submodule "verilog/btle_ll"]
-	path = verilog/btle_ll
-	url = git@github.com:JiaoXianjun/btle_ll.git
