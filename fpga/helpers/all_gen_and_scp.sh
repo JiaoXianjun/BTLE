@@ -17,8 +17,10 @@ fi
 
 set -x
 scp BOOT.BIN root@10.10.10.10:
+scp ad9361_fir_smpl8M_pass0.8_stop1.1.ftr root@10.10.10.10:
+scp fir.sh root@10.10.10.10:
 scp ../$HARDWARE/devicetree.dtb root@10.10.10.10:
-scp ../../verilog/btle_ll/btle_ll root@10.10.10.10:
+scp ../../firmware/btle_ll root@10.10.10.10:
 echo "Try to run remotely on board and reboot ..."
 ssh root@10.10.10.10 "sync"
 ssh root@10.10.10.10 "./update_BOOT_partition.sh"
