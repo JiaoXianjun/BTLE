@@ -13,7 +13,8 @@ module btle_rx #
   parameter GFSK_DEMODULATION_BIT_WIDTH = 16,
   parameter LEN_UNIQUE_BIT_SEQUENCE = 32,
   parameter CHANNEL_NUMBER_BIT_WIDTH = 6,
-  parameter CRC_STATE_BIT_WIDTH = 24
+  parameter CRC_STATE_BIT_WIDTH = 24,
+  parameter NUM_BIT_PAYLOAD_LENGTH = 8 // 8 bit in the core spec 6.2
 ) (
   input wire clk, // for baseband processing, 16MHz
   input wire rst,
@@ -34,10 +35,10 @@ module btle_rx #
   output reg  crc_ok,
   output reg  [2:0] best_phase,
   
-  output reg  [6:0] payload_length,
+  output reg  [(NUM_BIT_PAYLOAD_LENGTH-1):0] payload_length,
 
   output reg  [7:0] pdu_octet_mem_data,
-  `KEEP_FOR_DBG input  wire [5:0] pdu_octet_mem_addr
+  `KEEP_FOR_DBG input  wire [NUM_BIT_PAYLOAD_LENGTH:0] pdu_octet_mem_addr
 );
 
 // state machine output decode end
@@ -50,7 +51,7 @@ localparam [0:0] IDLE                     = 0,
 `KEEP_FOR_DBG reg [2:0] iq_phase;
 
 `KEEP_FOR_DBG wire [(SAMPLE_PER_SYMBOL-1) : 0] hit_flag_internal;
-`KEEP_FOR_DBG wire [6:0] payload_length_internal [0 : (SAMPLE_PER_SYMBOL-1)];
+`KEEP_FOR_DBG wire [(NUM_BIT_PAYLOAD_LENGTH-1):0] payload_length_internal [0 : (SAMPLE_PER_SYMBOL-1)];
 `KEEP_FOR_DBG wire [(SAMPLE_PER_SYMBOL-1) : 0] payload_length_valid;
 `KEEP_FOR_DBG wire [(SAMPLE_PER_SYMBOL-1) : 0] bit_internal;
 `KEEP_FOR_DBG wire [(SAMPLE_PER_SYMBOL-1) : 0] bit_valid;
@@ -62,14 +63,14 @@ localparam [0:0] IDLE                     = 0,
 // reg  [5:0] addr_internal [0 : (SAMPLE_PER_SYMBOL-1)];
 `KEEP_FOR_DBG wire [7:0] data_internal [0 : (SAMPLE_PER_SYMBOL-1)];
 
-`KEEP_FOR_DBG reg  [6:0] payload_length_store [0 : (SAMPLE_PER_SYMBOL-1)];
+`KEEP_FOR_DBG reg  [(NUM_BIT_PAYLOAD_LENGTH-1):0] payload_length_store [0 : (SAMPLE_PER_SYMBOL-1)];
 `KEEP_FOR_DBG reg  [(SAMPLE_PER_SYMBOL-1) : 0] crc_ok_store;
 `KEEP_FOR_DBG reg  [(SAMPLE_PER_SYMBOL-1) : 0] decode_end_store;
 `KEEP_FOR_DBG reg  [(SAMPLE_PER_SYMBOL-1) : 0] decode_end_store_effective; // for those sub-decoders never hit, they should be treated as decode end already
 `KEEP_FOR_DBG wire [(SAMPLE_PER_SYMBOL-1) : 0] decode_end_and_crc_ok_store;
 `KEEP_FOR_DBG reg  [(SAMPLE_PER_SYMBOL-1) : 0] hit_flag_all_phase;
 
-wire [6:0] payload_length_store_wire [0 : (SAMPLE_PER_SYMBOL-1)];
+wire [(NUM_BIT_PAYLOAD_LENGTH-1):0] payload_length_store_wire [0 : (SAMPLE_PER_SYMBOL-1)];
 
 `KEEP_FOR_DBG wire hit_flag_any;
 `KEEP_FOR_DBG reg  hit_flag_any_delay;
@@ -258,7 +259,8 @@ generate
       .GFSK_DEMODULATION_BIT_WIDTH(GFSK_DEMODULATION_BIT_WIDTH),
       .LEN_UNIQUE_BIT_SEQUENCE(LEN_UNIQUE_BIT_SEQUENCE),
       .CHANNEL_NUMBER_BIT_WIDTH(CHANNEL_NUMBER_BIT_WIDTH),
-      .CRC_STATE_BIT_WIDTH(CRC_STATE_BIT_WIDTH)
+      .CRC_STATE_BIT_WIDTH(CRC_STATE_BIT_WIDTH),
+      .NUM_BIT_PAYLOAD_LENGTH(NUM_BIT_PAYLOAD_LENGTH)
     ) btle_rx_core_i (
       .clk(clk),
       .rst(rst|decode_end_early|decode_end_all),
@@ -272,7 +274,7 @@ generate
       .iq_valid(iq_valid_store[gen_idx]),
 
       .hit_flag(hit_flag_internal[gen_idx]),
-      .payload_length(payload_length_internal[gen_idx]),
+      .payload_length_out(payload_length_internal[gen_idx]),
       .payload_length_valid(payload_length_valid[gen_idx]),
 
       .info_bit(bit_internal[gen_idx]),
@@ -285,9 +287,9 @@ generate
       .crc_ok(crc_ok_internal[gen_idx])
     );
 
-    serial_in_ram_out # (
+    serial_in_ram_out # ( // 1 more addr bit is needed: the octet_valid actually will output 2 bytes header, payload length, 3 bytes CRC
       .DATA_WIDTH(8),
-      .ADDRESS_WIDTH(6)
+      .ADDRESS_WIDTH(NUM_BIT_PAYLOAD_LENGTH+1)
     ) serial_in_ram_out_i (
       .clk(clk),
       .rst(rst|hit_flag_internal[gen_idx]),
