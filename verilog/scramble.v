@@ -7,6 +7,7 @@
 `timescale 1ns / 1ps
 module scramble #
 (
+  parameter NUM_BIT_PAYLOAD_LENGTH = 8, // 8 bit in the core spec 6.2
   parameter CHANNEL_NUMBER_BIT_WIDTH = 6
 ) (
   input wire clk,
@@ -37,7 +38,7 @@ reg data_in_delay;
 reg data_in_valid_delay;
 reg data_in_valid_last_delay;
 
-reg [8:0] data_in_count;
+reg [(NUM_BIT_PAYLOAD_LENGTH+3+1):0] data_in_count;  // 1 more addr bit is needed: the octet_valid actually will output 2 bytes header, payload length, 3 bytes CRC
 
 assign scramble_start_for_input = (data_in_count>=40);
 assign data_in_valid_internal = (scramble_start_for_input? data_in_valid : 0);
