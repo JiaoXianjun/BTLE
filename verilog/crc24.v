@@ -9,6 +9,7 @@
 `timescale 1ns / 1ps
 module crc24 #
 (
+  parameter NUM_BIT_PAYLOAD_LENGTH = 8, // 8 bit in the core spec 6.2
   parameter CRC_STATE_BIT_WIDTH = 24
 ) (
   input wire clk,
@@ -33,7 +34,7 @@ reg [1:0] crc_state;
 wire [(CRC_STATE_BIT_WIDTH-1) : 0] lfsr;
 
 wire info_bit_valid_internal;
-reg [8:0] info_bit_count;
+reg [(NUM_BIT_PAYLOAD_LENGTH+3+1):0] info_bit_count;  // 1 more addr bit is needed: the octet_valid actually will output 2 bytes header, payload length, 3 bytes CRC
 reg [4:0] crc_bit_count;
 reg [3:0] clk_count;
 
