@@ -36,7 +36,8 @@ module btle_controller #
   parameter GAUSS_FIR_OUT_AMP_SCALE_DOWN_NUM_BIT_SHIFT = 1,
 
   parameter GFSK_DEMODULATION_BIT_WIDTH = 16,
-  parameter LEN_UNIQUE_BIT_SEQUENCE = 32
+  parameter LEN_UNIQUE_BIT_SEQUENCE = 32,
+  parameter NUM_BIT_PAYLOAD_LENGTH = 8 // 8 bit in the core spec 6.2
 ) (
   input  wire rf_clk,
   input  wire rf_rst,
@@ -113,7 +114,7 @@ module btle_controller #
   input wire                                    ext_tx_channel_number_load,
 
   input wire [7:0]                              ext_tx_pdu_octet_mem_data,
-  input wire [5:0]                              ext_tx_pdu_octet_mem_addr,
+  input wire [NUM_BIT_PAYLOAD_LENGTH:0]         ext_tx_pdu_octet_mem_addr,  // 1 more addr bit is needed: the octet_valid actually will output 2 bytes header, payload length, 3 bytes CRC
 
   input wire                                    ext_tx_start,
 
@@ -140,9 +141,9 @@ module btle_controller #
   `KEEP_FOR_DBG output wire        ext_rx_decode_end,
   `KEEP_FOR_DBG output wire        ext_rx_crc_ok,
   `KEEP_FOR_DBG output wire  [2:0] ext_rx_best_phase,
-  `KEEP_FOR_DBG output wire  [6:0] ext_rx_payload_length,
+  `KEEP_FOR_DBG output wire  [(NUM_BIT_PAYLOAD_LENGTH-1):0] ext_rx_payload_length,
 
-  input  wire  [5:0] ext_rx_pdu_octet_mem_addr,
+  input  wire  [NUM_BIT_PAYLOAD_LENGTH:0] ext_rx_pdu_octet_mem_addr,  // 1 more addr bit is needed: the octet_valid actually will output 2 bytes header, payload length, 3 bytes CRC
   `KEEP_FOR_DBG output wire  [7:0] ext_rx_pdu_octet_mem_data
 );
 
@@ -180,7 +181,7 @@ wire [(CRC_STATE_BIT_WIDTH-1) : 0]      ll_tx_crc_state_init_bit;
 wire [(CHANNEL_NUMBER_BIT_WIDTH-1) : 0] ll_tx_channel_number;
 
 wire [7:0] ll_tx_pdu_octet_mem_data;
-wire [5:0] ll_tx_pdu_octet_mem_addr;
+wire [NUM_BIT_PAYLOAD_LENGTH:0] ll_tx_pdu_octet_mem_addr;  // 1 more addr bit is needed: the octet_valid actually will output 2 bytes header, payload length, 3 bytes CRC
 wire ll_tx_start;
 
 // ===========================phy tx=========================
@@ -201,7 +202,7 @@ wire [(CHANNEL_NUMBER_BIT_WIDTH-1) : 0] tx_channel_number;
 wire tx_channel_number_load;
 
 wire [7:0] tx_pdu_octet_mem_data;
-wire [5:0] tx_pdu_octet_mem_addr;
+wire [NUM_BIT_PAYLOAD_LENGTH:0] tx_pdu_octet_mem_addr; // 1 more addr bit is needed: the octet_valid actually will output 2 bytes header, payload length, 3 bytes CRC
 wire tx_start;
 
 // ==============link layer to phy rx=======================
@@ -209,14 +210,14 @@ wire [(LEN_UNIQUE_BIT_SEQUENCE-1) : 0]  ll_rx_unique_bit_sequence;
 wire [(CHANNEL_NUMBER_BIT_WIDTH-1) : 0] ll_rx_channel_number;
 wire [(CRC_STATE_BIT_WIDTH-1) : 0]      ll_rx_crc_state_init_bit;
 
-wire  [5:0] ll_rx_pdu_octet_mem_addr;
+wire  [NUM_BIT_PAYLOAD_LENGTH:0] ll_rx_pdu_octet_mem_addr; // 1 more addr bit is needed: the octet_valid actually will output 2 bytes header, payload length, 3 bytes CRC
 
 // =======================phy rx============================
 `KEEP_FOR_DBG wire [(LEN_UNIQUE_BIT_SEQUENCE-1) : 0]  rx_unique_bit_sequence;
 `KEEP_FOR_DBG wire [(CHANNEL_NUMBER_BIT_WIDTH-1) : 0] rx_channel_number;
 `KEEP_FOR_DBG wire [(CRC_STATE_BIT_WIDTH-1) : 0]      rx_crc_state_init_bit;
 
-`KEEP_FOR_DBG wire  [5:0] rx_pdu_octet_mem_addr;
+`KEEP_FOR_DBG wire  [NUM_BIT_PAYLOAD_LENGTH:0] rx_pdu_octet_mem_addr; // 1 more addr bit is needed: the octet_valid actually will output 2 bytes header, payload length, 3 bytes CRC
 
 // =======switch between external baremetal phy control and link layer phy control========
 // phy tx
@@ -306,7 +307,27 @@ auxiliary_daemon #
   .rf_gain(rf_gain)
 );
 
-btle_ll btle_ll_i (
+btle_ll #
+(
+  .C_S00_AXI_DATA_WIDTH(C_S00_AXI_DATA_WIDTH),
+  .C_S00_AXI_ADDR_WIDTH (C_S00_AXI_ADDR_WIDTH),
+
+  .CLK_FREQUENCE(CLK_FREQUENCE), //hz
+  .BAUD_RATE(BAUD_RATE),     //9600、19200 、38400 、57600 、115200、230400、460800、921600
+  .PARITY(PARITY),     //"NONE","EVEN","ODD"
+  .FRAME_WD(FRAME_WD),          //if PARITY="NONE",it can be 5~9;else 5~8
+
+  .RF_IQ_BIT_WIDTH(RF_IQ_BIT_WIDTH),
+  .RF_I_OR_Q_BIT_WIDTH(RF_I_OR_Q_BIT_WIDTH),
+  .GAUSS_FILTER_BIT_WIDTH(GAUSS_FILTER_BIT_WIDTH),
+  .SIN_COS_ADDR_BIT_WIDTH(SIN_COS_ADDR_BIT_WIDTH),
+  .IQ_BIT_WIDTH(IQ_BIT_WIDTH),
+  .CRC_STATE_BIT_WIDTH(CRC_STATE_BIT_WIDTH),
+  .CHANNEL_NUMBER_BIT_WIDTH(CHANNEL_NUMBER_BIT_WIDTH),
+  .GFSK_DEMODULATION_BIT_WIDTH(GFSK_DEMODULATION_BIT_WIDTH),
+  .LEN_UNIQUE_BIT_SEQUENCE(LEN_UNIQUE_BIT_SEQUENCE),
+  .NUM_BIT_PAYLOAD_LENGTH(NUM_BIT_PAYLOAD_LENGTH)
+) btle_ll_i (
   .bb_clk(bb_clk),
   .bb_rst(bb_rst),
 
@@ -410,7 +431,8 @@ btle_phy #
   .GAUSS_FIR_OUT_AMP_SCALE_DOWN_NUM_BIT_SHIFT(GAUSS_FIR_OUT_AMP_SCALE_DOWN_NUM_BIT_SHIFT),
 
   .GFSK_DEMODULATION_BIT_WIDTH(GFSK_DEMODULATION_BIT_WIDTH),
-  .LEN_UNIQUE_BIT_SEQUENCE(LEN_UNIQUE_BIT_SEQUENCE)
+  .LEN_UNIQUE_BIT_SEQUENCE(LEN_UNIQUE_BIT_SEQUENCE),
+  .NUM_BIT_PAYLOAD_LENGTH(NUM_BIT_PAYLOAD_LENGTH)
 ) btle_phy_i (
   .clk(bb_clk),
   .rst(bb_rst),
