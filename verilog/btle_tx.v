@@ -7,6 +7,7 @@
 `timescale 1ns / 1ps
 module btle_tx #
 (
+  parameter NUM_BIT_PAYLOAD_LENGTH = 8, // 8 bit in the core spec 6.2
   parameter CRC_STATE_BIT_WIDTH = 24,
   parameter CHANNEL_NUMBER_BIT_WIDTH = 6,
   parameter SAMPLE_PER_SYMBOL = 8,
@@ -39,7 +40,7 @@ module btle_tx #
   input  wire channel_number_load,
 
   input  wire [7:0] pdu_octet_mem_data,
-  input  wire [5:0] pdu_octet_mem_addr,
+  input  wire [NUM_BIT_PAYLOAD_LENGTH:0] pdu_octet_mem_addr,
 
   input  wire tx_start,
 
@@ -68,12 +69,12 @@ localparam [1:0] IDLE               = 0,
                  WAIT_LAST_SAMPLE   = 3;
 
 reg  [1:0] phy_tx_state;
-reg  [5:0] addr;
+reg  [NUM_BIT_PAYLOAD_LENGTH:0] addr;
 wire [7:0] data;
 reg  [7:0] octet;
-wire adv_pdu_flag;
-reg  [6:0] payload_length;
-reg  [9:0] bit_count;
+// wire adv_pdu_flag;
+reg  [NUM_BIT_PAYLOAD_LENGTH:0] payload_length;
+reg  [(NUM_BIT_PAYLOAD_LENGTH+3):0] bit_count;
 reg  [5:0] bit_count_preamble_access;
 
 reg info_bit;
@@ -95,7 +96,7 @@ wire signed [(IQ_BIT_WIDTH-1) : 0] q_internal;
 
 reg [6:0] clk_count; // assume clk speed 16M, baseband phy_bit rate 1M. octet rate 1/8M. need 128x clk speed down to read octet memory.
 
-assign adv_pdu_flag = (channel_number==37 || channel_number==38 || channel_number==39);
+// assign adv_pdu_flag = (channel_number==37 || channel_number==38 || channel_number==39);
 
 assign i = (phy_tx_state == IDLE? 0 : i_internal);
 assign q = (phy_tx_state == IDLE? 0 : q_internal);
@@ -128,7 +129,7 @@ always @ (posedge clk) begin
         addr <= 0;
         octet <= 0;
 
-        payload_length <= 7'h7f;
+        payload_length <= {(NUM_BIT_PAYLOAD_LENGTH+1){1'b1}};
         bit_count_preamble_access <= 0;
         bit_count <= 0;
 
@@ -181,7 +182,8 @@ always @ (posedge clk) begin
         end
 
         if (addr == 2 && clk_count == 1) begin
-          payload_length <= (adv_pdu_flag? octet[5:0] : octet[4:0]);
+          // payload_length <= (adv_pdu_flag? octet[5:0] : octet[4:0]);
+          payload_length <= {{(NUM_BIT_PAYLOAD_LENGTH+1-8){1'b0}}, octet};
         end
 
         if (addr == 2 && clk_count == 2) begin
@@ -198,9 +200,9 @@ always @ (posedge clk) begin
   end
 end
 
-sdpram_two_clk # (
+sdpram_two_clk # ( // 1 more addr bit is needed: the octet_valid actually will output 2 bytes header, payload length, 3 bytes CRC
   .DATA_WIDTH(8),
-  .ADDRESS_WIDTH(6)
+  .ADDRESS_WIDTH(NUM_BIT_PAYLOAD_LENGTH+1)
 ) btle_tx_sdpram_two_clk_i (
   .clk(clkb),
   .rst(rst),
@@ -215,6 +217,7 @@ sdpram_two_clk # (
 );
 
 crc24 # (
+  .NUM_BIT_PAYLOAD_LENGTH(NUM_BIT_PAYLOAD_LENGTH),
   .CRC_STATE_BIT_WIDTH(CRC_STATE_BIT_WIDTH)        
 ) crc24_i (
   .clk(clk),
@@ -233,6 +236,7 @@ crc24 # (
 );
 
 scramble # (
+  .NUM_BIT_PAYLOAD_LENGTH(NUM_BIT_PAYLOAD_LENGTH),
   .CHANNEL_NUMBER_BIT_WIDTH(CHANNEL_NUMBER_BIT_WIDTH)
 ) scramble_i (
   .clk(clk),
