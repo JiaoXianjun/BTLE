@@ -18,7 +18,8 @@ module btle_phy #
   parameter GAUSS_FIR_OUT_AMP_SCALE_DOWN_NUM_BIT_SHIFT = 1,
 
   parameter GFSK_DEMODULATION_BIT_WIDTH = 16,
-  parameter LEN_UNIQUE_BIT_SEQUENCE = 32
+  parameter LEN_UNIQUE_BIT_SEQUENCE = 32,
+  parameter NUM_BIT_PAYLOAD_LENGTH = 8 // 8 bit in the core spec 6.2
 ) (
   input wire clk,
   input wire rst,
@@ -43,7 +44,7 @@ module btle_phy #
   input wire tx_channel_number_load,
 
   input wire [7:0] tx_pdu_octet_mem_data,
-  input wire [5:0] tx_pdu_octet_mem_addr,
+  input wire [NUM_BIT_PAYLOAD_LENGTH:0] tx_pdu_octet_mem_addr,
 
   input wire tx_start,
 
@@ -79,22 +80,23 @@ module btle_phy #
   output wire  rx_decode_end,
   output wire  rx_crc_ok,
   output wire  [2:0] rx_best_phase,
-  output wire  [6:0] rx_payload_length,
+  output wire  [(NUM_BIT_PAYLOAD_LENGTH-1):0] rx_payload_length,
 
-  input  wire  [5:0] rx_pdu_octet_mem_addr,
+  input  wire  [NUM_BIT_PAYLOAD_LENGTH:0] rx_pdu_octet_mem_addr,
   output wire  [7:0] rx_pdu_octet_mem_data
 );
 
 btle_tx # (
-.CRC_STATE_BIT_WIDTH(CRC_STATE_BIT_WIDTH),
-.CHANNEL_NUMBER_BIT_WIDTH(CHANNEL_NUMBER_BIT_WIDTH),
-.SAMPLE_PER_SYMBOL(SAMPLE_PER_SYMBOL),
-.GAUSS_FILTER_BIT_WIDTH(GAUSS_FILTER_BIT_WIDTH),
-.NUM_TAP_GAUSS_FILTER(NUM_TAP_GAUSS_FILTER),
-.VCO_BIT_WIDTH(VCO_BIT_WIDTH),
-.SIN_COS_ADDR_BIT_WIDTH(SIN_COS_ADDR_BIT_WIDTH),
-.IQ_BIT_WIDTH(IQ_BIT_WIDTH),
-.GAUSS_FIR_OUT_AMP_SCALE_DOWN_NUM_BIT_SHIFT(GAUSS_FIR_OUT_AMP_SCALE_DOWN_NUM_BIT_SHIFT)
+  .NUM_BIT_PAYLOAD_LENGTH(NUM_BIT_PAYLOAD_LENGTH),
+  .CRC_STATE_BIT_WIDTH(CRC_STATE_BIT_WIDTH),
+  .CHANNEL_NUMBER_BIT_WIDTH(CHANNEL_NUMBER_BIT_WIDTH),
+  .SAMPLE_PER_SYMBOL(SAMPLE_PER_SYMBOL),
+  .GAUSS_FILTER_BIT_WIDTH(GAUSS_FILTER_BIT_WIDTH),
+  .NUM_TAP_GAUSS_FILTER(NUM_TAP_GAUSS_FILTER),
+  .VCO_BIT_WIDTH(VCO_BIT_WIDTH),
+  .SIN_COS_ADDR_BIT_WIDTH(SIN_COS_ADDR_BIT_WIDTH),
+  .IQ_BIT_WIDTH(IQ_BIT_WIDTH),
+  .GAUSS_FIR_OUT_AMP_SCALE_DOWN_NUM_BIT_SHIFT(GAUSS_FIR_OUT_AMP_SCALE_DOWN_NUM_BIT_SHIFT)
 ) btle_tx_i (
   .clk(clk),
   .rst(rst),
@@ -146,7 +148,8 @@ btle_rx # (
   .GFSK_DEMODULATION_BIT_WIDTH(GFSK_DEMODULATION_BIT_WIDTH),
   .LEN_UNIQUE_BIT_SEQUENCE(LEN_UNIQUE_BIT_SEQUENCE),
   .CHANNEL_NUMBER_BIT_WIDTH(CHANNEL_NUMBER_BIT_WIDTH),
-  .CRC_STATE_BIT_WIDTH(CRC_STATE_BIT_WIDTH)
+  .CRC_STATE_BIT_WIDTH(CRC_STATE_BIT_WIDTH),
+  .NUM_BIT_PAYLOAD_LENGTH(NUM_BIT_PAYLOAD_LENGTH)
 ) btle_rx_i (
   .clk(clk),
   .rst(rst),
