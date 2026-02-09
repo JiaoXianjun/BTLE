@@ -45,12 +45,8 @@ For rootfs partition:
 Show received BLE packets in wireshark on the host PC.
 - Power on the board, and `ssh root@10.10.10.10` from the host PC that has static IP 10.10.10.1 and connected to the board via Ethernet.
 - By default the ADI Linux image password is `analog`. You can change it to `btle` after login, or run `ssh-copy-id root@10.10.10.10` from the host PC to avoid inputting password every time.
-- Run `./btle_ll` onboard.
-- On the host PC, go to `BTLE/host/ble_fpga_ctl` directory and compile the two programs.
-  ```
-  gcc -O3 -o ble_fpga_ctl ble_fpga_ctl.c
-  gcc -O3 -o ble_send_cmd ble_send_cmd.c
-  ```
+- Generate `btle_ll` firmware by running `compile.sh` in BTLE/firmware/ directory, copy it and run onboard.
+- On the host PC, go to `BTLE/host/ble_fpga_ctl` directory and compile the two programs via `compile.sh`.
 - Launch wireshark and show BLE packets in real-time.
   ```
   sudo su
