@@ -16,6 +16,14 @@ fi
 # ./devicetree_gen.sh
 
 set -x
+
+cd ../../host/ble_fpga_ctl
+./compile.sh
+cd ../../firmware/
+./compile.sh
+
+cd ../fpga/helpers/
+
 scp BOOT.BIN root@10.10.10.10:
 scp ad9361_fir_smpl8M_pass0.8_stop1.1.ftr root@10.10.10.10:
 scp fir.sh root@10.10.10.10:
