@@ -1,5 +1,9 @@
 #!/bin/bash
 
+#// Author: Xianjun Jiao <putaoshu@msn.com>
+#// SPDX-FileCopyrightText: 2025 Xianjun Jiao
+#// SPDX-License-Identifier: Apache-2.0 license
+
 # arm-linux-gnueabihf-gcc -static -o btle_ll btle_ll.c -O2 -pthread
 
 source ~/Xilinx/Vitis/2022.2/settings64.sh

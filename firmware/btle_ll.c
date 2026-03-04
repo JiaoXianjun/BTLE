@@ -1,6 +1,6 @@
 // Author: Xianjun Jiao <putaoshu@msn.com>
 // SPDX-FileCopyrightText: 2025 Xianjun Jiao
-// SPDX-License-Identifier: LicenseRef-MyCompany-Commercial
+// SPDX-License-Identifier: Apache-2.0 license
 
 #define _GNU_SOURCE
 

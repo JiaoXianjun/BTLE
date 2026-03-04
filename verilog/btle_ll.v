@@ -1,6 +1,6 @@
 // Author: Xianjun Jiao <putaoshu@msn.com>
 // SPDX-FileCopyrightText: 2025 Xianjun Jiao
-// SPDX-License-Identifier: LicenseRef-MyCompany-Commercial
+// SPDX-License-Identifier: Apache-2.0 license
 
 // This link layer module interfaces with the host via UART HCI (Host Controller Interface), 
 // and axi lite interface as alternative channel for configuration and control.
