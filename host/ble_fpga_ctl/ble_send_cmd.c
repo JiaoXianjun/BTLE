@@ -32,6 +32,9 @@
 // #define DEBUG_PRINT(...) printf(__VA_ARGS__)
 #define DEBUG_PRINT(...)
 
+#define MAX_NUM_REG 64
+#define MAX_LINE_LEN_REGISTER_FILE 128
+
 int sockfd = 0;
 struct sockaddr_ll socket_address;
 unsigned char eth_raw_socket_buffer[1500];
@@ -137,6 +140,44 @@ static inline int eth_raw_socket_send(uint32_t num_byte, uint8_t *packet_byte) {
   return send_result;
 }
 
+static inline int reg_write(int reg_idx, uint32_t reg_val) {
+  const uint32_t magic_header_len = 4;
+  const uint32_t timestamp_len = 8;
+  const uint32_t control_len = 4;
+  const uint32_t unit_field_len = 4;
+
+  static uint8_t packet_byte[64];
+  uint32_t num_byte, runtime_len;
+
+  int return_val = 0;
+
+  runtime_len = 0;
+  // 4 bytes magic header
+  ((uint32_t*)(packet_byte + runtime_len))[0] = 0x64838364;
+
+  runtime_len = runtime_len + magic_header_len;
+  // 8 bytes timestamp
+  ((uint64_t*)(packet_byte + runtime_len))[0] = get_time_us();
+
+  runtime_len = runtime_len + timestamp_len;
+  // 4 bytes control
+  ((uint32_t*)(packet_byte + runtime_len))[0] = 0; // 0 for register write
+
+  runtime_len = runtime_len + control_len;
+  // 4 bytes unit_field0
+  ((uint32_t*)(packet_byte + runtime_len))[0] = reg_idx; // register index
+  runtime_len = runtime_len + unit_field_len;
+  // 4 bytes unit_field1
+  ((uint32_t*)(packet_byte + runtime_len))[0] = reg_val; // register value
+
+  num_byte = runtime_len + unit_field_len;
+  if (eth_raw_socket_send(num_byte, packet_byte) < 0) {
+    return_val = -1;
+  }
+
+  return return_val;
+}
+
 int parse_mac(const char *mac_str, unsigned char mac[6]) {
   if (strlen(mac_str) < 17) return -1;  // "AA:BB:CC:DD:EE:FF"
 
@@ -156,6 +197,109 @@ int parse_mac(const char *mac_str, unsigned char mac[6]) {
   return 0;  // success
 }
 
+int parse_register_file(char *filename, int32_t reg_list[MAX_NUM_REG][2], int max_num_reg)
+{
+  if (!filename || !reg_list || max_num_reg <= 0) {
+    fprintf(stderr, "[ERROR] parse_register_file: invalid arguments.\n");
+    return -1;
+  }
+
+  FILE *fp = fopen(filename, "r");
+  if (!fp) {
+    fprintf(stderr, "[ERROR] parse_register_file: cannot open file '%s': %s\n",
+            filename, strerror(errno));
+    return -1;
+  }
+
+  char line[MAX_LINE_LEN_REGISTER_FILE];
+  int  count    = 0;   /* pairs stored so far          */
+  int  lineno   = 0;   /* current line number (for msg) */
+  int  overflow = 0;   /* did we hit the cap?           */
+
+  while (fgets(line, sizeof(line), fp)) {
+    lineno++;
+
+    /* ── strip inline comment ─────────────────────────────────────── */
+    char *comment = strchr(line, '#');
+    if (comment)
+        *comment = '\0';
+
+    /* ── skip blank / whitespace-only lines ───────────────────────── */
+    char *p = line;
+    while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n')
+      p++;
+    if (*p == '\0')
+      continue;
+
+    /* ── we have a real data line ──────────────────────────────────── */
+    if (count >= max_num_reg) {
+      overflow = 1;   /* keep scanning to detect non-empty lines */
+      continue;
+    }
+
+    /* ── parse two tokens ─────────────────────────────────────────── */
+    char   tok_idx[64] = {0};
+    char   tok_val[64] = {0};
+    char   extra[8]    = {0};   /* catch unexpected extra tokens */
+
+    int n = sscanf(p, "%63s %63s %7s", tok_idx, tok_val, extra);
+
+    if (n < 2) {
+      fprintf(stderr, "[WARNING] parse_register_file: line %d: "
+              "expected <index> <value>, got \"%s\" — skipping.\n",
+              lineno, p);
+      continue;
+    }
+    if (n > 2) {
+      fprintf(stderr, "[WARNING] parse_register_file: line %d: "
+              "extra token(s) after value — line will still be parsed.\n",
+              lineno);
+    }
+
+    /* ── convert index ────────────────────────────────────────────── */
+    char   *endptr = NULL;
+    long    idx_l  = strtol(tok_idx, &endptr, 0);   /* base 0: auto-detect 0x */
+    if (*endptr != '\0') {
+      fprintf(stderr, "[WARNING] parse_register_file: line %d: "
+              "invalid index token '%s' — skipping.\n", lineno, tok_idx);
+      continue;
+    }
+
+    /* ── convert value ────────────────────────────────────────────── */
+    long val_l = strtol(tok_val, &endptr, 0);
+    if (*endptr != '\0') {
+      fprintf(stderr, "[WARNING] parse_register_file: line %d: "
+              "invalid value token '%s' — skipping.\n", lineno, tok_val);
+      continue;
+    }
+
+    /* ── range-check to int32_t ───────────────────────────────────── */
+    if (idx_l < INT32_MIN || idx_l > INT32_MAX) {
+      fprintf(stderr, "[WARNING] parse_register_file: line %d: "
+              "index %ld out of int32_t range — skipping.\n", lineno, idx_l);
+      continue;
+    }
+    if (val_l < INT32_MIN || val_l > INT32_MAX) {
+      fprintf(stderr, "[WARNING] parse_register_file: line %d: "
+              "value %ld out of int32_t range — skipping.\n", lineno, val_l);
+      continue;
+    }
+
+    reg_list[count][0] = (int32_t)idx_l;
+    reg_list[count][1] = (int32_t)val_l;
+    count++;
+  }
+
+  fclose(fp);
+
+  if (overflow) {
+    fprintf(stderr, "[WARNING] parse_register_file: reached max_num_reg limit (%d). "
+            "Some entries in '%s' were not read.\n", max_num_reg, filename);
+  }
+
+  return count;
+}
+
 static inline void print_usage() {
   printf("Usage: ble_send_cmd\n");
   printf("  -i local ethernet interface name : such as eth0\n");
@@ -163,6 +307,7 @@ static inline void print_usage() {
   printf("  -n channel number : such as 37, 38, 39, etc.\n");
   printf("  -c CRC init value : such as 0x555555\n");
   printf("  -a access address : such as 0x8E89BED6\n");
+  printf("  -w register_file.txt : each line has reg_idx reg_val. by default decimal, if starting with 0x then hex. # for comments\n");
 }
 
 int main(int argc, char *argv[])
@@ -177,17 +322,9 @@ int main(int argc, char *argv[])
   uint32_t crc_init = 0x555555; // default to 0x555555
   uint32_t unique_bit_seq = 0x8E89BED6; // default to 0x8E89BED6
   uint32_t reg_val = 0;
+  int32_t  reg_list[MAX_NUM_REG][2], num_reg = 0;
 
-  const uint32_t magic_header_len = 4;
-  const uint32_t timestamp_len = 8;
-  const uint32_t control_len = 4;
-  const uint32_t unit_field_len = 4;
-
-  uint8_t packet_byte[64] = {0,1,2,3,4,5,6};
-  uint32_t num_byte = magic_header_len + timestamp_len + control_len + 2*unit_field_len;
-  uint32_t runtime_len;
-
-  while ((opt = getopt(argc, argv, "i:m:n:c:a:")) != -1) {
+  while ((opt = getopt(argc, argv, "i:m:n:c:a:w:")) != -1) {
     switch (opt) {
       case 'i':
         strcpy(ifname, optarg);
@@ -225,6 +362,13 @@ int main(int argc, char *argv[])
         reg_idx = 10;
         reg_val = unique_bit_seq;
         break;
+      case 'w':
+        num_reg = parse_register_file(optarg, reg_list, MAX_NUM_REG);
+        if (num_reg <= 0) {
+          fprintf(stderr, "Error parsing register file: %s num_reg=%d\n", optarg, num_reg);
+          return EXIT_FAILURE;
+        }
+        break;
       default:
         print_usage();
         exit(EXIT_FAILURE);
@@ -250,36 +394,37 @@ int main(int argc, char *argv[])
 
   __sync_synchronize();
 
+  // print out the register settings read from file
+  if (num_reg > 0) {
+    printf("%d register settings read from file:\n", num_reg);
+    for (int i = 0; i < num_reg; i++) {
+      printf("  reg_idx=%d reg_val=0x%08X %d\n", reg_list[i][0], reg_list[i][1], reg_list[i][1]);
+    }
+    printf("Sending register write commands...\n");
+    for (int i = 0; i < num_reg; i++) {
+      reg_val = (*((uint32_t*)(&(reg_list[i][1]))));
+      if (reg_write(reg_list[i][0], reg_val) < 0) {
+        fprintf(stderr, "Failed to send register write command for reg_idx=%d\n", reg_list[i][0]);
+      }
+      // else {
+      //   printf("cmd sent at (us) %llu\n", (unsigned long long)get_time_us());
+      //   printf("write 0x%08X (%d) to register %d\n", reg_list[i][1], reg_list[i][1], reg_list[i][0]);
+      // }
+    }
+    printf("Finished sending register write commands.\n");
+  }
+
   // while (!signal_stop) {
 
   if (reg_idx >= 0) {
-    runtime_len = 0;
-    // 4 bytes magic header
-    ((uint32_t*)(packet_byte + runtime_len))[0] = 0x64838364;
-
-    runtime_len = runtime_len + magic_header_len;
-    // 8 bytes timestamp
-    ((uint64_t*)(packet_byte + runtime_len))[0] = get_time_us();
-
-    runtime_len = runtime_len + timestamp_len;
-    // 4 bytes control
-    ((uint32_t*)(packet_byte + runtime_len))[0] = 0; // 0 for register write
-
-    runtime_len = runtime_len + control_len;
-    // 4 bytes unit_field0
-    ((uint32_t*)(packet_byte + runtime_len))[0] = reg_idx; // register index
-    runtime_len = runtime_len + unit_field_len;
-    // 4 bytes unit_field1
-    ((uint32_t*)(packet_byte + runtime_len))[0] = reg_val; // register value
-
-    num_byte = runtime_len + unit_field_len;
-    if (eth_raw_socket_send(num_byte, packet_byte) < 0) {
-      // break;
+    if (reg_write(reg_idx, reg_val) < 0) {
+      fprintf(stderr, "Failed to send register write command.\n");
     }
     printf("cmd sent at (us) %llu\n", (unsigned long long)get_time_us());
     printf("write %u (0x%08X) to register %d\n", reg_val, reg_val, reg_idx);
   } else {
     printf("No register setting to send.\n");
+    print_usage();
   }
 
   //   break;
