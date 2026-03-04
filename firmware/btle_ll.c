@@ -567,7 +567,6 @@ int main(int argc, char *argv[])
   }
 
   if (pid == 0) {
-    // CHILD PROCESS: pin to CPU 1, and exit when parent dies
     if (prctl(PR_SET_PDEATHSIG, SIGTERM) == -1) {
       perror("child: prctl");
       // continue anyway
