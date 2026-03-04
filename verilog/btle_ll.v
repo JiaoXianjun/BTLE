@@ -52,24 +52,24 @@ module btle_ll # (
   output wire uart_tx,
 
   // ==========to phy tx======
-  output wire [3:0] tx_gauss_filter_tap_index, // only need to set 0~8, 9~16 will be mirror of 0~7
-  output wire signed [(GAUSS_FILTER_BIT_WIDTH-1) : 0] tx_gauss_filter_tap_value,
+  `KEEP_FOR_DBG output wire [3:0] tx_gauss_filter_tap_index, // only need to set 0~8, 9~16 will be mirror of 0~7
+  `KEEP_FOR_DBG output wire signed [(GAUSS_FILTER_BIT_WIDTH-1) : 0] tx_gauss_filter_tap_value,
 
-  output wire [(SIN_COS_ADDR_BIT_WIDTH-1) : 0] tx_cos_table_write_address,
-  output wire signed [(IQ_BIT_WIDTH-1) : 0] tx_cos_table_write_data,
-  output wire [(SIN_COS_ADDR_BIT_WIDTH-1) : 0] tx_sin_table_write_address,
-  output wire signed [(IQ_BIT_WIDTH-1) : 0] tx_sin_table_write_data,
+  `KEEP_FOR_DBG output wire [(SIN_COS_ADDR_BIT_WIDTH-1) : 0] tx_cos_table_write_address,
+  `KEEP_FOR_DBG output wire signed [(IQ_BIT_WIDTH-1) : 0] tx_cos_table_write_data,
+  `KEEP_FOR_DBG output wire [(SIN_COS_ADDR_BIT_WIDTH-1) : 0] tx_sin_table_write_address,
+  `KEEP_FOR_DBG output wire signed [(IQ_BIT_WIDTH-1) : 0] tx_sin_table_write_data,
 
-  output wire [7:0]  tx_preamble,
+  `KEEP_FOR_DBG output wire [7:0]  tx_preamble,
 
-  output wire [31:0] tx_access_address,
-  output wire [(CRC_STATE_BIT_WIDTH-1) : 0] tx_crc_state_init_bit,
-  output wire [(CHANNEL_NUMBER_BIT_WIDTH-1) : 0] tx_channel_number,
+  `KEEP_FOR_DBG output wire [31:0] tx_access_address,
+  `KEEP_FOR_DBG output wire [(CRC_STATE_BIT_WIDTH-1) : 0] tx_crc_state_init_bit,
+  `KEEP_FOR_DBG output wire [(CHANNEL_NUMBER_BIT_WIDTH-1) : 0] tx_channel_number,
 
   `KEEP_FOR_DBG output wire [7:0] tx_pdu_octet_mem_data,
   `KEEP_FOR_DBG output wire [NUM_BIT_PAYLOAD_LENGTH:0] tx_pdu_octet_mem_addr,  // 1 more addr bit is needed: the octet_valid actually will output 2 bytes header, payload length, 3 bytes CRC
-  output wire tx_start,
-  input  wire tx_iq_valid_last,
+  `KEEP_FOR_DBG output wire tx_start,
+  `KEEP_FOR_DBG input  wire tx_iq_valid_last,
 
   // =========to phy rx=======
   output wire [(LEN_UNIQUE_BIT_SEQUENCE-1) : 0]  rx_unique_bit_sequence,
