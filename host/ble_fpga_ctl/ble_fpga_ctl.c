@@ -129,7 +129,7 @@ int main() {
   uint64_t timestamp, rx_crc_ok;
   uint32_t total_len = eth_header_len + magic_header_len + timestamp_len + access_address_len + length_field_len;
   uint32_t total_len_magic_header = eth_header_len + magic_header_len;
-  uint32_t num_crc_err_pkt = 0, num_crc_ok_pkt = 0;
+  uint32_t num_crc_err_pkt = 0, num_crc_ok_pkt = 0, num_pkt_total = 0;
 
   sockfd = socket(AF_PACKET, SOCK_RAW, htons(ether_type));
   if (sockfd < 0) { perror("socket"); return 1; }
@@ -200,7 +200,7 @@ int main() {
         rx_crc_ok = (timestamp&0x8000000000000000ULL);
         if (rx_crc_ok) { // only show CRC OK packets in wireshark
           // fprintf(stderr, "Warning: timestamp upper 16 bits are not zero: 0x%016llX\n", (unsigned long long)(timestamp));
-          num_crc_ok_pkt++;
+          // num_crc_ok_pkt++;
           runtime_len = runtime_len + timestamp_len;
           // 4 bytes access_address
           access_address = ((uint32_t*)(buffer + runtime_len))[0];
@@ -212,11 +212,16 @@ int main() {
           runtime_len = runtime_len + length_field_len;
 
           // write_le_ll_with_phdr(timestamp, access_address, header_payload_crc_len, buffer + runtime_len, stdout);
-          write_le_ll_with_phdr(timestamp, access_address, header_payload_crc_len, buffer + runtime_len);
+          write_le_ll_with_phdr(timestamp&(~0x8000000000000000ULL), access_address, header_payload_crc_len, buffer + runtime_len);
           // fprintf(stderr, "1\n");
         } else {
           num_crc_err_pkt++;
-          fprintf(stderr, "CRC err %d/%d\n", num_crc_err_pkt, num_crc_ok_pkt);
+        }
+        num_pkt_total++;
+        if (num_crc_err_pkt == 100) {
+          fprintf(stderr, "CRC err/total %d/%d %f\n", num_crc_err_pkt, num_pkt_total, (float)num_crc_err_pkt / num_pkt_total);
+          num_crc_err_pkt = 0;
+          num_pkt_total = 0;
         }
       } else if (magic_header == 0x19293811) {
         timestamp = get_time_us();
