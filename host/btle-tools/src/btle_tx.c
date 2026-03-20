@@ -573,6 +573,9 @@ inline int open_board() {
     printf("open_board: hackrf_set_txvga_gain() failed: %s (%d)\n", hackrf_error_name(result), result);
     return(-1);
   }
+  else {
+    printf("HackRF Set TX VGA Gain: %d\n", tx_gain_db);
+  }
 
   #if 0
   result = hackrf_set_antenna_enable(device, 1);
