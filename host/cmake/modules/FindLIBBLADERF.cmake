@@ -24,6 +24,7 @@ FIND_LIBRARY(LIBBLADERF_LIBRARY
   /usr/lib
   /usr/local/lib
   /usr/lib/x86_64-linux-gnu
+  /usr/lib/aarch64-linux-gnu
   NO_DEFAULT_PATH
 )
 
