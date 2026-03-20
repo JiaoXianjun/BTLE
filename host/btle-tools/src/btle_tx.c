@@ -108,6 +108,16 @@ float gauss_coef[LEN_GAUSS_FILTER*SAMPLE_PER_SYMBOL] = {7.561773e-09, 1.197935e-
 
 uint64_t freq_hz;
 
+#ifdef USE_BLADERF
+#define DEFAULT_TX_GAIN_DB (57)
+#else
+#define DEFAULT_TX_GAIN_DB (47)
+#define HACKRF_TXVGA_GAIN_MIN (0)
+#define HACKRF_TXVGA_GAIN_MAX (47)
+#endif
+
+static int tx_gain_db = DEFAULT_TX_GAIN_DB;
+
 volatile bool do_exit = false;
 
 volatile int stop_tx = 1;
@@ -265,14 +275,65 @@ void sigint_callback_handler(int signum)
 static void usage() {
   printf("BLE packet generator. Xianjun Jiao. putaoshu@msn.com\n\n");
 	printf("Usage:\n");
-	printf("btle_tx packet1 packet2 ... packetX ...  rN\n");
+	printf("btle_tx [-g gain_db|--gain gain_db] packet1 packet2 ... packetX ...  rN\n");
 	printf("or\n");
-	printf("./btle_tx packets.txt\n");
+	printf("./btle_tx [-g gain_db|--gain gain_db] packets.txt\n");
 	printf("(packets.txt contains parameters: packet1 ... packetX rN\n");
   printf("\nA packet sequence is composed by packet1 packet2 ... packetX\n");
   printf("rN means that the sequence will be repeated for N times\n");
   printf("packetX is packet descriptor string.\n");
   printf("For the format, see README for detailed information.\n");
+  printf("\n");
+#ifdef USE_BLADERF
+  printf("gain_db sets TX gain in dB. Default is %d.\n", DEFAULT_TX_GAIN_DB);
+#else
+  printf("gain_db sets HackRF TX VGA gain in dB. Default is %d, valid range %d~%d.\n",
+         DEFAULT_TX_GAIN_DB, HACKRF_TXVGA_GAIN_MIN, HACKRF_TXVGA_GAIN_MAX);
+#endif
+}
+
+int parse_tx_gain_args(int argc, char **argv, int *arg_start) {
+  int idx = 1;
+
+  while (idx < argc) {
+    if (strcmp(argv[idx], "-g") == 0 || strcmp(argv[idx], "--gain") == 0) {
+      char *endp;
+      long gain_val;
+
+      if ((idx + 1) >= argc) {
+        printf("Missing value after %s\n", argv[idx]);
+        return(-1);
+      }
+
+      gain_val = strtol(argv[idx+1], &endp, 10);
+      if (endp == argv[idx+1] || (*endp) != 0) {
+        printf("Invalid gain value: %s\n", argv[idx+1]);
+        return(-1);
+      }
+
+#ifndef USE_BLADERF
+      if (gain_val < HACKRF_TXVGA_GAIN_MIN || gain_val > HACKRF_TXVGA_GAIN_MAX) {
+        printf("Invalid HackRF TX gain %ld. Valid range is %d~%d\n",
+               gain_val, HACKRF_TXVGA_GAIN_MIN, HACKRF_TXVGA_GAIN_MAX);
+        return(-1);
+      }
+#endif
+
+      tx_gain_db = (int)gain_val;
+      idx += 2;
+      continue;
+    }
+
+    if (strcmp(argv[idx], "-h") == 0 || strcmp(argv[idx], "--help") == 0) {
+      usage();
+      return(1);
+    }
+
+    break;
+  }
+
+  (*arg_start) = idx;
+  return(0);
 }
 
 inline void set_freq_by_channel_number(int channel_number) {
@@ -360,14 +421,14 @@ inline int init_board() {
               bladerf_strerror(status));
   }
   
-  status = bladerf_set_gain(dev, BLADERF_MODULE_TX, 57);
+  status = bladerf_set_gain(dev, BLADERF_MODULE_TX, tx_gain_db);
   if (status != 0) {
       fprintf(stderr, "Failed to set gain: %s\n",
               bladerf_strerror(status));
       bladerf_close(dev);
       return EXIT_FAILURE;
   } else {
-    fprintf(stdout, "bladerf_set_gain: %d %s\n", 57,
+    fprintf(stdout, "bladerf_set_gain: %d %s\n", tx_gain_db,
               bladerf_strerror(status));
   }
 
@@ -507,7 +568,7 @@ inline int open_board() {
   }
 
   /* range 0-47 step 1db */
-  result = hackrf_set_txvga_gain(device, 47);
+  result = hackrf_set_txvga_gain(device, tx_gain_db);
   if( result != HACKRF_SUCCESS ) {
     printf("open_board: hackrf_set_txvga_gain() failed: %s (%d)\n", hackrf_error_name(result), result);
     return(-1);
@@ -4197,20 +4258,34 @@ void release_2d(char **items, int num_row) {
 int main(int argc, char** argv) {
   int num_packet, i, j, num_items;
   int num_repeat = 0; // -1: inf; 0: 1; other: specific
+  int arg_start = 1;
+  int parse_ret;
+  int num_positional;
 
-  if (argc < 2) {
+  parse_ret = parse_tx_gain_args(argc, argv, &arg_start);
+  if (parse_ret < 0) {
+    usage();
+    return(-1);
+  } else if (parse_ret > 0) {
+    return(0);
+  }
+
+  num_positional = argc - arg_start;
+
+  if (num_positional < 1) {
     usage();
     return(0);
-  } else if ( (argc-1-1) > MAX_NUM_PACKET ){
+  } else if ( (num_positional-1) > MAX_NUM_PACKET ){
     printf("Too many packets input! Maximum allowed is %d\n", MAX_NUM_PACKET);
-  } else if (argc == 2 && ( strstr(argv[1], ".txt")!=NULL || strstr(argv[1], ".TXT")!=NULL) ) {  // from file
+  } else if (num_positional == 1 &&
+             ( strstr(argv[arg_start], ".txt")!=NULL || strstr(argv[arg_start], ".TXT")!=NULL) ) {  // from file
     char **items = malloc_2d(MAX_NUM_PACKET+2, MAX_NUM_CHAR_CMD);
     if (items == NULL) {
       printf("malloc failed!\n");
       return(-1);
     }
 
-    if ( read_items_from_file(&num_items, items, MAX_NUM_PACKET+2, argv[1]) == -1 ) {
+    if ( read_items_from_file(&num_items, items, MAX_NUM_PACKET+2, argv[arg_start]) == -1 ) {
       release_2d(items, MAX_NUM_PACKET+2);
       return(-1);
     }
@@ -4222,7 +4297,7 @@ int main(int argc, char** argv) {
       return(-1);
     }
   } else { // from command line
-    num_packet = parse_input(argc, argv, &num_repeat);
+    num_packet = parse_input(num_positional + 1, argv + arg_start - 1, &num_repeat);
     if ( num_repeat == -2 ){
       return(-1);
     }
