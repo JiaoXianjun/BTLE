@@ -327,14 +327,14 @@ inline int init_board() {
     fprintf(stdout, "FPGA is loaded.\n");
   }
   
-  status = bladerf_set_frequency(dev, BLADERF_MODULE_TX, 2402000000ull);
+    status = bladerf_set_frequency(dev, BLADERF_MODULE_TX, freq_hz);
   if (status != 0) {
       fprintf(stderr, "Failed to set frequency: %s\n",
               bladerf_strerror(status));
       bladerf_close(dev);
       return EXIT_FAILURE;
   } else {
-      fprintf(stdout, "set frequency: %lluHz %s\n", 2402000000ull,
+      fprintf(stdout, "set frequency: %lluHz %s\n", freq_hz,
               bladerf_strerror(status));
   }
 
@@ -4228,6 +4228,14 @@ int main(int argc, char** argv) {
     }
   }
   printf("\n");
+
+#ifdef USE_BLADERF
+  if (num_packet <= 0) {
+    printf("No packets to transmit.\n");
+    return(-1);
+  }
+  set_freq_by_channel_number(packets[0].channel_number);
+#endif
 
   if ( init_board() != 0 )
       return(-1);
