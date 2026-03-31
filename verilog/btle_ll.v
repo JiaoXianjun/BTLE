@@ -86,6 +86,7 @@ module btle_ll # (
   `KEEP_FOR_DBG input  wire [7:0] rx_pdu_octet_mem_data,
 
   // ===============Auxiliary Signals================
+  input wire [C_S00_AXI_DATA_WIDTH-1 : 0] bram_addr_b,
   `KEEP_FOR_DBG output wire [15:0] ll_gpio,
   output wire ll_itrpt0,
   output wire ll_itrpt1,
@@ -283,6 +284,8 @@ localparam [2:0] STANDBY                  = 0,
 `KEEP_FOR_DBG reg ref_1pps_delay2;
 `KEEP_FOR_DBG reg ref_1pps_delay3;
 
+wire [C_S00_AXI_DATA_WIDTH-1 : 0] bram_addr_b_axi;
+
 // ====================bb clk domain internal signals for crosing================
 `KEEP_FOR_DBG wire [15:0] reg_gpio;
 
@@ -369,6 +372,8 @@ assign slv_reg56 = timestamp_rx_hit_flag_lock_by_decode_end_axi[(C_S00_AXI_DATA_
 assign slv_reg57 = timestamp_rx_hit_flag_lock_by_decode_end_axi[(2*C_S00_AXI_DATA_WIDTH-1) : C_S00_AXI_DATA_WIDTH];
 
 assign slv_reg58 = ref_1pps_flip_and_count;
+
+assign slv_reg59 = bram_addr_b_axi;
 
 assign slv_reg60 = timestamp_axi[(C_S00_AXI_DATA_WIDTH-1) : 0];
 assign slv_reg61 = timestamp_axi[(2*C_S00_AXI_DATA_WIDTH-1) : C_S00_AXI_DATA_WIDTH];
@@ -648,6 +653,7 @@ clk_cross_bus #
               C_S00_AXI_DATA_WIDTH+
               C_S00_AXI_DATA_WIDTH+
               C_S00_AXI_DATA_WIDTH+
+              C_S00_AXI_DATA_WIDTH+
               (2*C_S00_AXI_DATA_WIDTH)+
               (2*C_S00_AXI_DATA_WIDTH)+
               (2*C_S00_AXI_DATA_WIDTH)+
@@ -662,7 +668,8 @@ clk_cross_bus #
   .write_clk(bb_clk),
   .rst(bb_rst),
 
-  .write_data({event0_counter,
+  .write_data({bram_addr_b,
+               event0_counter,
                event1_counter,
                event2_counter,
                event3_counter,
@@ -680,7 +687,8 @@ clk_cross_bus #
                rx_payload_length}),
 
   .read_clk(axi_aclk),
-  .read_data({event0_counter_axi,
+  .read_data({bram_addr_b_axi,
+              event0_counter_axi,
               event1_counter_axi,
               event2_counter_axi,
               event3_counter_axi,
@@ -2767,87 +2775,6 @@ function integer log2(input integer v);
     log2=log2+1;
   end
 endfunction
-
-endmodule
-
-// Author: Xianjun Jiao <putaoshu@msn.com>
-// SPDX-FileCopyrightText: 2025 Xianjun Jiao
-// SPDX-License-Identifier: Apache-2.0 license
-
-// Based on Xilinx UG901 2025-06-11
-// https://docs.amd.com/r/en-US/ug901-vivado-synthesis/Simple-Dual-Port-Block-RAM-with-Single-Clock-Verilog
-// Simple Dual-Port Block RAM with Single Clock (Verilog)
-
-`timescale 1ns / 1ps
-module sdpram_one_clk #
-(
-  parameter DATA_WIDTH = 8,
-  parameter ADDRESS_WIDTH = 11
-) (
-  input wire clk,
-  input wire rst,
-
-  input wire [ADDRESS_WIDTH-1:0] write_address,
-  input wire [DATA_WIDTH-1:0] write_data,
-  input wire write_enable,
-
-  input wire [ADDRESS_WIDTH-1:0] read_address,
-  output reg [DATA_WIDTH-1:0] read_data
-);
-
-reg [DATA_WIDTH-1:0] memory [((1<<ADDRESS_WIDTH)-1):0];
-
-always @ (posedge clk) begin
-  if (write_enable) begin
-    memory[write_address] <= write_data;
-  end
-end
-
-always @ (posedge clk) begin
-  read_data <= memory[read_address];
-end
-
-endmodule
-
-// Author: Xianjun Jiao <putaoshu@msn.com>
-// SPDX-FileCopyrightText: 2025 Xianjun Jiao
-// SPDX-License-Identifier: Apache-2.0 license
-
-// Based on Xilinx UG901 2025-06-11
-// https://docs.amd.com/r/en-US/ug901-vivado-synthesis/Simple-Dual-Port-Block-RAM-with-Single-Clock-Verilog
-// Simple Dual-Port Block RAM with Dual Clocks (Verilog)
-
-`timescale 1ns / 1ps
-module sdpram_two_clk #
-(
-  parameter DATA_WIDTH = 8,
-  parameter ADDRESS_WIDTH = 11
-) (
-  input wire clk,
-  input wire rst,
-
-  input wire [ADDRESS_WIDTH-1:0] write_address,
-  input wire [DATA_WIDTH-1:0] write_data,
-  input wire write_enable,
-
-  input wire clkb,
-  input wire [ADDRESS_WIDTH-1:0] read_address,
-  output reg [DATA_WIDTH-1:0] read_data
-);
-
-reg [DATA_WIDTH-1:0] memory [((1<<ADDRESS_WIDTH)-1):0];
-
-// Write logic (Port A)
-always @ (posedge clk) begin
-  if (write_enable) begin
-    memory[write_address] <= write_data;
-  end
-end
-
-// Read logic (Port B)
-always @ (posedge clkb) begin
-  read_data <= memory[read_address];
-end
 
 endmodule
 
