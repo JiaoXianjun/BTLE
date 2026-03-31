@@ -24,10 +24,6 @@ ipx::package_project -root_dir $ip_core_dir -vendor user.org -library user -taxo
 ipx::unload_core $ip_core_dir/component.xml
 ipx::edit_ip_in_project -upgrade true -name tmp_edit_project -directory $ip_core_dir $ip_core_dir/component.xml
 update_compile_order -fileset sources_1
-file copy ./btle_ll/btle_ll_stub.v $ip_core_dir/src/
-file copy ./btle_ll/btle_ll.dcp $ip_core_dir/src/
-ipx::add_file $ip_core_dir/src/btle_ll_stub.v [ipx::get_file_groups xilinx_anylanguagesynthesis -of_objects [ipx::current_core]]
-set_property library_name xil_defaultlib [ipx::get_files src/btle_ll_stub.v -of_objects [ipx::get_file_groups xilinx_anylanguagesynthesis -of_objects [ipx::current_core]]]
 set_property core_revision 2 [ipx::current_core]
 ipx::update_source_project_archive -component [ipx::current_core]
 ipx::create_xgui_files [ipx::current_core]
@@ -481,12 +477,6 @@ current_run -synthesis [get_runs synth_1]
 launch_runs synth_1 -jobs 6
 
 wait_on_run synth_1
-
-update_compile_order -fileset sources_1
-open_run synth_1 -name synth_1
-
-# read btle_ll.dcp
-read_checkpoint -cell i_system_wrapper/system_i/btle_controller_0/inst/btle_ll_i $ip_core_dir/src/btle_ll.dcp
 
 # Create 'impl_1' run (if not found)
 if {[string equal [get_runs -quiet impl_1] ""]} {
