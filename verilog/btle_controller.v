@@ -37,7 +37,12 @@ module btle_controller #
 
   parameter GFSK_DEMODULATION_BIT_WIDTH = 16,
   parameter LEN_UNIQUE_BIT_SEQUENCE = 32,
-  parameter NUM_BIT_PAYLOAD_LENGTH = 8 // 8 bit in the core spec 6.2
+  parameter NUM_BIT_PAYLOAD_LENGTH = 8, // 8 bit in the core spec 6.2
+
+  parameter BRAM_DEPTH = 16384,
+  parameter BRAM_ADDR_WIDTH = $clog2(BRAM_DEPTH),
+  parameter BRAM_DATA_WIDTH = (2*RF_I_OR_Q_BIT_WIDTH),
+  parameter BRAM_ADDR_WIDTH_IN_BYTE = $clog2(BRAM_DEPTH*BRAM_DATA_WIDTH/8)
 ) (
   input  wire rf_clk,
   input  wire rf_rst,
@@ -56,6 +61,15 @@ module btle_controller #
   output wire ll_itrpt5,
   output wire ll_itrpt6,
   output wire ll_itrpt7,
+
+  // bram related
+  input  wire [BRAM_ADDR_WIDTH_IN_BYTE-1 : 0] bram_addr_a,
+  input  wire bram_clk_a,
+  input  wire [BRAM_DATA_WIDTH-1 : 0] bram_wrdata_a,
+  output wire [BRAM_DATA_WIDTH-1 : 0] bram_rddata_a,
+  input  wire bram_en_a,
+  input  wire bram_rst_a,
+  input  wire bram_we_a,
 
   // ============================to host: UART HCI=========================
   input  wire uart_rx,
@@ -164,6 +178,7 @@ wire                                              tx_iq_valid_last;
 
 // =================link layer and auxiliary==================
 // `KEEP_FOR_DBG wire [15:0] ll_reg_gpio;
+wire [BRAM_ADDR_WIDTH-1 : 0] bram_addr_b;
 
 // =================link layer to phy tx======================
 wire [3:0] ll_tx_gauss_filter_tap_index;
@@ -291,7 +306,12 @@ auxiliary_daemon #
 
   .IQ_BIT_WIDTH(IQ_BIT_WIDTH),
 
-  .GFSK_DEMODULATION_BIT_WIDTH(GFSK_DEMODULATION_BIT_WIDTH)
+  .GFSK_DEMODULATION_BIT_WIDTH(GFSK_DEMODULATION_BIT_WIDTH),
+
+  .BRAM_DEPTH(BRAM_DEPTH),
+  .BRAM_ADDR_WIDTH(BRAM_ADDR_WIDTH),
+  .BRAM_DATA_WIDTH(BRAM_DATA_WIDTH),
+  .BRAM_ADDR_WIDTH_IN_BYTE(BRAM_ADDR_WIDTH_IN_BYTE)
 ) auxiliary_daemon_i (
   .bb_clk(bb_clk), // bb 16MHz clock
   .bb_rst(bb_rst),
@@ -304,7 +324,16 @@ auxiliary_daemon #
   .i_abs_add_q_abs(i_abs_add_q_abs),
   .agc_lock_change(agc_lock_change),
   .agc_lock_state(agc_lock_state),
-  .rf_gain(rf_gain)
+  .rf_gain(rf_gain),
+
+  .bram_addr_b(bram_addr_b),
+  .bram_addr_a(bram_addr_a),
+  .bram_clk_a(bram_clk_a),
+  .bram_wrdata_a(bram_wrdata_a),
+  .bram_rddata_a(bram_rddata_a),
+  .bram_en_a(bram_en_a),
+  .bram_rst_a(bram_rst_a),
+  .bram_we_a(bram_we_a)
 );
 
 btle_ll #
@@ -372,6 +401,7 @@ btle_ll #
   .rx_pdu_octet_mem_data(ext_rx_pdu_octet_mem_data),
 
   // ===============Auxiliary Signals================
+  .bram_addr_b(bram_addr_b),
   .ll_gpio(ll_gpio),
   .ll_itrpt0(ll_itrpt0),
   .ll_itrpt1(ll_itrpt1),
