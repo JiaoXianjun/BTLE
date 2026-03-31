@@ -218,8 +218,8 @@
         adi,tx-rf-port-input-select = <0x0>;
         adi,tx-attenuation-mdB = <0x2710>;
         adi,tx-lo-powerdown-managed-enable;
-        adi,rf-rx-bandwidth-hz = <2000000>;
-        adi,rf-tx-bandwidth-hz = <2000000>;
+        adi,rf-rx-bandwidth-hz = <2210675>;
+        adi,rf-tx-bandwidth-hz = <2206348>;
         adi,rx-synthesizer-frequency-hz = <0x0 2402000000>;
         adi,tx-synthesizer-frequency-hz = <0x1 1704032704>;
         adi,rx-path-clock-frequencies = <1024000000 64000000 32000000 16000000 8000000 8000000>;
