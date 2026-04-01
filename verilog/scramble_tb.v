@@ -13,7 +13,7 @@
 `timescale 1ns / 1ps
 module scramble_tb #
 (
-  parameter CHANNEL_NUMBER_BIT_WIDTH = 6
+  parameter integer CHANNEL_NUMBER_BIT_WIDTH = 6
 ) (
 );
 

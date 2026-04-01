@@ -7,7 +7,7 @@
 `timescale 1ns / 1ps
 module search_unique_bit_sequence #
 (
-  parameter LEN_UNIQUE_BIT_SEQUENCE = 32
+  parameter integer LEN_UNIQUE_BIT_SEQUENCE = 32
 ) (
   input wire clk,
   input wire rst,

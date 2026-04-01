@@ -9,8 +9,8 @@
 `timescale 1ns / 1ps
 module crc24 #
 (
-  parameter NUM_BIT_PAYLOAD_LENGTH = 8, // 8 bit in the core spec 6.2
-  parameter CRC_STATE_BIT_WIDTH = 24
+  parameter integer NUM_BIT_PAYLOAD_LENGTH = 8, // 8 bit in the core spec 6.2
+  parameter integer CRC_STATE_BIT_WIDTH = 24
 ) (
   input wire clk,
   input wire rst,

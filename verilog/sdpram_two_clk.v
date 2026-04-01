@@ -9,8 +9,8 @@
 `timescale 1ns / 1ps
 module sdpram_two_clk #
 (
-  parameter DATA_WIDTH = 8,
-  parameter ADDRESS_WIDTH = 11
+  parameter integer DATA_WIDTH = 8,
+  parameter integer ADDRESS_WIDTH = 11
 ) (
   input wire clk,
   input wire rst,

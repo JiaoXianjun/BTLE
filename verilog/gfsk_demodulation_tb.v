@@ -13,7 +13,7 @@
 `timescale 1ns / 1ps
 module gfsk_demodulation_tb #
 (
-  parameter GFSK_DEMODULATION_BIT_WIDTH = 16
+  parameter integer GFSK_DEMODULATION_BIT_WIDTH = 16
 ) (
 );
 

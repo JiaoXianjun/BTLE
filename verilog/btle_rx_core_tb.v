@@ -13,10 +13,10 @@
 `timescale 1ns / 1ps
 module btle_rx_core_tb #
 (
-  parameter GFSK_DEMODULATION_BIT_WIDTH = 16,
-  parameter LEN_UNIQUE_BIT_SEQUENCE = 32,
-  parameter CHANNEL_NUMBER_BIT_WIDTH = 6,
-  parameter CRC_STATE_BIT_WIDTH = 24
+  parameter integer iGFSK_DEMODULATION_BIT_WIDTH = 16,
+  parameter integer LEN_UNIQUE_BIT_SEQUENCE = 32,
+  parameter integer CHANNEL_NUMBER_BIT_WIDTH = 6,
+  parameter integer CRC_STATE_BIT_WIDTH = 24
 ) (
 );
 

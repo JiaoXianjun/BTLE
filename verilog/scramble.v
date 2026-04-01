@@ -7,8 +7,8 @@
 `timescale 1ns / 1ps
 module scramble #
 (
-  parameter NUM_BIT_PAYLOAD_LENGTH = 8, // 8 bit in the core spec 6.2
-  parameter CHANNEL_NUMBER_BIT_WIDTH = 6
+  parameter integer NUM_BIT_PAYLOAD_LENGTH = 8, // 8 bit in the core spec 6.2
+  parameter integer CHANNEL_NUMBER_BIT_WIDTH = 6
 ) (
   input wire clk,
   input wire rst,

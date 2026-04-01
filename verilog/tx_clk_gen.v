@@ -14,8 +14,8 @@
 `timescale 1ns / 1ps
 module tx_clk_gen
 #(
-	parameter	CLK_FREQUENCE	= 50_000_000,		//hz
-				BAUD_RATE		= 9600		 		//9600、19200 、38400 、57600 、115200、230400、460800、921600
+	parameter	integer CLK_FREQUENCE	= 50_000_000,		//hz
+				integer BAUD_RATE		= 9600		 		//9600、19200 、38400 、57600 、115200、230400、460800、921600
 )
 (
 	input					clk			,	//system_clk

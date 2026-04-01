@@ -23,24 +23,24 @@ module btle_ll # (
   parameter integer C_S00_AXI_ADDR_WIDTH  = 8,
 
   // parameter CLK_FREQUENCE = 16_000_000, //hz
-  parameter CLK_FREQUENCE = 100_000_000, //hz
-  parameter BAUD_RATE     = 115200,     //9600、19200 、38400 、57600 、115200、230400、460800、921600
-  parameter PARITY        = "NONE",     //"NONE","EVEN","ODD"
-  parameter FRAME_WD      = 8,          //if PARITY="NONE",it can be 5~9;else 5~8
+  parameter integer CLK_FREQUENCE = 100_000_000, //hz
+  parameter integer BAUD_RATE     = 115200,     //9600、19200 、38400 、57600 、115200、230400、460800、921600
+  parameter        PARITY        = "NONE",     //"NONE","EVEN","ODD"
+  parameter integer FRAME_WD      = 8,          //if PARITY="NONE",it can be 5~9;else 5~8
 
-  parameter RF_IQ_BIT_WIDTH = 64,
-  parameter RF_I_OR_Q_BIT_WIDTH = (RF_IQ_BIT_WIDTH/4),
+  parameter integer RF_IQ_BIT_WIDTH = 64,
+  parameter integer RF_I_OR_Q_BIT_WIDTH = (RF_IQ_BIT_WIDTH/4),
 
-  parameter GAUSS_FILTER_BIT_WIDTH = 16,
-  parameter SIN_COS_ADDR_BIT_WIDTH = 11,
-  parameter IQ_BIT_WIDTH = 8,
-  parameter CRC_STATE_BIT_WIDTH = 24,
-  parameter CHANNEL_NUMBER_BIT_WIDTH = 6,
+  parameter integer GAUSS_FILTER_BIT_WIDTH = 16,
+  parameter integer SIN_COS_ADDR_BIT_WIDTH = 11,
+  parameter integer IQ_BIT_WIDTH = 8,
+  parameter integer CRC_STATE_BIT_WIDTH = 24,
+  parameter integer CHANNEL_NUMBER_BIT_WIDTH = 6,
 
-  parameter GFSK_DEMODULATION_BIT_WIDTH = 16,
+  parameter integer GFSK_DEMODULATION_BIT_WIDTH = 16,
 
-  parameter LEN_UNIQUE_BIT_SEQUENCE = 32,
-  parameter NUM_BIT_PAYLOAD_LENGTH = 8 // 8 bit in the core spec 6.2
+  parameter integer LEN_UNIQUE_BIT_SEQUENCE = 32,
+  parameter integer NUM_BIT_PAYLOAD_LENGTH = 8 // 8 bit in the core spec 6.2
 ) (
   input  wire bb_clk,
   input  wire bb_rst,
@@ -994,12 +994,12 @@ endmodule
 // ======================sub modules==========================================
 module rx_ram #
 (
-  parameter LEN_UNIQUE_BIT_SEQUENCE = 32,
-  parameter CHANNEL_NUMBER_BIT_WIDTH = 6,
-  parameter CRC_STATE_BIT_WIDTH = 24,
-  parameter C_S00_AXI_DATA_WIDTH  = 32,
-  parameter NUM_BIT_PAYLOAD_LENGTH = 8, // 8 bit in the core spec 6.2
-  parameter RD_DATA_AXI_REG_IDX = 40
+  parameter integer LEN_UNIQUE_BIT_SEQUENCE = 32,
+  parameter integer CHANNEL_NUMBER_BIT_WIDTH = 6,
+  parameter integer CRC_STATE_BIT_WIDTH = 24,
+  parameter integer C_S00_AXI_DATA_WIDTH  = 32,
+  parameter integer NUM_BIT_PAYLOAD_LENGTH = 8, // 8 bit in the core spec 6.2
+  parameter integer RD_DATA_AXI_REG_IDX = 40
 ) (
   input wire bb_clk,
   input wire bb_rst,
@@ -1166,8 +1166,8 @@ endmodule
 
 module octet_to_word #
 (
-  parameter NUM_OCTET_TOTAL_BITWIDTH = 7,
-  parameter C_S00_AXI_DATA_WIDTH  = 32
+  parameter integer NUM_OCTET_TOTAL_BITWIDTH = 7,
+  parameter integer C_S00_AXI_DATA_WIDTH  = 32
 ) (
   input wire clk,
   input wire rstn,
@@ -2232,10 +2232,10 @@ endmodule
 
 module uart_frame_rx
 #(
-  parameter  CLK_FREQUENCE  = 50_000_000,    //hz
-  BAUD_RATE    = 9600    ,    //9600、19200 、38400 、57600 、115200、230400、460800、921600
-  PARITY      = "NONE"  ,    //"NONE","EVEN","ODD"
-  FRAME_WD    = 8            //if PARITY="NONE",it can be 5~9;else 5~8
+  parameter integer CLK_FREQUENCE  = 50_000_000,    //hz
+  parameter integer BAUD_RATE    = 9600    ,    //9600、19200 、38400 、57600 、115200、230400、460800、921600
+  parameter         PARITY      = "NONE"  ,    //"NONE","EVEN","ODD"
+  parameter integer FRAME_WD    = 8            //if PARITY="NONE",it can be 5~9;else 5~8
 )
 (
   input clk,    //sys_clk
@@ -2460,10 +2460,10 @@ endmodule
 `timescale 1ns / 1ps
 module uart_frame_tx
 #(
-  parameter CLK_FREQUENCE  = 50_000_000,    //hz
-            BAUD_RATE    = 9600    ,    //9600、19200 、38400 、57600 、115200、230400、460800、921600
-            PARITY      = "NONE"  ,    //"NONE","EVEN","ODD"
-            FRAME_WD    = 8          //if PARITY="NONE",it can be 5~9;else 5~8
+  parameter integer CLK_FREQUENCE  = 50_000_000,    //hz
+            integer BAUD_RATE    = 9600    ,    //9600、19200 、38400 、57600 、115200、230400、460800、921600
+                    PARITY      = "NONE"  ,    //"NONE","EVEN","ODD"
+            integer FRAME_WD    = 8          //if PARITY="NONE",it can be 5~9;else 5~8
 )
 (
   input clk      ,  //system_clk
@@ -2628,8 +2628,8 @@ endmodule
 `timescale 1ns / 1ps
 module tx_clk_gen
 #(
-  parameter CLK_FREQUENCE  = 50_000_000,    //hz
-            BAUD_RATE    = 9600         //9600、19200 、38400 、57600 、115200、230400、460800、921600
+  parameter integer CLK_FREQUENCE  = 50_000_000,    //hz
+            integer BAUD_RATE    = 9600         //9600、19200 、38400 、57600 、115200、230400、460800、921600
 )
 (
   input       clk,      //system_clk
@@ -2712,8 +2712,8 @@ endmodule
 
 module rx_clk_gen
 #(
-  parameter CLK_FREQUENCE  = 50_000_000,  //hz
-            BAUD_RATE    = 9600       //9600、19200 、38400 、57600 、115200、230400、460800、921600
+  parameter integer CLK_FREQUENCE  = 50_000_000,  //hz
+            integer BAUD_RATE    = 9600       //9600、19200 、38400 、57600 、115200、230400、460800、921600
 )
 (
   input       clk,
@@ -2780,7 +2780,7 @@ endmodule
 
 module clk_cross_bus #
 (
-  parameter DATA_WIDTH = 8
+  parameter integer DATA_WIDTH = 8
 ) (
   input wire write_clk,
   `KEEP_FOR_DBG input wire rst,

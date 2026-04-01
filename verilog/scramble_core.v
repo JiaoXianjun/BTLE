@@ -7,7 +7,7 @@
 `timescale 1ns / 1ps
 module scramble_core #
 (
-  parameter CHANNEL_NUMBER_BIT_WIDTH = 6
+  parameter integer CHANNEL_NUMBER_BIT_WIDTH = 6
 ) (
   input wire clk,
   input wire rst,

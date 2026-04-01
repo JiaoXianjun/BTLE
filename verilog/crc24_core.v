@@ -7,7 +7,7 @@
 `timescale 1ns / 1ps
 module crc24_core #
 (
-  parameter CRC_STATE_BIT_WIDTH = 24
+  parameter integer CRC_STATE_BIT_WIDTH = 24
 ) (
   input wire clk,
   input wire rst,

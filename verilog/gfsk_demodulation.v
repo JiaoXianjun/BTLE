@@ -7,7 +7,7 @@
 `timescale 1ns / 1ps
 module gfsk_demodulation #
 (
-  parameter GFSK_DEMODULATION_BIT_WIDTH = 16
+  parameter integer GFSK_DEMODULATION_BIT_WIDTH = 16
 ) (
   input wire clk,
   input wire rst,

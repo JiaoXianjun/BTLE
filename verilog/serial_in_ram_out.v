@@ -5,8 +5,8 @@
 `timescale 1ns / 1ps
 module serial_in_ram_out #
 (
-  parameter DATA_WIDTH = 8,
-  parameter ADDRESS_WIDTH = 6
+  parameter integer DATA_WIDTH = 8,
+  parameter integer ADDRESS_WIDTH = 6
 ) (
   input wire clk,
   input wire rst,

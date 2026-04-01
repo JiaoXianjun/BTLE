@@ -18,24 +18,24 @@ module btle_controller_tb #
   // Width of S_AXI address bus
   parameter integer S_AXI_ADDR_WIDTH  = 8,
 
-	parameter	CLK_FREQUENCE	= 16_000_000,	//hz
-  parameter BAUD_RATE		= 115200		,		  //9600、19200 、38400 、57600 、115200、230400、460800、921600
-  parameter PARITY			= "NONE"	,		  //"NONE","EVEN","ODD"
-  parameter FRAME_WD		= 8,					    //if PARITY="NONE",it can be 5~9;else 5~8
+	parameter	integer CLK_FREQUENCE	= 16_000_000,	//hz
+  parameter integer BAUD_RATE		= 115200		,		  //9600、19200 、38400 、57600 、115200、230400、460800、921600
+  parameter         PARITY			= "NONE"	,		  //"NONE","EVEN","ODD"
+  parameter integer FRAME_WD		= 8,					    //if PARITY="NONE",it can be 5~9;else 5~8
 
-  parameter CRC_STATE_BIT_WIDTH = 24,
-  parameter CHANNEL_NUMBER_BIT_WIDTH = 6,
-  parameter SAMPLE_PER_SYMBOL = 8,
-  parameter GAUSS_FILTER_BIT_WIDTH = 16,
-  parameter NUM_TAP_GAUSS_FILTER = 17,
-  parameter VCO_BIT_WIDTH = 16,
-  parameter SIN_COS_ADDR_BIT_WIDTH = 11,
-  parameter IQ_BIT_WIDTH = 8,
-  parameter GAUSS_FIR_OUT_AMP_SCALE_DOWN_NUM_BIT_SHIFT = 1,
-  parameter GFSK_DEMODULATION_BIT_WIDTH = 16,
-  parameter LEN_UNIQUE_BIT_SEQUENCE = 32,
+  parameter integer CRC_STATE_BIT_WIDTH = 24,
+  parameter integer CHANNEL_NUMBER_BIT_WIDTH = 6,
+  parameter integer SAMPLE_PER_SYMBOL = 8,
+  parameter integer GAUSS_FILTER_BIT_WIDTH = 16,
+  parameter integer NUM_TAP_GAUSS_FILTER = 17,
+  parameter integer VCO_BIT_WIDTH = 16,
+  parameter integer SIN_COS_ADDR_BIT_WIDTH = 11,
+  parameter integer IQ_BIT_WIDTH = 8,
+  parameter integer GAUSS_FIR_OUT_AMP_SCALE_DOWN_NUM_BIT_SHIFT = 1,
+  parameter integer GFSK_DEMODULATION_BIT_WIDTH = 16,
+  parameter integer LEN_UNIQUE_BIT_SEQUENCE = 32,
 
-  parameter PREAMBLE_BIT_WIDTH = 8
+  parameter integer PREAMBLE_BIT_WIDTH = 8
 ) (
 );
 
