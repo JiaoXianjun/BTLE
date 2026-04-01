@@ -6,8 +6,7 @@
       "name": "system",
       "rev_ctrl_bd_flag": "RevCtrlBdOff",
       "synth_flow_mode": "None",
-      "tool_version": "2022.2",
-      "validated": "true"
+      "tool_version": "2022.2"
     },
     "design_tree": {
       "sys_ps7": "",
@@ -382,17 +381,7 @@
         "right": "0"
       },
       "otg_vbusoc": {
-        "direction": "I",
-        "parameters": {
-          "PortType": {
-            "value": "undef",
-            "value_src": "ip_prop"
-          },
-          "PortType.PROP_SRC": {
-            "value": "false",
-            "value_src": "ip_prop"
-          }
-        }
+        "direction": "I"
       },
       "enable": {
         "direction": "O"
@@ -3562,7 +3551,7 @@
               "SEG_axi_bram_ctrl_0_Mem0": {
                 "address_block": "/axi_bram_ctrl_0/S_AXI/Mem0",
                 "offset": "0x80000000",
-                "range": "64K"
+                "range": "128K"
               },
               "SEG_btle_controller_0_reg0": {
                 "address_block": "/btle_controller_0/s00_axi/reg0",
