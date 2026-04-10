@@ -179,6 +179,7 @@ wire                                              tx_iq_valid_last;
 // =================link layer and auxiliary==================
 // `KEEP_FOR_DBG wire [15:0] ll_reg_gpio;
 wire [BRAM_ADDR_WIDTH-1 : 0] bram_addr_b;
+wire                         bram_addr_b_half_flag;
 
 // =================link layer to phy tx======================
 wire [3:0] ll_tx_gauss_filter_tap_index;
@@ -326,6 +327,7 @@ auxiliary_daemon #
   .agc_lock_state(agc_lock_state),
   .rf_gain(rf_gain),
 
+  .bram_addr_b_half_flag(bram_addr_b_half_flag),
   .bram_addr_b(bram_addr_b),
   .bram_addr_a(bram_addr_a),
   .bram_clk_a(bram_clk_a),
@@ -401,7 +403,8 @@ btle_ll #
   .rx_pdu_octet_mem_data(ext_rx_pdu_octet_mem_data),
 
   // ===============Auxiliary Signals================
-  .bram_addr_b(bram_addr_b),
+  .bram_addr_b_half_flag(bram_addr_b_half_flag),
+  .bram_addr_b({{(C_S00_AXI_DATA_WIDTH-BRAM_ADDR_WIDTH){1'b0}}, bram_addr_b}),
   .ll_gpio(ll_gpio),
   .ll_itrpt0(ll_itrpt0),
   .ll_itrpt1(ll_itrpt1),
