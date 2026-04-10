@@ -671,6 +671,39 @@
     //   reg = <0x40000000 0x1000>;
     // };
 
+    reserved-memory {
+        #address-cells = <1>;
+        #size-cells = <1>;
+        ranges;
+
+        bram_reserved: bram@80000000 {
+            reg = <0x80000000 0x20000>;
+            no-map;
+        };
+    };
+    axi_bram_ctrl_0: axi_bram_ctrl@80000000 {
+                        /* This is a place holder node for a custom IP, user may need to update the entries */
+                        clock-names = "s_axi_aclk";
+                        clocks = <2 15>;
+                        compatible = "xlnx,axi-bram-ctrl-4.1";
+                        reg = <0x80000000 0x20000>;
+                        memory-region = <&bram_reserved>;
+                        xlnx,bram-addr-width = <0xf>;
+                        xlnx,bram-inst-mode = "EXTERNAL";
+                        xlnx,ecc = <0x0>;
+                        xlnx,ecc-onoff-reset-value = <0x0>;
+                        xlnx,ecc-type = <0x0>;
+                        xlnx,fault-inject = <0x0>;
+                        xlnx,memory-depth = <0x8000>;
+                        xlnx,rd-cmd-optimization = <0x0>;
+                        xlnx,read-latency = <0x1>;
+                        xlnx,s-axi-ctrl-addr-width = <0x20>;
+                        xlnx,s-axi-ctrl-data-width = <0x20>;
+                        xlnx,s-axi-id-width = <0xc>;
+                        xlnx,s-axi-supports-narrow-burst = <0x0>;
+                        xlnx,single-port-bram = <0x1>;
+                };
+
     btle_controller_0: btle_controller@40000000 {
       // compatible = "btle_controller";
       compatible = "generic-uio";
