@@ -33,6 +33,7 @@ module auxiliary_daemon #
   output wire [6:0] rf_gain,
 
   // bram related
+  `KEEP_FOR_DBG output wire                         bram_addr_b_half_flag,
   `KEEP_FOR_DBG output reg  [BRAM_ADDR_WIDTH-1 : 0] bram_addr_b,
   `KEEP_FOR_DBG input  wire [BRAM_ADDR_WIDTH_IN_BYTE-1 : 0] bram_addr_a,
   input  wire bram_clk_a,
@@ -53,6 +54,8 @@ assign i_abs_add_q_abs = i_abs + q_abs;
 assign agc_lock_change = (bb_gpio_msb_delay != bb_gpio[7]);
 assign agc_lock_state = bb_gpio[7];
 assign rf_gain = bb_gpio[6:0];
+
+assign bram_addr_b_half_flag = (bram_addr_b == 0 || bram_addr_b == (BRAM_DEPTH/2));
 
 // some misc signals
 always @ (posedge bb_clk) begin
