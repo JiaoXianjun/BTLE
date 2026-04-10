@@ -86,6 +86,7 @@ module btle_ll # (
   `KEEP_FOR_DBG input  wire [7:0] rx_pdu_octet_mem_data,
 
   // ===============Auxiliary Signals================
+  input wire                              bram_addr_b_half_flag,
   input wire [C_S00_AXI_DATA_WIDTH-1 : 0] bram_addr_b,
   `KEEP_FOR_DBG output wire [15:0] ll_gpio,
   output wire ll_itrpt0,
@@ -314,7 +315,7 @@ wire [C_S00_AXI_DATA_WIDTH-1 : 0] bram_addr_b_axi;
 assign ll_gpio                        = reg_gpio;
 assign ll_itrpt0                      = rx_decode_end;
 assign ll_itrpt1                      = rx_hit_flag;
-assign ll_itrpt2                      = 0;
+assign ll_itrpt2                      = bram_addr_b_half_flag;
 assign ll_itrpt3                      = 0;
 assign ll_itrpt4                      = 0;
 assign ll_itrpt5                      = 0;
