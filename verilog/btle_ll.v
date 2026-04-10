@@ -25,7 +25,7 @@ module btle_ll # (
   // parameter CLK_FREQUENCE = 16_000_000, //hz
   parameter integer CLK_FREQUENCE = 100_000_000, //hz
   parameter integer BAUD_RATE     = 115200,     //9600、19200 、38400 、57600 、115200、230400、460800、921600
-  parameter        PARITY        = "NONE",     //"NONE","EVEN","ODD"
+  parameter         PARITY        = "NONE",     //"NONE","EVEN","ODD"
   parameter integer FRAME_WD      = 8,          //if PARITY="NONE",it can be 5~9;else 5~8
 
   parameter integer RF_IQ_BIT_WIDTH = 64,
