@@ -498,8 +498,8 @@ int main(int argc, char *argv[])
   printf("CRC init: 0x%06X\n", crc_init);
   printf("Access address: 0x%08X\n", unique_bit_seq);
 
-  fd_uio0 = open("/dev/uio0", O_RDWR);
-  // int fd1 = open("/dev/uio1", O_RDWR);
+  fd_uio0 = open("/dev/uio0", O_RDWR | O_SYNC);
+  // int fd1 = open("/dev/uio1", O_RDWR | O_SYNC);
   // struct pollfd fds[2];
 
   // if (fd0 < 0 || fd1 < 0) { perror("open"); return -1; }
