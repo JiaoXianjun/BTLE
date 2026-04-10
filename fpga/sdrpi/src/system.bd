@@ -2948,8 +2948,7 @@
           "sys_concat_intc/In5",
           "sys_concat_intc/In6",
           "sys_concat_intc/In3",
-          "sys_concat_intc/In7",
-          "sys_concat_intc/In2"
+          "sys_concat_intc/In7"
         ]
       },
       "GPIO19_Dout": {
@@ -3309,6 +3308,12 @@
         "ports": [
           "btle_controller_0/ll_itrpt1",
           "sys_concat_intc/In1"
+        ]
+      },
+      "btle_controller_0_ll_itrpt2": {
+        "ports": [
+          "btle_controller_0/ll_itrpt2",
+          "sys_concat_intc/In2"
         ]
       },
       "btle_controller_0_tx_iq_signal": {
