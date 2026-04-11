@@ -44,12 +44,16 @@
 
 #define FREQ_HZ_STRING_BUF_SIZE 32
 
+#define BRAM_BASE_ADDR  0x80000000
+#define BRAM_SIZE       0x20000   // 128 KB
+
 // #define DEBUG_PRINT(...) printf(__VA_ARGS__)
 #define DEBUG_PRINT(...)
 
 char ad9361_rx0_lo_file[] = "/sys/bus/iio/devices/iio:device0/out_altvoltage0_RX_LO_frequency";
 
-int fd_uio0 = 0;
+int fd_uio = 0;
+int fd_ram = 0;
 int irq_count = 0;
 
 int sockfd = 0;
@@ -63,12 +67,13 @@ volatile sig_atomic_t signal_stop = 0;  // flag set by signal handler
 volatile sig_atomic_t signal_stop_child = 0;  // flag set by signal handler
 
 volatile uint32_t *fpga_regs;
+volatile uint32_t *bram_ptr;
 
 static inline void handle_sigint(int sig) {
   int tmp_for_irq_re_arm = 1;
   signal_stop = 1;  // just set the flag, keep it simple & async-signal-safe
 
-  if (write(fd_uio0, &tmp_for_irq_re_arm, sizeof(tmp_for_irq_re_arm)) != sizeof(tmp_for_irq_re_arm)) {
+  if (write(fd_uio, &tmp_for_irq_re_arm, sizeof(tmp_for_irq_re_arm)) != sizeof(tmp_for_irq_re_arm)) {
     perror("write");
   }
 
@@ -420,9 +425,10 @@ static inline void print_usage() {
   printf("Usage: btle_ll\n");
   printf("  -i local ethernet interface name : such as eth0\n");
   printf("  -m target MAC address of the host PC : example 01:23:45:67:89:ab (default: ff:ff:ff:ff:ff:ff)\n");
-  printf("  -n channel number : such as 37\n");
+  printf("  -n channel number : such as 37. If > 78, it means frequency in Hz.\n");
   printf("  -c CRC init value : such as 0x555555\n");
   printf("  -a access address : such as 0x8E89BED6\n");
+  printf("  -q enable IQ capture with parameter : such as 0/1/2...  \n");
 }
 
 int main(int argc, char *argv[])
@@ -434,10 +440,10 @@ int main(int argc, char *argv[])
   int num_rx_pkt = 0, num_rx_pkt_crc_ok = 0, rx_crc_ok;
   int num_rx_pkt_hw = 0, num_rx_pkt_hw1 = 0, num_rx_pkt_hw2 = 0, num_rx_pkt_crc_ok_hw = 0;
   uint32_t rx_decode_reg_val, rx_payload_length, header_payload_crc_len, access_address_read_back;
-  int itrpt_ret, n_read;
+  int itrpt_ret, n_read, iq_mode = -1;
   int tmp_for_irq_re_arm = 1;
   int irq_count_base = 0;
-  uint64_t loop_count = 0, timestamp, timestamp_low, timestamp_high;
+  uint64_t loop_count = 0, timestamp, timestamp_low, timestamp_high, time_current, time_old, tmp_u64, freq_hz;
   int irq_count_old = 0;
   uint32_t decode_end_to_host_read_counter_max = 0, reg_val, num_word, packet_word[256], start_time_s, run_time_s;
 
@@ -453,7 +459,7 @@ int main(int argc, char *argv[])
   uint32_t crc_init = 0x555555; // default to 0x555555
   uint32_t unique_bit_seq = 0x8E89BED6; // default to 0x8E89BED6packet_word
 
-  while ((opt = getopt(argc, argv, "i:m:n:c:a:")) != -1) {
+  while ((opt = getopt(argc, argv, "i:m:n:c:a:q:")) != -1) {
     switch (opt) {
       case 'i':
         strcpy(ifname, optarg);
@@ -465,7 +471,14 @@ int main(int argc, char *argv[])
         }
         break;
       case 'n':
-        channel_number = atoi(optarg);
+        tmp_u64 = strtoull(optarg, NULL, 10);
+        if (tmp_u64 > 78) {
+          freq_hz = tmp_u64;
+          channel_number = 0;
+        } else {
+          channel_number = (uint32_t)tmp_u64;
+          freq_hz = channel_number_to_freq_Hz(channel_number);
+        }
         break;
       case 'c':
         errno = 0;
@@ -485,6 +498,9 @@ int main(int argc, char *argv[])
         }
         unique_bit_seq = (uint32_t)tmp;
         break;
+      case 'q':
+        iq_mode = atoi(optarg);
+        break;
       default:
         print_usage();
         exit(EXIT_FAILURE);
@@ -495,15 +511,42 @@ int main(int argc, char *argv[])
          dest_mac[0], dest_mac[1], dest_mac[2],
          dest_mac[3], dest_mac[4], dest_mac[5]);
   printf("Channel number: %u\n", channel_number);
+  printf("Frequency: %" PRIu64 " Hz\n", freq_hz);
   printf("CRC init: 0x%06X\n", crc_init);
   printf("Access address: 0x%08X\n", unique_bit_seq);
+  printf("IQ mode: %d\n", iq_mode);
 
-  fd_uio0 = open("/dev/uio0", O_RDWR | O_SYNC);
+  if (iq_mode == -1) {
+    fd_uio = open("/dev/uio0", O_RDWR | O_SYNC);
+  } else { // for IQ capture, so also mmap the axi bram
+    fd_uio = open("/dev/uio1", O_RDWR | O_SYNC);
+    fd_ram = open("/dev/mem", O_RDWR | O_SYNC);
+    if (fd_ram < 0) {
+      perror("fd_ram open");
+      return -1;
+    }
+    // Memory map BRAM
+    map_base = mmap(NULL,
+                    0x20000,
+                    PROT_READ | PROT_WRITE,
+                    MAP_SHARED,
+                    fd_ram,
+                    0x80000000);
+
+    if (map_base == MAP_FAILED) {
+        perror("fd_ram mmap");
+        close(fd_ram);
+        return -1;
+    }
+
+    bram_ptr = (volatile uint32_t *)map_base;
+  }
+
   // int fd1 = open("/dev/uio1", O_RDWR | O_SYNC);
   // struct pollfd fds[2];
 
   // if (fd0 < 0 || fd1 < 0) { perror("open"); return -1; }
-  if (fd_uio0 < 0) { perror("open"); return -1; }
+  if (fd_uio < 0) { perror("uio open"); return -1; }
 
   // if (mlockall(MCL_CURRENT | MCL_FUTURE) != 0) {
   //     perror("mlockall");
@@ -518,28 +561,32 @@ int main(int argc, char *argv[])
   // fds[1].fd = fd1; fds[1].events = POLLIN;
 
   if (eth_raw_socket_init(ifname, dest_mac) != 0) {
-    close(fd_uio0);
+    close(fd_uio);
     return -1;
   }
 
   // map_base = (uint32_t *)mmap(NULL, BTLE_LL_REG_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, BTLE_LL_REG_BASE);
-  map_base = mmap(NULL, BTLE_LL_REG_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd_uio0, 0);
+  map_base = mmap(NULL, BTLE_LL_REG_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd_uio, 0);
   if (map_base == MAP_FAILED) {
-    printf("mmap failed! %d\n", (int)map_base);
-    close(fd_uio0);
+    printf("register mmap failed! %d\n", (int)map_base);
+    close(fd_uio);
     close(sockfd);
+    munmap(bram_ptr, BRAM_SIZE);
+    close(fd_ram);
     return -1;
   }
-  fpga_regs = (volatile uint32_t *) map_base;
+  fpga_regs = (volatile uint32_t *)map_base;
 
   signal(SIGINT, handle_sigint);
   signal(SIGTERM, handle_sigint);
 
-  if (write(fd_uio0, &tmp_for_irq_re_arm, sizeof(tmp_for_irq_re_arm)) != sizeof(tmp_for_irq_re_arm)) {
+  if (write(fd_uio, &tmp_for_irq_re_arm, sizeof(tmp_for_irq_re_arm)) != sizeof(tmp_for_irq_re_arm)) {
     perror("write");
-    close(fd_uio0);
+    close(fd_uio);
     munmap((void *)map_base, BTLE_LL_REG_SIZE);
     close(sockfd);
+    munmap(bram_ptr, BRAM_SIZE);
+    close(fd_ram);
     return -1;
   }
 
@@ -556,13 +603,18 @@ int main(int argc, char *argv[])
   __sync_synchronize();
   fpga_regs[0] = 0;
 
-  fds = (struct pollfd){ .fd = fd_uio0, .events = POLLIN };
+  fds = (struct pollfd){ .fd = fd_uio, .events = POLLIN };
 
   start_time_s = get_time_s();
 
   pid = fork();
   if (pid < 0) {
       perror("fork");
+      close(fd_uio);
+      munmap((void *)map_base, BTLE_LL_REG_SIZE);
+      close(sockfd);
+      munmap(bram_ptr, BRAM_SIZE);
+      close(fd_ram);
       return 1;
   }
 
@@ -610,7 +662,9 @@ int main(int argc, char *argv[])
       }
     }
 
+    time_old = get_time_us();
     while (!signal_stop) {
+      fpga_regs[0] = 0;
       // Main loop code
       // if ( (rx_decode_reg_val&(1<<18)) != 0 && rx_decode_run_old == 0) {
       // itrpt_ret = poll(fds, 2, -1);
@@ -621,51 +675,66 @@ int main(int argc, char *argv[])
       poll(&fds, 1, -1);
       __sync_synchronize();
 
-      n_read = read(fd_uio0, &irq_count, sizeof(irq_count));
+      n_read = read(fd_uio, &irq_count, sizeof(irq_count));
       if (n_read != sizeof(irq_count)) {
         perror("read");
         break;
       }
-      fpga_regs[39] = 1;
-
-      rx_decode_reg_val = fpga_regs[49];
-      rx_crc_ok = ((rx_decode_reg_val>>16)&0x01);
-      rx_payload_length = ((rx_decode_reg_val>>8)&0xFF);
-      header_payload_crc_len = 2 + rx_payload_length + 3; // add 2 bytes header, 3 bytes CRC
-      num_word = (header_payload_crc_len >> 2) + ((header_payload_crc_len & 3) ? 1 : 0);
-      for (i = 0; i < num_word; i++) {
-        packet_word[i] = fpga_regs[40];
-      }
       __sync_synchronize();
-      fpga_regs[40] = 0;
 
-      // timestamp resolution: 1/bb_clk = 1/16 us = 62.5 ns
-      timestamp_low = fpga_regs[56];
-      timestamp_high = fpga_regs[57];
+      if (iq_mode == -1) {
+        fpga_regs[39] = 1;
 
-      if (rx_crc_ok) // carry rx crc ok flag into MSB of timestamp_high
-        timestamp_high = (timestamp_high | (1<<31));
-      else
-        timestamp_high = (timestamp_high & ~(1<<31));
+        rx_decode_reg_val = fpga_regs[49];
+        rx_crc_ok = ((rx_decode_reg_val>>16)&0x01);
+        rx_payload_length = ((rx_decode_reg_val>>8)&0xFF);
+        header_payload_crc_len = 2 + rx_payload_length + 3; // add 2 bytes header, 3 bytes CRC
+        num_word = (header_payload_crc_len >> 2) + ((header_payload_crc_len & 3) ? 1 : 0);
+        for (i = 0; i < num_word; i++) {
+          packet_word[i] = fpga_regs[40];
+        }
 
-      access_address_read_back = fpga_regs[BTLE_LL_REG_RX_UNIQUE_BIT_SEQ_IDX];
-      num_rx_pkt_hw = fpga_regs[50];
-      num_rx_pkt_hw2 = fpga_regs[53];
-      num_rx_pkt_hw1 = fpga_regs[55];
-      if ( num_rx_pkt_hw != num_rx_pkt_hw1 || num_rx_pkt_hw2 != num_rx_pkt_hw1) {
-        DEBUG_PRINT(printf("num rx pkt hw %d %d %d\n", num_rx_pkt_hw, num_rx_pkt_hw1, num_rx_pkt_hw2);)
+        if ( (rx_decode_reg_val&(1<<16)) != 0) {
+          num_rx_pkt_crc_ok++;
+        }
+
         __sync_synchronize();
-        // break;
-      }
+        fpga_regs[40] = 0;
 
-      reg_val = fpga_regs[41];
-      if (reg_val > decode_end_to_host_read_counter_max) {
-        decode_end_to_host_read_counter_max = reg_val;
-        DEBUG_PRINT(printf("max latency %d time %ds\n", decode_end_to_host_read_counter_max, get_time_s() - start_time_s);)
-      }
+        // timestamp resolution: 1/bb_clk = 1/16 us = 62.5 ns
+        timestamp_low = fpga_regs[56];
+        timestamp_high = fpga_regs[57];
 
-      num_rx_pkt_crc_ok_hw = fpga_regs[51];
-      __sync_synchronize();
+        if (rx_crc_ok) // carry rx crc ok flag into MSB of timestamp_high
+          timestamp_high = (timestamp_high | (1<<31));
+        else
+          timestamp_high = (timestamp_high & ~(1<<31));
+
+        access_address_read_back = fpga_regs[BTLE_LL_REG_RX_UNIQUE_BIT_SEQ_IDX];
+        num_rx_pkt_hw = fpga_regs[50];
+        num_rx_pkt_hw2 = fpga_regs[53];
+        num_rx_pkt_hw1 = fpga_regs[55];
+        if ( num_rx_pkt_hw != num_rx_pkt_hw1 || num_rx_pkt_hw2 != num_rx_pkt_hw1) {
+          DEBUG_PRINT(printf("num rx pkt hw %d %d %d\n", num_rx_pkt_hw, num_rx_pkt_hw1, num_rx_pkt_hw2);)
+          __sync_synchronize();
+          // break;
+        }
+
+        reg_val = fpga_regs[41];
+        if (reg_val > decode_end_to_host_read_counter_max) {
+          decode_end_to_host_read_counter_max = reg_val;
+          DEBUG_PRINT(printf("max latency %d time %ds\n", decode_end_to_host_read_counter_max, get_time_s() - start_time_s);)
+        }
+
+        num_rx_pkt_crc_ok_hw = fpga_regs[51];
+        __sync_synchronize();
+
+        timestamp = ((timestamp_high << 32) | timestamp_low);
+        if (eth_raw_socket_send(timestamp, access_address_read_back, header_payload_crc_len, (char *)packet_word, num_word<<2) < 0) {
+          break;
+        }
+        fpga_regs[39] = 0;
+      }
       
       if (loop_count == 0) {
         irq_count_base = irq_count;
@@ -682,7 +751,7 @@ int main(int argc, char *argv[])
       // printf("Interrupt received! irq_count = %u\n", irq_count);
 
       // --- Acknowledge / re-enable the interrupt ---
-      if (write(fd_uio0, &tmp_for_irq_re_arm, sizeof(tmp_for_irq_re_arm)) != sizeof(tmp_for_irq_re_arm)) {
+      if (write(fd_uio, &tmp_for_irq_re_arm, sizeof(tmp_for_irq_re_arm)) != sizeof(tmp_for_irq_re_arm)) {
         perror("write");
       }
 
@@ -694,10 +763,6 @@ int main(int argc, char *argv[])
       //   break;
       // }
 
-      if ( (rx_decode_reg_val&(1<<16)) != 0) {
-        num_rx_pkt_crc_ok++;
-      }
-
       // printf("%d %d\n", num_rx_pkt, irq_count);
       if ( (irq_count - irq_count_base + 1) != num_rx_pkt) {
         fpga_regs[0] = 1;
@@ -706,17 +771,21 @@ int main(int argc, char *argv[])
         // break;
       }
 
+      __sync_synchronize();
+      time_current = get_time_us();
+      tmp_u64 = time_current - time_old;
+      if (tmp_u64 < 1500)
+        fpga_regs[0] = 1;
+
+      time_old = time_current;
+
+      printf("%llu %llu\n", loop_count, tmp_u64);
+
       // printf("Payload length: %d, Data: ",  rx_payload_length);
       // for (i = 0; i < num_word; i++) {
       //   printf("%08X ", packet_word[i]);
       // }
       // printf("\n");
-
-      timestamp = ((timestamp_high << 32) | timestamp_low);
-      if (eth_raw_socket_send(timestamp, access_address_read_back, header_payload_crc_len, (char *)packet_word, num_word<<2) < 0) {
-        break;
-      }
-      fpga_regs[39] = 0;
 
       // break;
 
@@ -730,10 +799,13 @@ int main(int argc, char *argv[])
 
     munmap((void *)map_base, BTLE_LL_REG_SIZE);
     // close(fd);
-    close(fd_uio0);
+    close(fd_uio);
     // close(fd1);
 
     close(sockfd);
+
+    munmap(bram_ptr, BRAM_SIZE);
+    close(fd_ram);
 
     // Optionally tell the child to exit gracefully, then wait
     // Example: send SIGTERM
