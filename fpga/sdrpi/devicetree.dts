@@ -675,7 +675,6 @@
         #address-cells = <1>;
         #size-cells = <1>;
         ranges;
-
         bram_reserved: bram@80000000 {
             reg = <0x80000000 0x20000>;
             no-map;
@@ -704,6 +703,16 @@
                         xlnx,single-port-bram = <0x1>;
                 };
 
+    reserved-memory-1 {
+        #address-cells = <1>;
+        #size-cells = <1>;
+        ranges;
+        reg_reserved: reg@40000000 {
+            reg = <0x40000000 0x1000>;
+            no-map;
+        };
+    };
+
     btle_controller_0: btle_controller@40000000 {
       // compatible = "btle_controller";
       compatible = "generic-uio";
@@ -712,10 +721,28 @@
       clock-names = "s00_axi_aclk";
       clocks = <0x2 0x11>;
       reg = <0x40000000 0x1000>;
-      interrupts = <0 29 1>;
+      memory-region = <&reg_reserved>;
+      interrupts = <0 29 1>;    // ll_itrpt0 = rx_decode_end;
+      // interrupts = <0 30 1>; // ll_itrpt1 = rx_hit_flag;
+      // interrupts = <0 31 1>; // ll_itrpt2 = bram_addr_b_half_flag;
       interrupt-parent = <1>;
     };
-    
+
+    btle_controller_iq_ram_0: btle_controller_iq_ram@40000000 {
+      // compatible = "btle_controller";
+      compatible = "generic-uio";
+      // compatible = "dmem-uio";
+      status = "okay";
+      clock-names = "s00_axi_aclk";
+      clocks = <0x2 0x11>;
+      reg = <0x40000000 0x1000>;
+      memory-region = <&reg_reserved>;
+      // interrupts = <0 29 1>; // ll_itrpt0 = rx_decode_end;
+      // interrupts = <0 30 1>; // ll_itrpt1 = rx_hit_flag;
+      interrupts = <0 31 1>;    // ll_itrpt2 = bram_addr_b_half_flag;
+      interrupt-parent = <1>;
+    };
+
     cf-ad9361-lpc@79020000 {
       compatible = "adi,axi-ad9361-6.00.a";
       reg = <0x79020000 0x6000>;
