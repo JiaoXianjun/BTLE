@@ -47,6 +47,13 @@
 #define BRAM_BASE_ADDR  0x80000000
 #define BRAM_SIZE       0x20000   // 128 KB
 
+#define SAMPLING_RATE_HZ 8000000
+#define NUM_BYTES_PER_IQ_SAMPLE 4 // 2 bytes for I, 2 bytes for Q
+
+#define BRAM_SIZE_HALF (BRAM_SIZE/2)
+#define BRAM_SIZE_IN_WORD (BRAM_SIZE/NUM_BYTES_PER_IQ_SAMPLE)
+#define BRAM_SIZE_IN_WORD_HALF (BRAM_SIZE_IN_WORD/2)
+
 // #define DEBUG_PRINT(...) printf(__VA_ARGS__)
 #define DEBUG_PRINT(...)
 
@@ -288,14 +295,6 @@ static inline int host_intf(void) {
   uint32_t ack_len = eth_header_len_child + magic_header_len; // 4 bytes ACK magic header
   uint64_t timestamp;
 
-  int ret = system("./fir.sh");
-  if (ret == -1) {
-    perror("system");
-    return 1; 
-  } else {
-    printf("fir.sh executed successfully\n");
-  }
-
   sockfd_child = socket(AF_PACKET, SOCK_RAW, htons(ether_type_child));
   if (sockfd_child < 0) { perror("child: socket"); return 1; }
 
@@ -428,27 +427,32 @@ static inline void print_usage() {
   printf("  -n channel number : such as 37. If > 78, it means frequency in Hz.\n");
   printf("  -c CRC init value : such as 0x555555\n");
   printf("  -a access address : such as 0x8E89BED6\n");
-  printf("  -q enable IQ capture with parameter : such as 0/1/2...  \n");
+  printf("  -q IQ capture duration in seconds. Integer. Minimum 1.\n");
 }
 
 int main(int argc, char *argv[])
 {
   void *map_base;
   // int fd;
-  // FILE *fp;
+  FILE *fp_rx_iq = NULL, *fp = NULL;
+  char rx_iq_filename[128] = {0};
   int rx_decode_run_old = 0, i;
   int num_rx_pkt = 0, num_rx_pkt_crc_ok = 0, rx_crc_ok;
   int num_rx_pkt_hw = 0, num_rx_pkt_hw1 = 0, num_rx_pkt_hw2 = 0, num_rx_pkt_crc_ok_hw = 0;
   uint32_t rx_decode_reg_val, rx_payload_length, header_payload_crc_len, access_address_read_back;
-  int itrpt_ret, n_read, iq_mode = -1;
+  int itrpt_ret, n_read, iq_duration_s = -1;
   int tmp_for_irq_re_arm = 1;
   int irq_count_base = 0;
   uint64_t loop_count = 0, timestamp, timestamp_low, timestamp_high, time_current, time_old, tmp_u64, freq_hz;
+  char freq_str[FREQ_HZ_STRING_BUF_SIZE];
   int irq_count_old = 0;
   uint32_t decode_end_to_host_read_counter_max = 0, reg_val, num_word, packet_word[256], start_time_s, run_time_s;
+  uint32_t *rx_iq_buf;
+  uint32_t num_iq_sample_total = 0, bram_addr_b = 0, read_offset = 0, num_iq_sample = 0, iq_size_in_byte_to_write = 0;
+  uint32_t iq_no_loss_start_idx = 0;
 
   struct pollfd fds;
-  pid_t pid;
+  pid_t pid = 1;
 
   unsigned long tmp;
   int opt;
@@ -458,6 +462,16 @@ int main(int argc, char *argv[])
   uint32_t channel_number = 37; // default to channel 37
   uint32_t crc_init = 0x555555; // default to 0x555555
   uint32_t unique_bit_seq = 0x8E89BED6; // default to 0x8E89BED6packet_word
+
+  int ret = system("./fir.sh");
+  if (ret == -1) {
+    perror("system");
+    return 1; 
+  } else {
+    printf("fir.sh executed successfully\n");
+  }
+
+  freq_hz = channel_number_to_freq_Hz(channel_number);
 
   while ((opt = getopt(argc, argv, "i:m:n:c:a:q:")) != -1) {
     switch (opt) {
@@ -472,11 +486,10 @@ int main(int argc, char *argv[])
         break;
       case 'n':
         tmp_u64 = strtoull(optarg, NULL, 10);
+        channel_number = (uint32_t)tmp_u64;
         if (tmp_u64 > 78) {
           freq_hz = tmp_u64;
-          channel_number = 0;
         } else {
-          channel_number = (uint32_t)tmp_u64;
           freq_hz = channel_number_to_freq_Hz(channel_number);
         }
         break;
@@ -499,24 +512,42 @@ int main(int argc, char *argv[])
         unique_bit_seq = (uint32_t)tmp;
         break;
       case 'q':
-        iq_mode = atoi(optarg);
+        iq_duration_s = atoi(optarg);
         break;
       default:
         print_usage();
         exit(EXIT_FAILURE);
     }
   }
+
+  // set freq_hz to ad9361 rx0_lo
+  fp = fopen(ad9361_rx0_lo_file, "w");
+  if (!fp) {
+    perror("fopen ad9361_rx0_lo_file");
+    return -1;
+  }
+  freq_Hz_to_string(freq_hz, freq_str);
+  if (fprintf(fp, "%s", freq_str) < 0) {
+    perror("fprintf ad9361_rx0_lo_file");
+    fclose(fp);
+    return -1;
+  }
+  fclose(fp);
+
+  num_iq_sample_total = SAMPLING_RATE_HZ * iq_duration_s;
+
   printf("Using interface: %s\n", ifname);
   printf("Destination MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
          dest_mac[0], dest_mac[1], dest_mac[2],
          dest_mac[3], dest_mac[4], dest_mac[5]);
   printf("Channel number: %u\n", channel_number);
-  printf("Frequency: %" PRIu64 " Hz\n", freq_hz);
+  printf("Frequency: %llu\n", freq_hz);
   printf("CRC init: 0x%06X\n", crc_init);
   printf("Access address: 0x%08X\n", unique_bit_seq);
-  printf("IQ mode: %d\n", iq_mode);
+  printf("IQ duration: %ds\n", iq_duration_s);
+  printf("num IQ sample total: %u\n", num_iq_sample_total);
 
-  if (iq_mode == -1) {
+  if (iq_duration_s == -1) {
     fd_uio = open("/dev/uio0", O_RDWR | O_SYNC);
   } else { // for IQ capture, so also mmap the axi bram
     fd_uio = open("/dev/uio1", O_RDWR | O_SYNC);
@@ -540,6 +571,14 @@ int main(int argc, char *argv[])
     }
 
     bram_ptr = (volatile uint32_t *)map_base;
+
+    rx_iq_buf = (uint32_t *)malloc(num_iq_sample_total*NUM_BYTES_PER_IQ_SAMPLE);
+    if (rx_iq_buf == NULL) {
+      perror("rx_iq_buf malloc");
+      munmap((void *)map_base, 0x20000);
+      close(fd_ram);
+      return -1;
+    }
   }
 
   // int fd1 = open("/dev/uio1", O_RDWR | O_SYNC);
@@ -571,8 +610,11 @@ int main(int argc, char *argv[])
     printf("register mmap failed! %d\n", (int)map_base);
     close(fd_uio);
     close(sockfd);
-    munmap(bram_ptr, BRAM_SIZE);
-    close(fd_ram);
+    if (iq_duration_s != -1) {
+      munmap((void *)bram_ptr, BRAM_SIZE);
+      close(fd_ram);
+      free(rx_iq_buf);
+    }
     return -1;
   }
   fpga_regs = (volatile uint32_t *)map_base;
@@ -585,8 +627,11 @@ int main(int argc, char *argv[])
     close(fd_uio);
     munmap((void *)map_base, BTLE_LL_REG_SIZE);
     close(sockfd);
-    munmap(bram_ptr, BRAM_SIZE);
-    close(fd_ram);
+    if (iq_duration_s != -1) {
+      munmap((void *)bram_ptr, BRAM_SIZE);
+      close(fd_ram);
+      free(rx_iq_buf);
+    }
     return -1;
   }
 
@@ -607,15 +652,20 @@ int main(int argc, char *argv[])
 
   start_time_s = get_time_s();
 
-  pid = fork();
-  if (pid < 0) {
-      perror("fork");
-      close(fd_uio);
-      munmap((void *)map_base, BTLE_LL_REG_SIZE);
-      close(sockfd);
-      munmap(bram_ptr, BRAM_SIZE);
-      close(fd_ram);
-      return 1;
+  if (iq_duration_s == -1) {
+    pid = fork();
+    if (pid < 0) {
+        perror("fork");
+        close(fd_uio);
+        munmap((void *)map_base, BTLE_LL_REG_SIZE);
+        close(sockfd);
+        if (iq_duration_s != -1) {
+          munmap((void *)bram_ptr, BRAM_SIZE);
+          close(fd_ram);
+          free(rx_iq_buf);
+        }
+        return 1;
+    }
   }
 
   if (pid == 0) {
@@ -641,6 +691,7 @@ int main(int argc, char *argv[])
 
     _exit(0);
   } else {
+    // usleep(4000000); // wait for the other process to init
     pin_to_cpu(1);            // Bind to CPU1
     set_realtime_priority();  // RT scheduling
     
@@ -682,7 +733,12 @@ int main(int argc, char *argv[])
       }
       __sync_synchronize();
 
-      if (iq_mode == -1) {
+      // --- Acknowledge / re-enable the interrupt ---
+      if (write(fd_uio, &tmp_for_irq_re_arm, sizeof(tmp_for_irq_re_arm)) != sizeof(tmp_for_irq_re_arm)) {
+        perror("write");
+      }
+
+      if (iq_duration_s == -1) {
         fpga_regs[39] = 1;
 
         rx_decode_reg_val = fpga_regs[49];
@@ -734,6 +790,31 @@ int main(int argc, char *argv[])
           break;
         }
         fpga_regs[39] = 0;
+      } else { //save iq to memory and write to file when num iq reach num_iq_sample_total
+        bram_addr_b = fpga_regs[59];
+        __sync_synchronize();
+        read_offset = (bram_addr_b < BRAM_SIZE_IN_WORD_HALF? BRAM_SIZE_IN_WORD_HALF : 0);
+        iq_size_in_byte_to_write = (num_iq_sample_total - num_iq_sample);
+        if (iq_size_in_byte_to_write < BRAM_SIZE_IN_WORD_HALF) {
+          iq_size_in_byte_to_write = iq_size_in_byte_to_write * NUM_BYTES_PER_IQ_SAMPLE;
+        } else {
+          iq_size_in_byte_to_write = BRAM_SIZE_HALF;
+        }
+        memcpy(rx_iq_buf + num_iq_sample, (void *)(bram_ptr + read_offset), iq_size_in_byte_to_write);
+        __sync_synchronize();
+        
+        bram_addr_b = fpga_regs[59];
+        __sync_synchronize();
+
+        num_iq_sample += (iq_size_in_byte_to_write / NUM_BYTES_PER_IQ_SAMPLE);
+        if ( (read_offset == 0 && bram_addr_b < BRAM_SIZE_IN_WORD_HALF) || (read_offset == BRAM_SIZE_IN_WORD_HALF && bram_addr_b >= BRAM_SIZE_IN_WORD_HALF) ) {
+          printf("Loss. num sample %u r offset %u new addr %u\n", num_iq_sample, read_offset, bram_addr_b);
+          iq_no_loss_start_idx = num_iq_sample;
+        }
+
+        if (num_iq_sample == num_iq_sample_total) {
+          break;
+        }
       }
       
       if (loop_count == 0) {
@@ -749,11 +830,6 @@ int main(int argc, char *argv[])
       irq_count_old = irq_count;
 
       // printf("Interrupt received! irq_count = %u\n", irq_count);
-
-      // --- Acknowledge / re-enable the interrupt ---
-      if (write(fd_uio, &tmp_for_irq_re_arm, sizeof(tmp_for_irq_re_arm)) != sizeof(tmp_for_irq_re_arm)) {
-        perror("write");
-      }
 
       num_rx_pkt++;
       // __sync_synchronize();
@@ -772,6 +848,8 @@ int main(int argc, char *argv[])
       }
 
       __sync_synchronize();
+      
+      if (0) {
       time_current = get_time_us();
       tmp_u64 = time_current - time_old;
       if (tmp_u64 < 1500)
@@ -780,6 +858,7 @@ int main(int argc, char *argv[])
       time_old = time_current;
 
       printf("%llu %llu\n", loop_count, tmp_u64);
+      }
 
       // printf("Payload length: %d, Data: ",  rx_payload_length);
       // for (i = 0; i < num_word; i++) {
@@ -804,14 +883,36 @@ int main(int argc, char *argv[])
 
     close(sockfd);
 
-    munmap(bram_ptr, BRAM_SIZE);
-    close(fd_ram);
+    if (iq_duration_s != -1) {
+      num_iq_sample = num_iq_sample_total - iq_no_loss_start_idx;
+      printf("IQ capture to memory done. Valid num IQ samples (no loss): %u\n", num_iq_sample);
 
-    // Optionally tell the child to exit gracefully, then wait
-    // Example: send SIGTERM
-    kill(pid, SIGTERM);
-    waitpid(pid, NULL, 0);
-    printf("parent: child terminated, exiting\n");
+      sprintf(rx_iq_filename, "rx_iq_%lluHz_%usps_num%u.bin", freq_hz, SAMPLING_RATE_HZ, num_iq_sample);
+      fp_rx_iq = fopen(rx_iq_filename, "wb");
+      if (fp_rx_iq == NULL) {
+        perror("fp_rx_iq Failed to open file");
+      } else {
+        i = fwrite(rx_iq_buf+iq_no_loss_start_idx, NUM_BYTES_PER_IQ_SAMPLE, num_iq_sample, fp_rx_iq);
+        if (i != num_iq_sample) {
+          printf("Incomplete write operation on fp_rx_iq. %d vs %d\n", i, num_iq_sample);
+        }
+        printf("Saved %u IQ samples to file %s\n", num_iq_sample, rx_iq_filename);
+      }
+
+      munmap((void *)bram_ptr, BRAM_SIZE);
+      close(fd_ram);
+      free(rx_iq_buf);
+      if (fp_rx_iq != NULL)
+        fclose(fp_rx_iq);
+    }
+
+    if (iq_duration_s == -1) {
+      // Optionally tell the child to exit gracefully, then wait
+      // Example: send SIGTERM
+      kill(pid, SIGTERM);
+      waitpid(pid, NULL, 0);
+      printf("parent: child terminated, exiting\n");
+    }
   }
 
   return(0);
