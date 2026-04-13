@@ -13,24 +13,24 @@ import sys
 
 if __name__ == "__main__":
 
-  filename_csv = 'waveform.csv'
+  filename = 'waveform.csv'
   channel_number = 37 # from the 1st field in above btle_tx command argument
   access_address = 'D6BE898E' # for advertisement channel, 0x8E89BED6 in standard. due to byte order here needs to be D6BE898E
   crc_state_init_hex = '555555' # will use default advertisement channel crc init value
 
-  print('arguments: filename_csv channel_number access_address crc_state_init_hex')
+  print('arguments: filename (.csv or .bin) channel_number access_address crc_state_init_hex')
   
   if len(sys.argv) == 2:
-    filename_csv = sys.argv[1]
+    filename = sys.argv[1]
   elif len(sys.argv) == 3:
-    filename_csv = sys.argv[1]
+    filename = sys.argv[1]
     channel_number = int(sys.argv[2])
   elif len(sys.argv) == 4:
-    filename_csv = sys.argv[1]
+    filename = sys.argv[1]
     channel_number = int(sys.argv[2])
     access_address = sys.argv[3]
   elif len(sys.argv) == 5:
-    filename_csv = sys.argv[1]
+    filename = sys.argv[1]
     channel_number = int(sys.argv[2])
     access_address = sys.argv[3]
     crc_state_init_hex = sys.argv[4]
@@ -40,7 +40,7 @@ if __name__ == "__main__":
   bl.SAVE_DIR = '../verilog/'
 
   filename_txt = bl.SAVE_DIR+'captured_iq.txt'
-  print([filename_csv, filename_txt])
+  print([filename, filename_txt])
 
   # channel_number = 9 # from the 1st field in above btle_tx command argument
   # access_address = '1B0A8560' # due to byte order, the 60850A1B in above argument needs to be 1B0A8560
@@ -57,14 +57,46 @@ if __name__ == "__main__":
   print('crc_state_init_hex ', crc_state_init_hex)
   print('')
 
-  bl.extract_iq_from_csv_to_txt(filename_csv, filename_txt, 9, 11)
+  if filename.endswith('.csv'):
+    bl.extract_iq_from_csv_to_txt(filename, filename_txt, 9, 11)
 
-  rx_iq = np.loadtxt(bl.SAVE_DIR+'/'+filename_txt, dtype=int)
-  # print(rx_i.shape)
-  rx_i = rx_iq[::2, 0] # ::2 means take every second sample, because the FPGA ILA uses 16MHz but we need 8Msps
-  rx_q = rx_iq[::2, 1]
-  print(rx_i[0:32])
-  print(rx_q[0:32])
+    rx_iq = np.loadtxt(bl.SAVE_DIR+'/'+filename_txt, dtype=int)
+    # print(rx_i.shape)
+    rx_i = rx_iq[::2, 0] # ::2 means take every second sample, because the FPGA ILA uses 16MHz but we need 8Msps
+    rx_q = rx_iq[::2, 1]
+    print(rx_i[0:32])
+    print(rx_q[0:32])
+  elif filename.endswith('.bin'):
+    with open(filename, mode="rb") as file:
+      my_bytes = file.read()
+
+    rx_iq = np.frombuffer(my_bytes, dtype=np.int16)
+    rx_i = rx_iq[0::2]  # the sampling rate is alraedy iq sampling rate
+    rx_q = rx_iq[1::2]
+  else:
+    print('unsupported file format, only .csv and .bin are supported')
+    exit()
+
+  # if the length of rx_i is larger than 10000, plot the rx_i and let user decide the start index and end index for processing later.
+  if len(rx_i) > 10000:
+    plt.plot(rx_i, 'b', label='I')
+    plt.plot(rx_q, 'r', label='Q')
+    plt.legend(loc='upper right')
+    plt.grid(True)
+    plt.title('Decide the start/end idx. Close figure and input ...')
+    plt.show()
+
+    start_index = int(input('Enter the start index for processing: '))
+    end_index = int(input('Enter the end index for processing: '))
+    rx_i = rx_i[start_index:end_index]
+    rx_q = rx_q[start_index:end_index]
+
+    # close the figure after user input
+    plt.close()
+
+  # merge the rx_i and rx_q into one 2-column array and save to txt for later use
+  rx_iq = np.column_stack((rx_i, rx_q))
+  np.savetxt(bl.SAVE_DIR+'/'+filename_txt, rx_iq)
 
   # plot the iq
   plt.figure(0)
