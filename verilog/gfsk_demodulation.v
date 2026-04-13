@@ -20,7 +20,7 @@ module gfsk_demodulation #
   `KEEP_FOR_DBG output wire signal_for_decision_valid,
 
   `KEEP_FOR_DBG output reg  phy_bit,
-  `KEEP_FOR_DBG output wire bit_valid
+  `KEEP_FOR_DBG output reg  bit_valid
 );
 
 `KEEP_FOR_DBG reg signed [(2*GFSK_DEMODULATION_BIT_WIDTH-1) : 0] i0;
@@ -28,12 +28,14 @@ module gfsk_demodulation #
 `KEEP_FOR_DBG reg signed [(2*GFSK_DEMODULATION_BIT_WIDTH-1) : 0] q0;
 `KEEP_FOR_DBG reg signed [(2*GFSK_DEMODULATION_BIT_WIDTH-1) : 0] q1;
 
+reg signed [(2*GFSK_DEMODULATION_BIT_WIDTH-1) : 0] tmp0;
+reg signed [(2*GFSK_DEMODULATION_BIT_WIDTH-1) : 0] tmp1;
+
 reg iq_valid_delay1;
 reg iq_valid_delay2;
 reg iq_valid_delay3;
 
 assign signal_for_decision_valid = iq_valid_delay2;
-assign bit_valid = iq_valid_delay3;
 
 always @ (posedge clk) begin
   if (rst) begin
@@ -42,12 +44,17 @@ always @ (posedge clk) begin
     q0 <= 0;
     q1 <= 0;
 
+    tmp0 <= 0;
+    tmp1 <= 0;
+
     signal_for_decision <= 0;
     phy_bit <= 0;
 
     iq_valid_delay1 <= 0;
     iq_valid_delay2 <= 0;
     iq_valid_delay3 <= 0;
+
+    bit_valid <= 0;
   end else begin
     iq_valid_delay1 <= iq_valid;
     iq_valid_delay2 <= iq_valid_delay1;
@@ -60,9 +67,12 @@ always @ (posedge clk) begin
       q0 <= q1;
     end
 
-    signal_for_decision <= i0*q1 - i1*q0;
+    tmp0 <= i0*q1;
+    tmp1 <= i1*q0;
+    signal_for_decision <= tmp0 - tmp1;
     phy_bit <= (signal_for_decision > 0);
 
+    bit_valid <= iq_valid_delay3;
   end
 end
 
