@@ -326,7 +326,7 @@ localparam integer MEM_SIZE_IN_BIT = ((1<<ADDRESS_WIDTH)*DATA_WIDTH);
       .MEMORY_SIZE(MEM_SIZE_IN_BIT),             // DECIMAL
       .MESSAGE_CONTROL(0),            // DECIMAL
       .READ_DATA_WIDTH_B(DATA_WIDTH),         // DECIMAL
-      .READ_LATENCY_B(1),             // DECIMAL
+      .READ_LATENCY_B(4),             // DECIMAL
       .READ_RESET_VALUE_B("0"),       // String
       .RST_MODE_A("SYNC"),            // String
       .RST_MODE_B("SYNC"),            // String
