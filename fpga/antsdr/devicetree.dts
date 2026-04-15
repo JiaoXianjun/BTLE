@@ -742,6 +742,28 @@
       interrupt-parent = <1>;
     };
 
+		dma@7c400000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x7c400000 0x1000>;
+			#dma-cells = <0x01>;
+			interrupts = <0x00 0x39 0x04>;
+			clocks = <0x02 0x10>;
+			phandle = <0x1c>;
+
+			adi,channels {
+				#size-cells = <0x00>;
+				#address-cells = <0x01>;
+
+				dma-channel@0 {
+					reg = <0x00>;
+					adi,source-bus-width = <0x40>;
+					adi,source-bus-type = <0x02>;
+					adi,destination-bus-width = <0x40>;
+					adi,destination-bus-type = <0x00>;
+				};
+			};
+		};
+    
 		cf-ad9361-lpc@79020000 {
 			compatible = "adi,axi-ad9361-6.00.a";
 			reg = <0x79020000 0x6000>;

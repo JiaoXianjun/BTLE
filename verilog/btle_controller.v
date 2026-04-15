@@ -6,6 +6,8 @@
 
 // iverilog -o btle_controller btle_controller.v clock_domain_conversion_iq.v ./btle_ll/hw/fpga/btle_ll_stub.v btle_phy.v btle_rx.v btle_rx_core.v gfsk_demodulation.v search_unique_bit_sequence.v scramble_core.v crc24_core.v serial_in_ram_out.v sdpram_two_clk.v sdpram_one_clk.v btle_tx.v crc24.v scramble.v gfsk_modulation.v bit_repeat_upsample.v gauss_filter.v vco.v
 
+`define HIGH_BW_IQ_RAM_ONLY //if defined, ble PHY is removed
+
 `define KEEP_FOR_DBG (*mark_debug="true",DONT_TOUCH="TRUE"*)
 
 `timescale 1ns / 1ps
@@ -451,6 +453,7 @@ btle_ll #
   .axi_rready(s00_axi_rready)
 );
 
+`ifndef HIGH_BW_IQ_RAM_ONLY
 btle_phy #
 (
   .CRC_STATE_BIT_WIDTH(CRC_STATE_BIT_WIDTH),
@@ -530,5 +533,6 @@ btle_phy #
   .rx_pdu_octet_mem_addr(rx_pdu_octet_mem_addr),
   .rx_pdu_octet_mem_data(ext_rx_pdu_octet_mem_data)
 );
+`endif
 
 endmodule

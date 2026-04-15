@@ -389,7 +389,7 @@ catch {
 update_compile_order -fileset sources_1
 open_bd_design "${origin_dir}/src/system.bd"
 
-set_property CONFIG.FREQ_HZ 32000000 [get_bd_pins /axi_ad9361/l_clk]
+# set_property CONFIG.FREQ_HZ 32000000 [get_bd_pins /axi_ad9361/l_clk]
 
 update_compile_order -fileset sources_1
 
