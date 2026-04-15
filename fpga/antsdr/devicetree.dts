@@ -694,7 +694,7 @@
                         xlnx,fault-inject = <0x0>;
                         xlnx,memory-depth = <0x8000>;
                         xlnx,rd-cmd-optimization = <0x0>;
-                        xlnx,read-latency = <0x1>;
+                        xlnx,read-latency = <0x4>;
                         xlnx,s-axi-ctrl-addr-width = <0x20>;
                         xlnx,s-axi-ctrl-data-width = <0x20>;
                         xlnx,s-axi-id-width = <0xc>;
