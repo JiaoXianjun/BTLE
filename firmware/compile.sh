@@ -24,9 +24,12 @@ target_name=btle_ll
 
 # arm-linux-gnueabihf-objcopy --redefine-sym old=new --remove-section=.note.gnu.build-id $target_name
 
+# arm-linux-gnueabihf-gcc -static -pthread \
+#   -O3 -mcpu=cortex-a9 -mfpu=neon -mfloat-abi=hard \
+#   -o $target_name $target_name.c
+
 arm-linux-gnueabihf-gcc -static -pthread \
-  -O3 -mcpu=cortex-a9 -mfpu=neon -mfloat-abi=hard \
-  -o $target_name $target_name.c
+  -O3 -o $target_name $target_name.c
 
 # scp $target_name root@10.10.10.10:
 
