@@ -389,7 +389,7 @@ catch {
 update_compile_order -fileset sources_1
 open_bd_design "${origin_dir}/src/system.bd"
 
-set_property CONFIG.FREQ_HZ 32000000 [get_bd_pins /axi_ad9361/l_clk]
+set_property CONFIG.FREQ_HZ 64000000 [get_bd_pins /axi_ad9361/l_clk]
 
 update_compile_order -fileset sources_1
 
@@ -432,7 +432,7 @@ set_property -name "constrset" -value "constrs_1" -objects $obj
 set_property -name "description" -value "Vivado Synthesis Defaults" -objects $obj
 set_property -name "flow" -value "Vivado Synthesis 2022" -objects $obj
 set_property -name "name" -value "synth_1" -objects $obj
-set_property -name "needs_refresh" -value "0" -objects $obj
+set_property -name "needs_refresh" -value "1" -objects $obj
 set_property -name "part" -value "xc7z020clg400-1" -objects $obj
 set_property -name "srcset" -value "sources_1" -objects $obj
 set_property -name "incremental_checkpoint" -value "" -objects $obj
@@ -452,7 +452,7 @@ set_property -name "steps.synth_design.args.flatten_hierarchy" -value "rebuilt" 
 set_property -name "steps.synth_design.args.gated_clock_conversion" -value "off" -objects $obj
 set_property -name "steps.synth_design.args.bufg" -value "12" -objects $obj
 set_property -name "steps.synth_design.args.directive" -value "Default" -objects $obj
-set_property -name "steps.synth_design.args.retiming" -value "0" -objects $obj
+set_property -name "steps.synth_design.args.retiming" -value "1" -objects $obj
 set_property -name "steps.synth_design.args.no_retiming" -value "0" -objects $obj
 set_property -name "steps.synth_design.args.fsm_extraction" -value "auto" -objects $obj
 set_property -name "steps.synth_design.args.keep_equivalent_registers" -value "0" -objects $obj
@@ -474,15 +474,15 @@ set_property -name "steps.synth_design.args.more options" -value "" -objects $ob
 # set the current synth run
 current_run -synthesis [get_runs synth_1]
 
-launch_runs synth_1 -jobs 6
+launch_runs synth_1 -jobs 2
 
 wait_on_run synth_1
 
 # Create 'impl_1' run (if not found)
 if {[string equal [get_runs -quiet impl_1] ""]} {
-    create_run -name impl_1 -part xc7z020clg400-1 -flow {Vivado Implementation 2022} -strategy "Vivado Implementation Defaults" -report_strategy {No Reports} -constrset constrs_1 -parent_run synth_1
+    create_run -name impl_1 -part xc7z020clg400-1 -flow {Vivado Implementation 2022} -strategy "Performance_ExploreWithRemap" -report_strategy {No Reports} -constrset constrs_1 -parent_run synth_1
 } else {
-  set_property strategy "Vivado Implementation Defaults" [get_runs impl_1]
+  set_property strategy "Performance_ExploreWithRemap" [get_runs impl_1]
   set_property flow "Vivado Implementation 2022" [get_runs impl_1]
 }
 set obj [get_runs impl_1]
@@ -496,7 +496,7 @@ if { [ string equal [get_report_configs -of_objects [get_runs impl_1] impl_1_ini
 set obj [get_report_configs -of_objects [get_runs impl_1] impl_1_init_report_timing_summary_0]
 if { $obj != "" } {
 set_property -name "is_enabled" -value "0" -objects $obj
-set_property -name "display_name" -value "Timing Summary" -objects $obj
+set_property -name "display_name" -value "Timing Summary - Design Initialization" -objects $obj
 set_property -name "options.check_timing_verbose" -value "0" -objects $obj
 set_property -name "options.delay_type" -value "" -objects $obj
 set_property -name "options.setup" -value "0" -objects $obj
@@ -520,7 +520,7 @@ if { [ string equal [get_report_configs -of_objects [get_runs impl_1] impl_1_opt
 set obj [get_report_configs -of_objects [get_runs impl_1] impl_1_opt_report_drc_0]
 if { $obj != "" } {
 set_property -name "is_enabled" -value "1" -objects $obj
-set_property -name "display_name" -value "DRC" -objects $obj
+set_property -name "display_name" -value "DRC - Opt Design" -objects $obj
 set_property -name "options.upgrade_cw" -value "0" -objects $obj
 set_property -name "options.checks" -value "" -objects $obj
 set_property -name "options.ruledecks" -value "" -objects $obj
@@ -534,7 +534,7 @@ if { [ string equal [get_report_configs -of_objects [get_runs impl_1] impl_1_opt
 set obj [get_report_configs -of_objects [get_runs impl_1] impl_1_opt_report_timing_summary_0]
 if { $obj != "" } {
 set_property -name "is_enabled" -value "0" -objects $obj
-set_property -name "display_name" -value "Timing Summary" -objects $obj
+set_property -name "display_name" -value "Timing Summary - Opt Design" -objects $obj
 set_property -name "options.check_timing_verbose" -value "0" -objects $obj
 set_property -name "options.delay_type" -value "" -objects $obj
 set_property -name "options.setup" -value "0" -objects $obj
@@ -558,7 +558,7 @@ if { [ string equal [get_report_configs -of_objects [get_runs impl_1] impl_1_pow
 set obj [get_report_configs -of_objects [get_runs impl_1] impl_1_power_opt_report_timing_summary_0]
 if { $obj != "" } {
 set_property -name "is_enabled" -value "0" -objects $obj
-set_property -name "display_name" -value "Timing Summary" -objects $obj
+set_property -name "display_name" -value "Timing Summary - Power Opt Design" -objects $obj
 set_property -name "options.check_timing_verbose" -value "0" -objects $obj
 set_property -name "options.delay_type" -value "" -objects $obj
 set_property -name "options.setup" -value "0" -objects $obj
@@ -582,7 +582,7 @@ if { [ string equal [get_report_configs -of_objects [get_runs impl_1] impl_1_pla
 set obj [get_report_configs -of_objects [get_runs impl_1] impl_1_place_report_io_0]
 if { $obj != "" } {
 set_property -name "is_enabled" -value "1" -objects $obj
-set_property -name "display_name" -value "IO" -objects $obj
+set_property -name "display_name" -value "IO - Place Design" -objects $obj
 set_property -name "options.more_options" -value "" -objects $obj
 
 }
@@ -593,7 +593,7 @@ if { [ string equal [get_report_configs -of_objects [get_runs impl_1] impl_1_pla
 set obj [get_report_configs -of_objects [get_runs impl_1] impl_1_place_report_utilization_0]
 if { $obj != "" } {
 set_property -name "is_enabled" -value "1" -objects $obj
-set_property -name "display_name" -value "Utilization" -objects $obj
+set_property -name "display_name" -value "Utilization - Place Design" -objects $obj
 set_property -name "options.pblocks" -value "" -objects $obj
 set_property -name "options.cells" -value "" -objects $obj
 set_property -name "options.slr" -value "0" -objects $obj
@@ -611,7 +611,7 @@ if { [ string equal [get_report_configs -of_objects [get_runs impl_1] impl_1_pla
 set obj [get_report_configs -of_objects [get_runs impl_1] impl_1_place_report_control_sets_0]
 if { $obj != "" } {
 set_property -name "is_enabled" -value "1" -objects $obj
-set_property -name "display_name" -value "Control Sets" -objects $obj
+set_property -name "display_name" -value "Control Sets - Place Design" -objects $obj
 set_property -name "options.verbose" -value "1" -objects $obj
 set_property -name "options.cells" -value "" -objects $obj
 set_property -name "options.more_options" -value "" -objects $obj
@@ -624,7 +624,7 @@ if { [ string equal [get_report_configs -of_objects [get_runs impl_1] impl_1_pla
 set obj [get_report_configs -of_objects [get_runs impl_1] impl_1_place_report_incremental_reuse_0]
 if { $obj != "" } {
 set_property -name "is_enabled" -value "0" -objects $obj
-set_property -name "display_name" -value "Incremental Reuse" -objects $obj
+set_property -name "display_name" -value "Incremental Reuse - Place Design" -objects $obj
 set_property -name "options.cells" -value "" -objects $obj
 set_property -name "options.hierarchical" -value "0" -objects $obj
 set_property -name "options.hierarchical_depth" -value "" -objects $obj
@@ -638,7 +638,7 @@ if { [ string equal [get_report_configs -of_objects [get_runs impl_1] impl_1_pla
 set obj [get_report_configs -of_objects [get_runs impl_1] impl_1_place_report_incremental_reuse_1]
 if { $obj != "" } {
 set_property -name "is_enabled" -value "0" -objects $obj
-set_property -name "display_name" -value "Incremental Reuse" -objects $obj
+set_property -name "display_name" -value "Incremental Reuse - Place Design" -objects $obj
 set_property -name "options.cells" -value "" -objects $obj
 set_property -name "options.hierarchical" -value "0" -objects $obj
 set_property -name "options.hierarchical_depth" -value "" -objects $obj
@@ -652,7 +652,7 @@ if { [ string equal [get_report_configs -of_objects [get_runs impl_1] impl_1_pla
 set obj [get_report_configs -of_objects [get_runs impl_1] impl_1_place_report_timing_summary_0]
 if { $obj != "" } {
 set_property -name "is_enabled" -value "0" -objects $obj
-set_property -name "display_name" -value "Timing Summary" -objects $obj
+set_property -name "display_name" -value "Timing Summary - Place Design" -objects $obj
 set_property -name "options.check_timing_verbose" -value "0" -objects $obj
 set_property -name "options.delay_type" -value "" -objects $obj
 set_property -name "options.setup" -value "0" -objects $obj
@@ -676,7 +676,7 @@ if { [ string equal [get_report_configs -of_objects [get_runs impl_1] impl_1_pos
 set obj [get_report_configs -of_objects [get_runs impl_1] impl_1_post_place_power_opt_report_timing_summary_0]
 if { $obj != "" } {
 set_property -name "is_enabled" -value "0" -objects $obj
-set_property -name "display_name" -value "Timing Summary" -objects $obj
+set_property -name "display_name" -value "Timing Summary - Post-Place Power Opt Design" -objects $obj
 set_property -name "options.check_timing_verbose" -value "0" -objects $obj
 set_property -name "options.delay_type" -value "" -objects $obj
 set_property -name "options.setup" -value "0" -objects $obj
@@ -700,7 +700,7 @@ if { [ string equal [get_report_configs -of_objects [get_runs impl_1] impl_1_phy
 set obj [get_report_configs -of_objects [get_runs impl_1] impl_1_phys_opt_report_timing_summary_0]
 if { $obj != "" } {
 set_property -name "is_enabled" -value "0" -objects $obj
-set_property -name "display_name" -value "Timing Summary" -objects $obj
+set_property -name "display_name" -value "Timing Summary - Post-Place Phys Opt Design" -objects $obj
 set_property -name "options.check_timing_verbose" -value "0" -objects $obj
 set_property -name "options.delay_type" -value "" -objects $obj
 set_property -name "options.setup" -value "0" -objects $obj
@@ -724,7 +724,7 @@ if { [ string equal [get_report_configs -of_objects [get_runs impl_1] impl_1_rou
 set obj [get_report_configs -of_objects [get_runs impl_1] impl_1_route_report_drc_0]
 if { $obj != "" } {
 set_property -name "is_enabled" -value "1" -objects $obj
-set_property -name "display_name" -value "DRC" -objects $obj
+set_property -name "display_name" -value "DRC - Route Design" -objects $obj
 set_property -name "options.upgrade_cw" -value "0" -objects $obj
 set_property -name "options.checks" -value "" -objects $obj
 set_property -name "options.ruledecks" -value "" -objects $obj
@@ -738,7 +738,7 @@ if { [ string equal [get_report_configs -of_objects [get_runs impl_1] impl_1_rou
 set obj [get_report_configs -of_objects [get_runs impl_1] impl_1_route_report_methodology_0]
 if { $obj != "" } {
 set_property -name "is_enabled" -value "1" -objects $obj
-set_property -name "display_name" -value "Methodology" -objects $obj
+set_property -name "display_name" -value "Methodology - Route Design" -objects $obj
 set_property -name "options.checks" -value "" -objects $obj
 set_property -name "options.more_options" -value "" -objects $obj
 
@@ -750,7 +750,7 @@ if { [ string equal [get_report_configs -of_objects [get_runs impl_1] impl_1_rou
 set obj [get_report_configs -of_objects [get_runs impl_1] impl_1_route_report_power_0]
 if { $obj != "" } {
 set_property -name "is_enabled" -value "1" -objects $obj
-set_property -name "display_name" -value "Power" -objects $obj
+set_property -name "display_name" -value "Power - Route Design" -objects $obj
 set_property -name "options.advisory" -value "0" -objects $obj
 set_property -name "options.xpe" -value "" -objects $obj
 set_property -name "options.more_options" -value "" -objects $obj
@@ -763,7 +763,7 @@ if { [ string equal [get_report_configs -of_objects [get_runs impl_1] impl_1_rou
 set obj [get_report_configs -of_objects [get_runs impl_1] impl_1_route_report_route_status_0]
 if { $obj != "" } {
 set_property -name "is_enabled" -value "1" -objects $obj
-set_property -name "display_name" -value "Route Status" -objects $obj
+set_property -name "display_name" -value "Route Status - Route Design" -objects $obj
 set_property -name "options.of_objects" -value "" -objects $obj
 set_property -name "options.route_type" -value "" -objects $obj
 set_property -name "options.list_all_nets" -value "0" -objects $obj
@@ -779,7 +779,7 @@ if { [ string equal [get_report_configs -of_objects [get_runs impl_1] impl_1_rou
 set obj [get_report_configs -of_objects [get_runs impl_1] impl_1_route_report_timing_summary_0]
 if { $obj != "" } {
 set_property -name "is_enabled" -value "1" -objects $obj
-set_property -name "display_name" -value "Timing Summary" -objects $obj
+set_property -name "display_name" -value "Timing Summary - Route Design" -objects $obj
 set_property -name "options.check_timing_verbose" -value "0" -objects $obj
 set_property -name "options.delay_type" -value "" -objects $obj
 set_property -name "options.setup" -value "0" -objects $obj
@@ -803,7 +803,7 @@ if { [ string equal [get_report_configs -of_objects [get_runs impl_1] impl_1_rou
 set obj [get_report_configs -of_objects [get_runs impl_1] impl_1_route_report_incremental_reuse_0]
 if { $obj != "" } {
 set_property -name "is_enabled" -value "1" -objects $obj
-set_property -name "display_name" -value "Incremental Reuse" -objects $obj
+set_property -name "display_name" -value "Incremental Reuse - Route Design" -objects $obj
 set_property -name "options.cells" -value "" -objects $obj
 set_property -name "options.hierarchical" -value "0" -objects $obj
 set_property -name "options.hierarchical_depth" -value "" -objects $obj
@@ -817,7 +817,7 @@ if { [ string equal [get_report_configs -of_objects [get_runs impl_1] impl_1_rou
 set obj [get_report_configs -of_objects [get_runs impl_1] impl_1_route_report_clock_utilization_0]
 if { $obj != "" } {
 set_property -name "is_enabled" -value "1" -objects $obj
-set_property -name "display_name" -value "Clock Utilization" -objects $obj
+set_property -name "display_name" -value "Clock Utilization - Route Design" -objects $obj
 set_property -name "options.write_xdc" -value "0" -objects $obj
 set_property -name "options.clock_roots_only" -value "0" -objects $obj
 set_property -name "options.more_options" -value "" -objects $obj
@@ -830,7 +830,7 @@ if { [ string equal [get_report_configs -of_objects [get_runs impl_1] impl_1_rou
 set obj [get_report_configs -of_objects [get_runs impl_1] impl_1_route_report_bus_skew_0]
 if { $obj != "" } {
 set_property -name "is_enabled" -value "1" -objects $obj
-set_property -name "display_name" -value "Bus Skew" -objects $obj
+set_property -name "display_name" -value "Bus Skew - Route Design" -objects $obj
 set_property -name "options.delay_type" -value "" -objects $obj
 set_property -name "options.setup" -value "0" -objects $obj
 set_property -name "options.hold" -value "0" -objects $obj
@@ -852,7 +852,7 @@ if { [ string equal [get_report_configs -of_objects [get_runs impl_1] impl_1_pos
 set obj [get_report_configs -of_objects [get_runs impl_1] impl_1_post_route_phys_opt_report_timing_summary_0]
 if { $obj != "" } {
 set_property -name "is_enabled" -value "1" -objects $obj
-set_property -name "display_name" -value "Timing Summary" -objects $obj
+set_property -name "display_name" -value "Timing Summary - Post-Route Phys Opt Design" -objects $obj
 set_property -name "options.check_timing_verbose" -value "0" -objects $obj
 set_property -name "options.delay_type" -value "" -objects $obj
 set_property -name "options.setup" -value "0" -objects $obj
@@ -876,7 +876,7 @@ if { [ string equal [get_report_configs -of_objects [get_runs impl_1] impl_1_pos
 set obj [get_report_configs -of_objects [get_runs impl_1] impl_1_post_route_phys_opt_report_bus_skew_0]
 if { $obj != "" } {
 set_property -name "is_enabled" -value "1" -objects $obj
-set_property -name "display_name" -value "Bus Skew" -objects $obj
+set_property -name "display_name" -value "Bus Skew - Post-Route Phys Opt Design" -objects $obj
 set_property -name "options.delay_type" -value "" -objects $obj
 set_property -name "options.setup" -value "0" -objects $obj
 set_property -name "options.hold" -value "0" -objects $obj
@@ -893,10 +893,10 @@ set_property -name "options.more_options" -value "" -objects $obj
 }
 set obj [get_runs impl_1]
 set_property -name "constrset" -value "constrs_1" -objects $obj
-set_property -name "description" -value "Default settings for Implementation." -objects $obj
+set_property -name "description" -value "Similar to Performance_ExplorePostRoutePhysOpt, but enables logic optimization step (opt_design) with the ExploreWithRemap directive." -objects $obj
 set_property -name "flow" -value "Vivado Implementation 2022" -objects $obj
 set_property -name "name" -value "impl_1" -objects $obj
-set_property -name "needs_refresh" -value "0" -objects $obj
+set_property -name "needs_refresh" -value "1" -objects $obj
 set_property -name "part" -value "xc7z020clg400-1" -objects $obj
 set_property -name "pr_configuration" -value "" -objects $obj
 set_property -name "dfx_mode" -value "STANDARD" -objects $obj
@@ -913,7 +913,7 @@ set_property -name "include_in_archive" -value "1" -objects $obj
 set_property -name "gen_full_bitstream" -value "1" -objects $obj
 set_property -name "auto_incremental_checkpoint.directory" -value "$proj_dir/${_xil_proj_name_}.srcs/utils_1/imports/impl_1" -objects $obj
 set_property -name "min_rqa_score" -value "0" -objects $obj
-set_property -name "strategy" -value "Vivado Implementation Defaults" -objects $obj
+set_property -name "strategy" -value "Performance_ExploreWithRemap" -objects $obj
 set_property -name "steps.init_design.tcl.pre" -value "" -objects $obj
 set_property -name "steps.init_design.tcl.post" -value "" -objects $obj
 set_property -name "steps.init_design.args.more options" -value "" -objects $obj
@@ -921,7 +921,7 @@ set_property -name "steps.opt_design.is_enabled" -value "1" -objects $obj
 set_property -name "steps.opt_design.tcl.pre" -value "" -objects $obj
 set_property -name "steps.opt_design.tcl.post" -value "" -objects $obj
 set_property -name "steps.opt_design.args.verbose" -value "0" -objects $obj
-set_property -name "steps.opt_design.args.directive" -value "Default" -objects $obj
+set_property -name "steps.opt_design.args.directive" -value "ExploreWithRemap" -objects $obj
 set_property -name "steps.opt_design.args.more options" -value "" -objects $obj
 set_property -name "steps.power_opt_design.is_enabled" -value "0" -objects $obj
 set_property -name "steps.power_opt_design.tcl.pre" -value "" -objects $obj
@@ -929,7 +929,7 @@ set_property -name "steps.power_opt_design.tcl.post" -value "" -objects $obj
 set_property -name "steps.power_opt_design.args.more options" -value "" -objects $obj
 set_property -name "steps.place_design.tcl.pre" -value "" -objects $obj
 set_property -name "steps.place_design.tcl.post" -value "" -objects $obj
-set_property -name "steps.place_design.args.directive" -value "Default" -objects $obj
+set_property -name "steps.place_design.args.directive" -value "Explore" -objects $obj
 set_property -name "steps.place_design.args.more options" -value "" -objects $obj
 set_property -name "steps.post_place_power_opt_design.is_enabled" -value "0" -objects $obj
 set_property -name "steps.post_place_power_opt_design.tcl.pre" -value "" -objects $obj
@@ -938,16 +938,16 @@ set_property -name "steps.post_place_power_opt_design.args.more options" -value 
 set_property -name "steps.phys_opt_design.is_enabled" -value "1" -objects $obj
 set_property -name "steps.phys_opt_design.tcl.pre" -value "" -objects $obj
 set_property -name "steps.phys_opt_design.tcl.post" -value "" -objects $obj
-set_property -name "steps.phys_opt_design.args.directive" -value "Default" -objects $obj
+set_property -name "steps.phys_opt_design.args.directive" -value "Explore" -objects $obj
 set_property -name "steps.phys_opt_design.args.more options" -value "" -objects $obj
 set_property -name "steps.route_design.tcl.pre" -value "" -objects $obj
 set_property -name "steps.route_design.tcl.post" -value "" -objects $obj
-set_property -name "steps.route_design.args.directive" -value "Default" -objects $obj
-set_property -name "steps.route_design.args.more options" -value "" -objects $obj
-set_property -name "steps.post_route_phys_opt_design.is_enabled" -value "0" -objects $obj
+set_property -name "steps.route_design.args.directive" -value "NoTimingRelaxation" -objects $obj
+set_property -name "steps.route_design.args.more options" -value "-tns_cleanup" -objects $obj
+set_property -name "steps.post_route_phys_opt_design.is_enabled" -value "1" -objects $obj
 set_property -name "steps.post_route_phys_opt_design.tcl.pre" -value "" -objects $obj
 set_property -name "steps.post_route_phys_opt_design.tcl.post" -value "" -objects $obj
-set_property -name "steps.post_route_phys_opt_design.args.directive" -value "Default" -objects $obj
+set_property -name "steps.post_route_phys_opt_design.args.directive" -value "AddRetime" -objects $obj
 set_property -name "steps.post_route_phys_opt_design.args.more options" -value "" -objects $obj
 set_property -name "steps.write_bitstream.tcl.pre" -value "" -objects $obj
 set_property -name "steps.write_bitstream.tcl.post" -value "" -objects $obj
@@ -979,7 +979,7 @@ set_property -name "active_reports_invalid" -value "" -objects $obj
 set_property -name "active_run" -value "0" -objects $obj
 set_property -name "hide_unused_data" -value "1" -objects $obj
 set_property -name "incl_new_reports" -value "0" -objects $obj
-set_property -name "reports" -value "" -objects $obj
+set_property -name "reports" -value "impl_1#impl_1_route_report_drc_0" -objects $obj
 set_property -name "run.step" -value "route_design" -objects $obj
 set_property -name "run.type" -value "implementation" -objects $obj
 set_property -name "statistics.critical_warning" -value "1" -objects $obj
@@ -999,7 +999,7 @@ set_property -name "active_reports_invalid" -value "" -objects $obj
 set_property -name "active_run" -value "0" -objects $obj
 set_property -name "hide_unused_data" -value "1" -objects $obj
 set_property -name "incl_new_reports" -value "0" -objects $obj
-set_property -name "reports" -value "" -objects $obj
+set_property -name "reports" -value "impl_1#impl_1_route_report_methodology_0" -objects $obj
 set_property -name "run.step" -value "route_design" -objects $obj
 set_property -name "run.type" -value "implementation" -objects $obj
 set_property -name "statistics.critical_warning" -value "1" -objects $obj
@@ -1019,7 +1019,7 @@ set_property -name "active_reports_invalid" -value "" -objects $obj
 set_property -name "active_run" -value "0" -objects $obj
 set_property -name "hide_unused_data" -value "1" -objects $obj
 set_property -name "incl_new_reports" -value "0" -objects $obj
-set_property -name "reports" -value "" -objects $obj
+set_property -name "reports" -value "impl_1#impl_1_route_report_power_0" -objects $obj
 set_property -name "run.step" -value "route_design" -objects $obj
 set_property -name "run.type" -value "implementation" -objects $obj
 set_property -name "statistics.bram" -value "1" -objects $obj
@@ -1056,7 +1056,7 @@ set_property -name "active_reports_invalid" -value "" -objects $obj
 set_property -name "active_run" -value "0" -objects $obj
 set_property -name "hide_unused_data" -value "1" -objects $obj
 set_property -name "incl_new_reports" -value "0" -objects $obj
-set_property -name "reports" -value "" -objects $obj
+set_property -name "reports" -value "impl_1#impl_1_route_report_timing_summary_0" -objects $obj
 set_property -name "run.step" -value "route_design" -objects $obj
 set_property -name "run.type" -value "implementation" -objects $obj
 set_property -name "statistics.ths" -value "1" -objects $obj
@@ -1078,7 +1078,7 @@ set_property -name "active_reports_invalid" -value "" -objects $obj
 set_property -name "active_run" -value "0" -objects $obj
 set_property -name "hide_unused_data" -value "1" -objects $obj
 set_property -name "incl_new_reports" -value "0" -objects $obj
-set_property -name "reports" -value "" -objects $obj
+set_property -name "reports" -value "synth_1#synth_1_synth_report_utilization_0" -objects $obj
 set_property -name "run.step" -value "synth_design" -objects $obj
 set_property -name "run.type" -value "synthesis" -objects $obj
 set_property -name "statistics.bram" -value "1" -objects $obj
@@ -1106,7 +1106,7 @@ set_property -name "active_reports_invalid" -value "" -objects $obj
 set_property -name "active_run" -value "0" -objects $obj
 set_property -name "hide_unused_data" -value "1" -objects $obj
 set_property -name "incl_new_reports" -value "0" -objects $obj
-set_property -name "reports" -value "" -objects $obj
+set_property -name "reports" -value "impl_1#impl_1_place_report_utilization_0" -objects $obj
 set_property -name "run.step" -value "place_design" -objects $obj
 set_property -name "run.type" -value "implementation" -objects $obj
 set_property -name "statistics.bram" -value "1" -objects $obj
@@ -1134,7 +1134,7 @@ move_dashboard_gadget -name {methodology_1} -row 2 -col 1
 current_dashboard default_dashboard 
 
 update_compile_order -fileset sources_1
-launch_runs impl_1 -to_step write_bitstream -jobs 8
+launch_runs impl_1 -to_step write_bitstream -jobs 2
 
 wait_on_run impl_1
 
