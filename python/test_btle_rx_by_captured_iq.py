@@ -18,9 +18,12 @@ if __name__ == "__main__":
   access_address = 'D6BE898E' # for advertisement channel, 0x8E89BED6 in standard. due to byte order here needs to be D6BE898E
   crc_state_init_hex = '555555' # will use default advertisement channel crc init value
 
-  print('arguments: filename (.csv or .bin) channel_number access_address crc_state_init_hex')
+  print('arguments: filename channel_number access_address crc_state_init_hex')
+  print('file: .csv by Vivado ILA, or .bin by firmware "btle_ll -q duration_s" int16 I/Q) ')
   
-  if len(sys.argv) == 2:
+  if len(sys.argv) == 1:
+    exit()
+  elif len(sys.argv) == 2:
     filename = sys.argv[1]
   elif len(sys.argv) == 3:
     filename = sys.argv[1]
@@ -79,6 +82,8 @@ if __name__ == "__main__":
 
   # if the length of rx_i is larger than 10000, plot the rx_i and let user decide the start index and end index for processing later.
   if len(rx_i) > 10000:
+    print('Decide the start/end idx. Close figure and input ...')
+
     plt.plot(rx_i, 'b', label='I')
     plt.plot(rx_q, 'r', label='Q')
     plt.legend(loc='upper right')
@@ -106,14 +111,14 @@ if __name__ == "__main__":
   ax.plot(fo, 'k')
   # ax.legend(loc='upper right')
   ax.grid(True)
-  ax.set_title('FPGA ILA IQ Normalized freq offset')
+  ax.set_title('IQ Normalized freq offset')
 
   ax = plt.subplot(212)
   ax.plot(rx_i, 'b', label='I')
   ax.plot(rx_q, 'r', label='Q')
   ax.legend(loc='upper right')
   ax.grid(True)
-  ax.set_title('FPGA ILA IQ')
+  ax.set_title('IQ')
   plt.tight_layout()
 
   print('btle_rx')
@@ -144,7 +149,7 @@ if __name__ == "__main__":
   ax.plot(fo, 'k')
   # ax.legend(loc='upper right')
   ax.grid(True)
-  ax.set_title('FPGA ILA IQ Normalized freq offset')
+  ax.set_title('IQ Normalized freq offset')
 
   ax = plt.subplot(212)
   # mimic signal_for_decision signal in receiver
