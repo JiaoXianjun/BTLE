@@ -698,7 +698,15 @@ int main(int argc, char *argv[])
     if (set_irq_affinity(56, "2") == 0) {
       DEBUG_PRINT(printf("IRQ %d affinity set to mask %s\n", 56, "2");)
     } else {
-      printf("Failed to set IRQ affinity\n");
+      printf("Failed to set IRQ affinity 56\n");
+      // close(fd_uio0);
+      // return -1;
+    }
+
+    if (set_irq_affinity(57, "2") == 0) {
+      DEBUG_PRINT(printf("IRQ %d affinity set to mask %s\n", 57, "2");)
+    } else {
+      printf("Failed to set IRQ affinity 57\n");
       // close(fd_uio0);
       // return -1;
     }
