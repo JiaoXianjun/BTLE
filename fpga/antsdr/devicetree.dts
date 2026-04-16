@@ -698,7 +698,7 @@
                         xlnx,s-axi-ctrl-addr-width = <0x20>;
                         xlnx,s-axi-ctrl-data-width = <0x20>;
                         xlnx,s-axi-id-width = <0xc>;
-                        xlnx,s-axi-supports-narrow-burst = <0x0>;
+                        xlnx,s-axi-supports-narrow-burst = <0x1>;
                         xlnx,single-port-bram = <0x1>;
                 };
 
