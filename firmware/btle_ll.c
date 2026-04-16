@@ -463,14 +463,6 @@ int main(int argc, char *argv[])
   uint32_t crc_init = 0x555555; // default to 0x555555
   uint32_t unique_bit_seq = 0x8E89BED6; // default to 0x8E89BED6packet_word
 
-  int ret = system("./fir.sh");
-  if (ret == -1) {
-    perror("system");
-    return 1; 
-  } else {
-    printf("fir.sh executed successfully\n");
-  }
-
   freq_hz = channel_number_to_freq_Hz(channel_number);
 
   while ((opt = getopt(argc, argv, "i:m:n:c:a:q:")) != -1) {
@@ -520,6 +512,24 @@ int main(int argc, char *argv[])
     }
   }
 
+  if (iq_duration_s == -1) {
+    int ret = system("./fir.sh");
+    if (ret == -1) {
+      perror("system");
+      return 1; 
+    } else {
+      printf("fir.sh executed successfully\n");
+    }
+  } else {
+    int ret = system("./btle_rf_init_wideband_no_fir_no_tx.sh");
+    if (ret == -1) {
+      perror("system");
+      return 1; 
+    } else {
+      printf("btle_rf_init_wideband_no_fir_no_tx.sh executed successfully\n");
+    }
+  }
+  
   // set freq_hz to ad9361 rx0_lo
   fp = fopen(ad9361_rx0_lo_file, "w");
   if (!fp) {
