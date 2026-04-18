@@ -2,6 +2,10 @@
 
 function iq = bin_file_to_iq(filename_bin, data_format)
 % bin file: copmlex, format (uint8, int16, etc.), i/q interleaved
+if exist('data_format', 'var') ~= 1
+    data_format = 'int16';
+end
+
 fid = fopen(filename_bin);
 if fid == -1
     disp('fopen failed!');
