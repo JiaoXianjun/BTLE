@@ -11,6 +11,8 @@ else
   HARDWARE=$1
 fi
 
+./save_fpga_img_ila.sh $HARDWARE
+
 source ~/Xilinx/Vitis/2022.2/settings64.sh
 ./build_boot_bin.sh ./BTLE-hw-img/fpga/$HARDWARE/system_top.xsa ./u-boot.elf
 cp ./output_boot_bin/BOOT.BIN ./
