@@ -428,6 +428,7 @@ static inline void print_usage() {
   printf("  -c CRC init value : such as 0x555555\n");
   printf("  -a access address : such as 0x8E89BED6\n");
   printf("  -q IQ capture duration in seconds. Integer. Minimum 1.\n");
+  printf("  -o 1: omit rf init script; 0: execute rf init script.\n");
 }
 
 int main(int argc, char *argv[])
@@ -440,7 +441,7 @@ int main(int argc, char *argv[])
   int num_rx_pkt = 0, num_rx_pkt_crc_ok = 0, rx_crc_ok;
   int num_rx_pkt_hw = 0, num_rx_pkt_hw1 = 0, num_rx_pkt_hw2 = 0, num_rx_pkt_crc_ok_hw = 0;
   uint32_t rx_decode_reg_val, rx_payload_length, header_payload_crc_len, access_address_read_back;
-  int itrpt_ret, n_read, iq_duration_s = -1;
+  int itrpt_ret, n_read, iq_duration_s = -1, omit_rf_init_script = 0;
   int tmp_for_irq_re_arm = 1;
   int irq_count_base = 0;
   uint64_t loop_count = 0, timestamp, timestamp_low, timestamp_high, time_current, time_old, tmp_u64, freq_hz;
@@ -465,7 +466,7 @@ int main(int argc, char *argv[])
 
   freq_hz = channel_number_to_freq_Hz(channel_number);
 
-  while ((opt = getopt(argc, argv, "i:m:n:c:a:q:")) != -1) {
+  while ((opt = getopt(argc, argv, "i:m:n:c:a:q:o:")) != -1) {
     switch (opt) {
       case 'i':
         strcpy(ifname, optarg);
@@ -506,6 +507,9 @@ int main(int argc, char *argv[])
       case 'q':
         iq_duration_s = atoi(optarg);
         break;
+      case 'o':
+        omit_rf_init_script = atoi(optarg);
+        break;
       default:
         print_usage();
         exit(EXIT_FAILURE);
@@ -521,12 +525,14 @@ int main(int argc, char *argv[])
       printf("fir.sh executed successfully\n");
     }
   } else {
-    int ret = system("./btle_rf_init_wideband_no_fir_no_tx.sh");
-    if (ret == -1) {
-      perror("system");
-      return 1; 
-    } else {
-      printf("btle_rf_init_wideband_no_fir_no_tx.sh executed successfully\n");
+    if (omit_rf_init_script == 0) {
+      int ret = system("./btle_rf_init_wideband_no_fir_no_tx.sh");
+      if (ret == -1) {
+        perror("system");
+        return 1; 
+      } else {
+        printf("btle_rf_init_wideband_no_fir_no_tx.sh executed successfully\n");
+      }
     }
   }
   
@@ -905,7 +911,8 @@ int main(int argc, char *argv[])
       num_iq_sample = num_iq_sample_total - iq_no_loss_start_idx;
       printf("IQ capture to memory done. Valid num IQ samples (no loss): %u\n", num_iq_sample);
 
-      sprintf(rx_iq_filename, "rx_iq_%lluHz_%usps_num%u.bin", freq_hz, SAMPLING_RATE_HZ, num_iq_sample);
+      // sprintf(rx_iq_filename, "rx_iq_%lluHz_%usps_num%u.bin", freq_hz, SAMPLING_RATE_HZ, num_iq_sample);
+      sprintf(rx_iq_filename, "rx_iq_%lluHz_%usps.bin", freq_hz, SAMPLING_RATE_HZ);
       fp_rx_iq = fopen(rx_iq_filename, "wb");
       if (fp_rx_iq == NULL) {
         perror("fp_rx_iq Failed to open file");
