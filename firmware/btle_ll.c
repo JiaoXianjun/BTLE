@@ -100,6 +100,30 @@ static inline void handle_sigint_child(int sig) {
   printf("Quitting child...\n");
 }
 
+static inline int find_dynamic_irq_number(const char *device_name) {
+  FILE *fp = fopen("/proc/interrupts", "r");
+  if (!fp) {
+    perror("Failed to open /proc/interrupts");
+    return -1;
+  }
+
+  char line[256];
+  int irq_number = -1;
+  while (fgets(line, sizeof(line), fp)) {
+    if (strstr(line, device_name)) {
+      // Line format: " 56: ... <device_name>"
+      char *token = strtok(line, ":");
+      if (token) {
+        irq_number = atoi(token);
+        break;
+      }
+    }
+  }
+
+  fclose(fp);
+  return irq_number;
+}
+
 static inline void pin_to_cpu(int cpu_id) {
   cpu_set_t mask;
   CPU_ZERO(&mask);
@@ -446,7 +470,7 @@ int main(int argc, char *argv[])
   int irq_count_base = 0;
   uint64_t loop_count = 0, timestamp, timestamp_low, timestamp_high, time_current, time_old, tmp_u64, freq_hz;
   char freq_str[FREQ_HZ_STRING_BUF_SIZE];
-  int irq_count_old = 0;
+  int irq_count_old = 0, dynamic_irq_number;
   uint32_t decode_end_to_host_read_counter_max = 0, reg_val, num_word, packet_word[256], start_time_s, run_time_s;
   uint32_t *rx_iq_buf;
   uint32_t num_iq_sample_total = 0, bram_addr_b = 0, read_offset = 0, num_iq_sample = 0, iq_size_in_byte_to_write = 0;
@@ -711,31 +735,77 @@ int main(int argc, char *argv[])
     pin_to_cpu(1);            // Bind to CPU1
     set_realtime_priority();  // RT scheduling
     
-    if (set_irq_affinity(56, "2") == 0) {
-      DEBUG_PRINT(printf("IRQ %d affinity set to mask %s\n", 56, "2");)
-    } else {
-      printf("Failed to set IRQ affinity 56\n");
-      // close(fd_uio0);
-      // return -1;
-    }
-
-    if (set_irq_affinity(57, "2") == 0) {
-      DEBUG_PRINT(printf("IRQ %d affinity set to mask %s\n", 57, "2");)
-    } else {
-      printf("Failed to set IRQ affinity 57\n");
-      // close(fd_uio0);
-      // return -1;
-    }
-
-    for (i = 33; i<= 38; i++) {
-      if (set_irq_affinity(i, "1") == 0) {
-        DEBUG_PRINT(printf("IRQ %d affinity set to mask %s\n", i, "1");)
-      } else {
-        printf("Failed to set IRQ affinity\n");
-        // close(fd_uio0);
-        // return -1;
+    dynamic_irq_number = find_dynamic_irq_number("btle_controller");
+    if (dynamic_irq_number < 0) {
+      printf("Failed to find dynamic IRQ number for btle_controller device\n");
+      close(fd_uio);
+      munmap((void *)map_base, BTLE_LL_REG_SIZE);
+      close(sockfd);
+      if (iq_duration_s != -1) {
+        munmap((void *)bram_ptr, BRAM_SIZE);
+        close(fd_ram);
+        free(rx_iq_buf);
       }
+      return 1;
+    } else {
+      printf("Dynamic IRQ number for btle_controller device: %d\n", dynamic_irq_number);
     }
+
+    if (set_irq_affinity(dynamic_irq_number, "2") == 0) {
+      DEBUG_PRINT(printf("IRQ %d affinity set to mask %s\n", dynamic_irq_number, "2");)
+    } else {
+      printf("Failed to set IRQ affinity %d\n", dynamic_irq_number);
+      close(fd_uio);
+      munmap((void *)map_base, BTLE_LL_REG_SIZE);
+      close(sockfd);
+      if (iq_duration_s != -1) {
+        munmap((void *)bram_ptr, BRAM_SIZE);
+        close(fd_ram);
+        free(rx_iq_buf);
+      }
+      return 1;
+    }
+
+    dynamic_irq_number = find_dynamic_irq_number("btle_controller_iq_ram");
+    if (dynamic_irq_number < 0) {
+      printf("Failed to find dynamic IRQ number for btle_controller_iq_ram device\n");
+      close(fd_uio);
+      munmap((void *)map_base, BTLE_LL_REG_SIZE);
+      close(sockfd);
+      if (iq_duration_s != -1) {
+        munmap((void *)bram_ptr, BRAM_SIZE);
+        close(fd_ram);
+        free(rx_iq_buf);
+      }
+      return 1;
+    } else {
+      printf("Dynamic IRQ number for btle_controller_iq_ram device: %d\n", dynamic_irq_number);
+    }
+
+    if (set_irq_affinity(dynamic_irq_number, "2") == 0) {
+      DEBUG_PRINT(printf("IRQ %d affinity set to mask %s\n", dynamic_irq_number, "2");)
+    } else {
+      printf("Failed to set IRQ affinity %d\n", dynamic_irq_number);
+      close(fd_uio);
+      munmap((void *)map_base, BTLE_LL_REG_SIZE);
+      close(sockfd);
+      if (iq_duration_s != -1) {
+        munmap((void *)bram_ptr, BRAM_SIZE);
+        close(fd_ram);
+        free(rx_iq_buf);
+      }
+      return 1;
+    }
+
+    // for (i = 33; i<= 38; i++) {
+    //   if (set_irq_affinity(i, "1") == 0) {
+    //     DEBUG_PRINT(printf("IRQ %d affinity set to mask %s\n", i, "1");)
+    //   } else {
+    //     printf("Failed to set IRQ affinity\n");
+    //     // close(fd_uio0);
+    //     // return -1;
+    //   }
+    // }
 
     time_old = get_time_us();
     while (!signal_stop) {
