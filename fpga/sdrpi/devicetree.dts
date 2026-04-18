@@ -419,7 +419,6 @@
       };
     };
 
- 
     ethernet@e000c000 {
       compatible = "cdns,zynq-gem", "cdns,gem";
       reg = <0xe000c000 0x1000>;
@@ -664,22 +663,29 @@
       };
     };
 
-    // btle_controller_0: btle_controller@40000000 {
-    //   clock-names = "s00_axi_aclk";
-    //   clocks = <0x2 0x11>;
-    //   compatible = "sdr,btle_controller";
-    //   reg = <0x40000000 0x1000>;
+    // btle_controller_ll_itrpt0@0 {
+    //   compatible = "dmem-uio";
+    //   reg = <0>;
+    //   interrupts = <0 29 1>;
+    // };
+
+    // btle_controller_ll_itrpt1@0 {
+    //   compatible = "dmem-uio";
+    //   reg = <0>;
+    //   interrupts = <0 30 1>;
     // };
 
     reserved-memory {
         #address-cells = <1>;
         #size-cells = <1>;
         ranges;
+
         bram_reserved: bram@80000000 {
             reg = <0x80000000 0x20000>;
             no-map;
         };
     };
+
     axi_bram_ctrl_0: axi_bram_ctrl@80000000 {
                         /* This is a place holder node for a custom IP, user may need to update the entries */
                         clock-names = "s_axi_aclk";
@@ -695,11 +701,11 @@
                         xlnx,fault-inject = <0x0>;
                         xlnx,memory-depth = <0x8000>;
                         xlnx,rd-cmd-optimization = <0x0>;
-                        xlnx,read-latency = <0x1>;
+                        xlnx,read-latency = <0x4>;
                         xlnx,s-axi-ctrl-addr-width = <0x20>;
                         xlnx,s-axi-ctrl-data-width = <0x20>;
                         xlnx,s-axi-id-width = <0xc>;
-                        xlnx,s-axi-supports-narrow-burst = <0x0>;
+                        xlnx,s-axi-supports-narrow-burst = <0x1>;
                         xlnx,single-port-bram = <0x1>;
                 };
 
@@ -712,7 +718,7 @@
             no-map;
         };
     };
-
+    
     btle_controller_0: btle_controller@40000000 {
       // compatible = "btle_controller";
       compatible = "generic-uio";
@@ -727,7 +733,7 @@
       // interrupts = <0 31 1>; // ll_itrpt2 = bram_addr_b_half_flag;
       interrupt-parent = <1>;
     };
-
+    
     btle_controller_iq_ram_0: btle_controller_iq_ram@40000000 {
       // compatible = "btle_controller";
       compatible = "generic-uio";
