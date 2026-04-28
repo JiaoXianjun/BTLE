@@ -465,7 +465,7 @@ int main(int argc, char *argv[])
   int num_rx_pkt = 0, num_rx_pkt_crc_ok = 0, rx_crc_ok;
   int num_rx_pkt_hw = 0, num_rx_pkt_hw1 = 0, num_rx_pkt_hw2 = 0, num_rx_pkt_crc_ok_hw = 0;
   uint32_t rx_decode_reg_val, rx_payload_length, header_payload_crc_len, access_address_read_back;
-  int itrpt_ret, n_read, iq_duration_s = -1, omit_rf_init_script = 0;
+  int itrpt_ret, n_read, iq_duration_ms = -1, omit_rf_init_script = 0;
   int tmp_for_irq_re_arm = 1;
   int irq_count_base = 0;
   uint64_t loop_count = 0, timestamp, timestamp_low, timestamp_high, time_current, time_old, tmp_u64, freq_hz;
@@ -529,7 +529,7 @@ int main(int argc, char *argv[])
         unique_bit_seq = (uint32_t)tmp;
         break;
       case 'q':
-        iq_duration_s = atoi(optarg);
+        iq_duration_ms = atoi(optarg);
         break;
       case 'o':
         omit_rf_init_script = atoi(optarg);
@@ -540,7 +540,7 @@ int main(int argc, char *argv[])
     }
   }
 
-  if (iq_duration_s == -1) {
+  if (iq_duration_ms == -1) {
     int ret = system("./fir.sh");
     if (ret == -1) {
       perror("system");
@@ -574,7 +574,7 @@ int main(int argc, char *argv[])
   }
   fclose(fp);
 
-  num_iq_sample_total = SAMPLING_RATE_HZ * iq_duration_s;
+  num_iq_sample_total = SAMPLING_RATE_HZ * iq_duration_ms / 1000;
 
   printf("Using interface: %s\n", ifname);
   printf("Destination MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
@@ -584,10 +584,10 @@ int main(int argc, char *argv[])
   printf("Frequency: %llu\n", freq_hz);
   printf("CRC init: 0x%06X\n", crc_init);
   printf("Access address: 0x%08X\n", unique_bit_seq);
-  printf("IQ duration: %ds\n", iq_duration_s);
+  printf("IQ duration: %dms\n", iq_duration_ms);
   printf("num IQ sample total: %u\n", num_iq_sample_total);
 
-  if (iq_duration_s == -1) {
+  if (iq_duration_ms == -1) {
     fd_uio = open("/dev/uio0", O_RDWR | O_SYNC);
   } else { // for IQ capture, so also mmap the axi bram
     fd_uio = open("/dev/uio1", O_RDWR | O_SYNC);
@@ -650,7 +650,7 @@ int main(int argc, char *argv[])
     printf("register mmap failed! %d\n", (int)map_base);
     close(fd_uio);
     close(sockfd);
-    if (iq_duration_s != -1) {
+    if (iq_duration_ms != -1) {
       munmap((void *)bram_ptr, BRAM_SIZE);
       close(fd_ram);
       free(rx_iq_buf);
@@ -667,7 +667,7 @@ int main(int argc, char *argv[])
     close(fd_uio);
     munmap((void *)map_base, BTLE_LL_REG_SIZE);
     close(sockfd);
-    if (iq_duration_s != -1) {
+    if (iq_duration_ms != -1) {
       munmap((void *)bram_ptr, BRAM_SIZE);
       close(fd_ram);
       free(rx_iq_buf);
@@ -692,14 +692,14 @@ int main(int argc, char *argv[])
 
   start_time_s = get_time_s();
 
-  if (iq_duration_s == -1) {
+  if (iq_duration_ms == -1) {
     pid = fork();
     if (pid < 0) {
         perror("fork");
         close(fd_uio);
         munmap((void *)map_base, BTLE_LL_REG_SIZE);
         close(sockfd);
-        if (iq_duration_s != -1) {
+        if (iq_duration_ms != -1) {
           munmap((void *)bram_ptr, BRAM_SIZE);
           close(fd_ram);
           free(rx_iq_buf);
@@ -741,7 +741,7 @@ int main(int argc, char *argv[])
       close(fd_uio);
       munmap((void *)map_base, BTLE_LL_REG_SIZE);
       close(sockfd);
-      if (iq_duration_s != -1) {
+      if (iq_duration_ms != -1) {
         munmap((void *)bram_ptr, BRAM_SIZE);
         close(fd_ram);
         free(rx_iq_buf);
@@ -758,7 +758,7 @@ int main(int argc, char *argv[])
       close(fd_uio);
       munmap((void *)map_base, BTLE_LL_REG_SIZE);
       close(sockfd);
-      if (iq_duration_s != -1) {
+      if (iq_duration_ms != -1) {
         munmap((void *)bram_ptr, BRAM_SIZE);
         close(fd_ram);
         free(rx_iq_buf);
@@ -772,7 +772,7 @@ int main(int argc, char *argv[])
       close(fd_uio);
       munmap((void *)map_base, BTLE_LL_REG_SIZE);
       close(sockfd);
-      if (iq_duration_s != -1) {
+      if (iq_duration_ms != -1) {
         munmap((void *)bram_ptr, BRAM_SIZE);
         close(fd_ram);
         free(rx_iq_buf);
@@ -789,7 +789,7 @@ int main(int argc, char *argv[])
       close(fd_uio);
       munmap((void *)map_base, BTLE_LL_REG_SIZE);
       close(sockfd);
-      if (iq_duration_s != -1) {
+      if (iq_duration_ms != -1) {
         munmap((void *)bram_ptr, BRAM_SIZE);
         close(fd_ram);
         free(rx_iq_buf);
@@ -832,7 +832,7 @@ int main(int argc, char *argv[])
         perror("write");
       }
 
-      if (iq_duration_s == -1) {
+      if (iq_duration_ms == -1) {
         fpga_regs[39] = 1;
 
         rx_decode_reg_val = fpga_regs[49];
@@ -977,7 +977,7 @@ int main(int argc, char *argv[])
 
     close(sockfd);
 
-    if (iq_duration_s != -1) {
+    if (iq_duration_ms != -1) {
       num_iq_sample = num_iq_sample_total - iq_no_loss_start_idx;
       printf("IQ capture to memory done. Valid num IQ samples (no loss): %u\n", num_iq_sample);
 
@@ -1001,7 +1001,7 @@ int main(int argc, char *argv[])
         fclose(fp_rx_iq);
     }
 
-    if (iq_duration_s == -1) {
+    if (iq_duration_ms == -1) {
       // Optionally tell the child to exit gracefully, then wait
       // Example: send SIGTERM
       kill(pid, SIGTERM);
