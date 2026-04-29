@@ -451,7 +451,7 @@ static inline void print_usage() {
   printf("  -n channel number : such as 37. If > 78, it means frequency in Hz.\n");
   printf("  -c CRC init value : such as 0x555555\n");
   printf("  -a access address : such as 0x8E89BED6\n");
-  printf("  -q IQ capture duration in seconds. Integer. Minimum 1.\n");
+  printf("  -q IQ capture duration in milli seconds. Integer number.\n");
   printf("  -o 1: omit rf init script; 0: execute rf init script.\n");
 }
 
