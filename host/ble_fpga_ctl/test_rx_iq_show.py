@@ -9,6 +9,7 @@ import numpy as np
 # import matplotlib
 # matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
+# from matplotlib.colors import LogNorm
 
 import argparse
 import sys
@@ -30,7 +31,7 @@ def water_fall(iq, fft_size, num_sample_feed_to_fft, sample_resolution):
 
 if __name__ == "__main__":
   freq_hz = np.uint64(2402e6)
-  duration_ms = int(10)
+  duration_ms = int(100)
   sampling_rate_hz = int(8e6)
 
   parser = argparse.ArgumentParser(
@@ -121,7 +122,7 @@ if __name__ == "__main__":
   fig_timedomain_abs.canvas.flush_events()
 
   fft_size=128
-  num_sample_feed_to_fft=10
+  num_sample_feed_to_fft=8
   sample_resolution=2
   a = water_fall(rx_complex, fft_size=fft_size, num_sample_feed_to_fft=num_sample_feed_to_fft, sample_resolution=sample_resolution)
 
@@ -132,11 +133,14 @@ if __name__ == "__main__":
   fig_waterfall = plt.figure(0)
   fig_waterfall.clf()
 
+  vmin = np.percentile(a,  0.1)
+  vmax = np.percentile(a, 99.9)
+
   waterfall = fig_waterfall.add_subplot(111)
   waterfall.set_title('Spectrogram')
   waterfall.set_xlabel("Time(us)")
   waterfall.set_ylabel("Freq(Hz)")
-  waterfall_shw = waterfall.imshow(a, aspect='auto', origin='lower', extent=[0, a.shape[1]*time_resolution_us, -sampling_rate_hz/2, sampling_rate_hz/2])
+  waterfall_shw = waterfall.imshow(a, vmin=vmin, vmax=vmax, aspect='auto', origin='lower', extent=[0, a.shape[1]*time_resolution_us, -sampling_rate_hz/2, sampling_rate_hz/2])
   plt.colorbar(waterfall_shw)
   fig_waterfall.canvas.flush_events()
 
