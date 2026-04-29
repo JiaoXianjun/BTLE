@@ -22,7 +22,11 @@ end
 
 % pcolor(a);
 figure;
-image(x, y, a, 'CDataMapping','scaled');
+vmin = prctile(a(:), 0.1);
+vmax = prctile(a(:),99.9);
+#image(x, y, a, 'CDataMapping','scaled');
+imagesc(x, y, a, [vmin, vmax], 'CDataMapping','scaled');
+#imshow(x, y, a, 'CDataMapping','scaled');
 colorbar;
 
 if exist('sampling_rate_hz', 'var')
