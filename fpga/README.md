@@ -8,6 +8,11 @@ SPDX-License-Identifier: Apache-2.0
 
 ![](./media/fpga-ila-btle-signal-ch37.png)
 
+- [Prepare SD card image and quick start](#Prepare-SD-card-image-and-quick-start)
+- [Full steps from scratch to update FPGA on board](#Full-steps-from-scratch-to-update-FPGA-on-board)
+- [See Bluetooth run](#See-Bluetooth-run)
+- [Capture IQ samples from FPGA and analyze it](#Capture-IQ-samples-from-FPGA-and-analyze-it)
+
 ## Prepare SD card image and quick start
 
 Download 2022_r2 image file from https://wiki.analog.com/resources/tools-software/linux-software/kuiper-linux?redirect=1
@@ -103,3 +108,43 @@ Use Vivado Hardware Manager to observe on FPGA ILA.
 probe file: BTLE/BTLE-hw-img/fpga/$HARDWARE/system_top.ltx
 
 Use ext_rx_crc_ok == 1 as trigger condition to capture BLE waveform and related AGC procedure in the ILA window.
+
+## Capture IQ samples from FPGA and analyze it
+
+- Capture onboard and analyze it on host PC
+  - Onboard
+  ```
+  ./btle_ll -q 100
+  ```
+  Capture for 100ms.
+  - On host PC
+  Copy the captured .bin file to python directory, then run
+  ```
+  python3 test_btle_rx_by_captured_iq.py file.bin
+  ```
+  If too many samples, it will plot IQ trace and ask you decide the beginning and ending index (you can zoom in to check the index).
+
+  ![](./media/iq_capture_onboard.png)
+  
+  After your input, it will try to decode that segment of IQ sample and show the results (CRC, plots, etc.).
+
+  ![](./media/iq_capture_python_decode_plot1.png)
+  
+  ![](./media/iq_capture_python_decode_plot2.png)
+
+- Capture from the host PC by Python. Script is in directory host/ble_fpga_ctl.
+  ```
+  python3 test_rx_iq_show.py
+  ```
+  Above command will run the iq capture onboard, copy it back and plot time-domain & spectrogram.
+
+  ![](./media/iq_capture_td_plot.png)
+
+  ![](./media/iq_capture_spectrogram.png)
+  
+- Capture from the host PC by GNU Octave (or Matlab). Script is in directory host/ble_fpga_ctl.
+  ```
+  test_rx_iq_show
+  ```
+  
+  ![](./media/iq_capture_octave.png)
