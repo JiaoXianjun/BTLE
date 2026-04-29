@@ -1,8 +1,9 @@
 % Xianjun Jiao; putaoshu@msn.com
 
 function test_rx_iq_show(freq_hz, duration_ms, sampling_rate_hz)
+graphics_toolkit("gnuplot");
 default_freq_hz = 2402e6;
-default_duration_ms = 10;
+default_duration_ms = 30;
 default_sampling_rate_hz = 8e6;
 if exist('freq_hz', 'var') ~= 1
   freq_hz = default_freq_hz;
@@ -47,8 +48,15 @@ disp(rx_iq_filename);
 iq = bin_file_to_iq(rx_iq_filename);
 
 if length(iq) > 0
+  plot(real(iq), 'b'); grid on; hold on;
+  plot(imag(iq), 'r'); grid on; hold on;
+  title('IQ plot');
+  xlabel('sample idx');
+  ylabel('I/Q');
+  legend('I', 'Q');
+  
   fft_size = 128;
-  num_sample_feed_to_fft = 10;
+  num_sample_feed_to_fft = 8;
   sample_resolution = 2;
   a = water_fall(iq, fft_size, num_sample_feed_to_fft, sample_resolution, sampling_rate_hz);
 else
