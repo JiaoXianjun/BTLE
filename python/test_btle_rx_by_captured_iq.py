@@ -80,7 +80,7 @@ if __name__ == "__main__":
     print('unsupported file format, only .csv and .bin are supported')
     exit()
 
-  # if the length of rx_i is larger than 10000, plot the rx_i and let user decide the start index and end index for processing later.
+  # if the length of rx_i is larger than 10000, plot the rx_i rx_q and let user decide the start index and end index for processing later.
   if len(rx_i) > 10000:
     print('Decide the start/end idx. Close figure and input ...')
 
