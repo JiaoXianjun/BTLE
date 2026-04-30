@@ -64,9 +64,9 @@ always @ (posedge rf_clk) begin
     tx_iq_valid_ext <= 0;
     tx_iq_valid_last_ext <= 0;
   end else begin
-    tx_iq_signal_ext[(RF_I_OR_Q_BIT_WIDTH-1)   : 0                   ]    = {{(RF_I_OR_Q_BIT_WIDTH-IQ_BIT_WIDTH){tx_i_signal[IQ_BIT_WIDTH-1]}}, tx_i_signal};
-    tx_iq_signal_ext[(2*RF_I_OR_Q_BIT_WIDTH-1) : RF_I_OR_Q_BIT_WIDTH ]    = {{(RF_I_OR_Q_BIT_WIDTH-IQ_BIT_WIDTH){tx_q_signal[IQ_BIT_WIDTH-1]}}, tx_q_signal};
-    tx_iq_signal_ext[(RF_IQ_BIT_WIDTH-1)       : (2*RF_I_OR_Q_BIT_WIDTH)] = 0;
+    tx_iq_signal_ext[(RF_I_OR_Q_BIT_WIDTH-1)   : 0                   ]    <= {{(RF_I_OR_Q_BIT_WIDTH-IQ_BIT_WIDTH){tx_i_signal[IQ_BIT_WIDTH-1]}}, tx_i_signal};
+    tx_iq_signal_ext[(2*RF_I_OR_Q_BIT_WIDTH-1) : RF_I_OR_Q_BIT_WIDTH ]    <= {{(RF_I_OR_Q_BIT_WIDTH-IQ_BIT_WIDTH){tx_q_signal[IQ_BIT_WIDTH-1]}}, tx_q_signal};
+    tx_iq_signal_ext[(RF_IQ_BIT_WIDTH-1)       : (2*RF_I_OR_Q_BIT_WIDTH)] <= 0;
     tx_iq_valid_ext <= tx_iq_valid;
     tx_iq_valid_last_ext <= tx_iq_valid_last;
   end
