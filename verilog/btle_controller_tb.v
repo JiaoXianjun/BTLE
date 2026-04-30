@@ -6,31 +6,36 @@
 // python3 test_vector_for_btle_verilog.py
 // (arguments can be added: example_idx snr ppm_value)
 // Run verilog simulation:
-// iverilog -o btle_controller_tb btle_controller_tb.v btle_controller.v btle_ll.v uart_frame_rx.v uart_frame_tx.v rx_clk_gen.v tx_clk_gen.v btle_phy.v btle_rx.v btle_rx_core.v gfsk_demodulation.v search_unique_bit_sequence.v scramble_core.v crc24_core.v serial_in_ram_out.v dpram.v btle_tx.v crc24.v scramble.v gfsk_modulation.v bit_repeat_upsample.v gauss_filter.v vco.v
+// iverilog -o btle_controller_tb btle_controller_tb.v btle_controller.v btle_ll_stub.v btle_phy.v btle_rx.v btle_rx_core.v gfsk_demodulation.v search_unique_bit_sequence.v scramble_core.v crc24_core.v serial_in_ram_out.v sdpram_two_clk.v sdpram_one_clk.v btle_tx.v crc24.v scramble.v gfsk_modulation.v bit_repeat_upsample.v gauss_filter.v vco.v
 // vvp btle_controller_tb
 // Check verilog outputs to see whether test pass.
 
 `timescale 1ns / 1ps
 module btle_controller_tb #
 (
-	parameter	CLK_FREQUENCE	= 16_000_000,	//hz
-  parameter BAUD_RATE		= 115200		,		  //9600、19200 、38400 、57600 、115200、230400、460800、921600
-  parameter PARITY			= "NONE"	,		  //"NONE","EVEN","ODD"
-  parameter FRAME_WD		= 8,					    //if PARITY="NONE",it can be 5~9;else 5~8
+  // Width of S_AXI data bus
+  parameter integer S_AXI_DATA_WIDTH  = 32,
+  // Width of S_AXI address bus
+  parameter integer S_AXI_ADDR_WIDTH  = 8,
 
-  parameter CRC_STATE_BIT_WIDTH = 24,
-  parameter CHANNEL_NUMBER_BIT_WIDTH = 6,
-  parameter SAMPLE_PER_SYMBOL = 8,
-  parameter GAUSS_FILTER_BIT_WIDTH = 16,
-  parameter NUM_TAP_GAUSS_FILTER = 17,
-  parameter VCO_BIT_WIDTH = 16,
-  parameter SIN_COS_ADDR_BIT_WIDTH = 11,
-  parameter IQ_BIT_WIDTH = 8,
-  parameter GAUSS_FIR_OUT_AMP_SCALE_DOWN_NUM_BIT_SHIFT = 1,
-  parameter GFSK_DEMODULATION_BIT_WIDTH = 16,
-  parameter LEN_UNIQUE_BIT_SEQUENCE = 32,
+	parameter	integer CLK_FREQUENCE	= 16_000_000,	//hz
+  parameter integer BAUD_RATE		= 115200		,		  //9600、19200 、38400 、57600 、115200、230400、460800、921600
+  parameter         PARITY			= "NONE"	,		  //"NONE","EVEN","ODD"
+  parameter integer FRAME_WD		= 8,					    //if PARITY="NONE",it can be 5~9;else 5~8
 
-  parameter PREAMBLE_BIT_WIDTH = 8
+  parameter integer CRC_STATE_BIT_WIDTH = 24,
+  parameter integer CHANNEL_NUMBER_BIT_WIDTH = 6,
+  parameter integer SAMPLE_PER_SYMBOL = 8,
+  parameter integer GAUSS_FILTER_BIT_WIDTH = 16,
+  parameter integer NUM_TAP_GAUSS_FILTER = 17,
+  parameter integer VCO_BIT_WIDTH = 16,
+  parameter integer SIN_COS_ADDR_BIT_WIDTH = 11,
+  parameter integer IQ_BIT_WIDTH = 8,
+  parameter integer GAUSS_FIR_OUT_AMP_SCALE_DOWN_NUM_BIT_SHIFT = 1,
+  parameter integer GFSK_DEMODULATION_BIT_WIDTH = 16,
+  parameter integer LEN_UNIQUE_BIT_SEQUENCE = 32,
+
+  parameter integer PREAMBLE_BIT_WIDTH = 8
 ) (
 );
 
@@ -41,6 +46,9 @@ reg [1:0] test_state;
 
 reg clk;
 reg rst;
+
+reg s00_axi_aclk;
+reg s00_axi_aresetn;
 
 reg [64*8:0] BTLE_CONFIG_FILENAME  = "btle_config.txt";
 reg [72*8:0] RX_TEST_INPUT_I_FILENAME = "btle_rx_test_input_i.txt";
@@ -251,15 +259,28 @@ initial begin
 
   clk = 0;
   rst = 0;
-  
+
+  s00_axi_aclk = 0;
+  s00_axi_aresetn = 0;
+
   #200 rst = 1;
 
-  #200 rst = 0;
+  #200 
+  rst = 0;
+  s00_axi_aresetn = 1;
 end
 
 always begin
   #((1000.0/16.0)/2.0) clk = !clk; //16MHz
 end
+
+always begin
+  #((1000.0/16.0)/2.0) s00_axi_aclk = !s00_axi_aclk; //16MHz
+end
+
+// always begin
+//   #((1000.0/128.0)/2.0) s00_axi_aclk = !s00_axi_aclk; //128MHz
+// end
 
 reg  uart_rx;
 wire uart_tx;
@@ -322,13 +343,34 @@ wire [6:0] rx_payload_length;
 wire [7:0] rx_pdu_octet_mem_data;
 reg  [5:0] rx_pdu_octet_mem_addr;
 
+reg [S_AXI_ADDR_WIDTH-1 : 0] s00_axi_awaddr;
+reg [2 : 0] s00_axi_awprot;
+reg s00_axi_awvalid;
+wire s00_axi_awready;
+reg [S_AXI_DATA_WIDTH-1 : 0] s00_axi_wdata;
+reg [(S_AXI_DATA_WIDTH/8)-1 : 0] s00_axi_wstrb;
+reg s00_axi_wvalid;
+wire s00_axi_wready;
+wire [1 : 0] s00_axi_bresp;
+wire s00_axi_bvalid;
+reg s00_axi_bready;
+reg [S_AXI_ADDR_WIDTH-1 : 0] s00_axi_araddr;
+reg [2 : 0] s00_axi_arprot;
+reg s00_axi_arvalid;
+wire s00_axi_arready;
+wire [S_AXI_DATA_WIDTH-1 : 0] s00_axi_rdata;
+wire [1 : 0] s00_axi_rresp;
+wire s00_axi_rvalid;
+wire s00_axi_rready;
+
 assign baremetal_phy_intf_mode = 1;
 
 // test process
 reg [31:0] clk_count;
 reg [31:0] sample_in_count;
 reg tx_test_ok;
-reg rx_test_ok;
+reg rx_crc_test_ok;
+reg rx_pdu_test_ok;
 reg read_start;
 
 reg  tx_gauss_filter_tap_init_done;
@@ -347,10 +389,23 @@ assign tx_start = (tx_all_init_done == 1 && tx_all_init_done_delay == 0);
 
 always @ (posedge clk) begin
   if (rst) begin
+    s00_axi_awaddr  <= 0;
+    s00_axi_awprot  <= 0;
+    s00_axi_awvalid <= 0;
+    s00_axi_wdata   <= 0;
+    s00_axi_wstrb   <= 0;
+    s00_axi_wvalid  <= 0;
+    s00_axi_bready  <= 0;
+    s00_axi_araddr  <= 0;
+    s00_axi_arprot  <= 0;
+    s00_axi_arvalid <= 0;
+
     access_address <= ACCESS_ADDRESS;
     channel_number <= CHANNEL_NUMBER;
     crc_state_init_bit <= CRC_STATE_INIT_BIT;
     preamble <= PREAMBLE;
+
+    uart_rx <= 0;
 
     rx_i_signal <= 0;
     rx_q_signal <= 0;
@@ -364,7 +419,8 @@ always @ (posedge clk) begin
     rx_crc_ok_store <= 0;
 
     tx_test_ok <= 0;
-    rx_test_ok <= 0;
+    rx_crc_test_ok <= 0;
+    rx_pdu_test_ok <= 0;
 
     tx_gauss_filter_tap_index <= 0;
     tx_gauss_filter_tap_value <= 0;
@@ -556,8 +612,8 @@ always @ (posedge clk) begin
 
           $display("rx crc_ok flag verilog %d python %d", rx_crc_ok_store, btle_rx_test_output_crc_ok_ref_mem[0]);
           if (rx_crc_ok_store == btle_rx_test_output_crc_ok_ref_mem[0]) begin
-            $display("rx Test PASS.");
-            rx_test_ok <= 1;
+            $display("rx CRC Test PASS.");
+            rx_crc_test_ok <= 1;
           end else begin
             $display("rx crc_ok flag is different! Test FAIL.");
           end
@@ -570,8 +626,11 @@ always @ (posedge clk) begin
             end
           end
           $display("rx %d difference found", NUM_ERROR);
-          if (NUM_ERROR > 0) begin
-            $display("rx Please check %s VS %s", RX_TEST_OUTPUT_FILENAME, RX_TEST_OUTPUT_REF_FILENAME);
+          if (NUM_ERROR == 0) begin
+            $display("rx PDU Test PASS.");
+            rx_pdu_test_ok <= 1;
+          end else begin
+            $display("rx octets are different! Test FAIL.\nPlease check %s VS %s", RX_TEST_OUTPUT_FILENAME, RX_TEST_OUTPUT_REF_FILENAME);
           end
 
           test_state <= TEST_FINISH;
@@ -579,8 +638,10 @@ always @ (posedge clk) begin
         end
 
         if (read_start) begin
-          if (rx_pdu_octet_mem_addr < (rx_payload_length+2)) begin
-            btle_rx_test_output_mem[rx_pdu_octet_mem_addr] <= rx_pdu_octet_mem_data;
+          if (rx_pdu_octet_mem_addr < (rx_payload_length+2)+1) begin // +1 due to true dual port RAM reading latency
+            if (rx_pdu_octet_mem_addr > 0) begin
+              btle_rx_test_output_mem[rx_pdu_octet_mem_addr-1] <= rx_pdu_octet_mem_data;
+            end
             rx_pdu_octet_mem_addr <= rx_pdu_octet_mem_addr + 1;
           end
         end
@@ -601,7 +662,8 @@ always @ (posedge clk) begin
       
       TEST_FINISH: begin
         $display("tx test_ok %d", tx_test_ok);
-        $display("rx test_ok %d", rx_test_ok);
+        $display("rx crc test_ok %d", rx_crc_test_ok);
+        $display("rx pdu test_ok %d", rx_pdu_test_ok);
         $finish;
       end
     endcase
@@ -610,6 +672,9 @@ always @ (posedge clk) begin
 end
 
 btle_controller # (
+  .C_S00_AXI_DATA_WIDTH(S_AXI_DATA_WIDTH),
+  .C_S00_AXI_ADDR_WIDTH(S_AXI_ADDR_WIDTH),
+
   .CLK_FREQUENCE(CLK_FREQUENCE),
   .BAUD_RATE(BAUD_RATE),
   .PARITY(PARITY),
@@ -630,7 +695,7 @@ btle_controller # (
 ) btle_controller_i (
   .clk(clk),
   .rst(rst),
-
+  
   // ============================to host: UART HCI=========================
   .uart_rx(uart_rx),
   .uart_tx(uart_tx),
@@ -644,6 +709,28 @@ btle_controller # (
   .rx_i_signal(rx_i_signal),
   .rx_q_signal(rx_q_signal),
   .rx_iq_valid(rx_iq_valid),
+
+  .s00_axi_aclk(s00_axi_aclk),
+  .s00_axi_aresetn(s00_axi_aresetn),
+  .s00_axi_awaddr(s00_axi_awaddr),
+  .s00_axi_awprot(s00_axi_awprot),
+  .s00_axi_awvalid(s00_axi_awvalid),
+  .s00_axi_awready(s00_axi_awready),
+  .s00_axi_wdata(s00_axi_wdata),
+  .s00_axi_wstrb(s00_axi_wstrb),
+  .s00_axi_wvalid(s00_axi_wvalid),
+  .s00_axi_wready(s00_axi_wready),
+  .s00_axi_bresp(s00_axi_bresp),
+  .s00_axi_bvalid(s00_axi_bvalid),
+  .s00_axi_bready(s00_axi_bready),
+  .s00_axi_araddr(s00_axi_araddr),
+  .s00_axi_arprot(s00_axi_arprot),
+  .s00_axi_arvalid(s00_axi_arvalid),
+  .s00_axi_arready(s00_axi_arready),
+  .s00_axi_rdata(s00_axi_rdata),
+  .s00_axi_rresp(s00_axi_rresp),
+  .s00_axi_rvalid(s00_axi_rvalid),
+  .s00_axi_rready(s00_axi_rready),
 
   // ====baremetal phy interface. should be via uart in the future====
   .baremetal_phy_intf_mode(baremetal_phy_intf_mode), //currently 1 for external access. should be 0 in the future to let btle_ll control phy

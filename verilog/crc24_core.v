@@ -7,7 +7,7 @@
 `timescale 1ns / 1ps
 module crc24_core #
 (
-  parameter CRC_STATE_BIT_WIDTH = 24
+  parameter integer CRC_STATE_BIT_WIDTH = 24
 ) (
   input wire clk,
   input wire rst,
@@ -21,10 +21,13 @@ module crc24_core #
 
 wire [(CRC_STATE_BIT_WIDTH-1) : 0] crc_state_init_bit_switch;
 wire new_bit;
+wire [(CRC_STATE_BIT_WIDTH-1) : 0] crc_state_init_bit_internal;
 
-assign crc_state_init_bit_switch[7:0] = crc_state_init_bit[(16+7):(16+0)];
-assign crc_state_init_bit_switch[(8+7):(8+0)] = crc_state_init_bit[(8+7):(8+0)];
-assign crc_state_init_bit_switch[(16+7):(16+0)] = crc_state_init_bit[7:0];
+assign crc_state_init_bit_internal = (crc_state_init_bit == 0? {(CRC_STATE_BIT_WIDTH/2){2'b01}} : crc_state_init_bit); // in case no valid setting yet
+
+assign crc_state_init_bit_switch[7:0] = crc_state_init_bit_internal[(16+7):(16+0)];
+assign crc_state_init_bit_switch[(8+7):(8+0)] = crc_state_init_bit_internal[(8+7):(8+0)];
+assign crc_state_init_bit_switch[(16+7):(16+0)] = crc_state_init_bit_internal[7:0];
 
 assign new_bit = lfsr[23]^data_in;
 

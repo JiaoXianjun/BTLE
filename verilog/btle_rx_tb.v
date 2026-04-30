@@ -6,18 +6,18 @@
 // python3 test_vector_for_btle_verilog.py
 // (arguments can be added: example_idx snr ppm_value)
 // Run verilog simulation:
-// iverilog -o btle_rx_tb btle_rx_tb.v btle_rx.v btle_rx_core.v gfsk_demodulation.v search_unique_bit_sequence.v scramble_core.v crc24_core.v serial_in_ram_out.v dpram.v
+// iverilog -o btle_rx_tb btle_rx_tb.v btle_rx.v btle_rx_core.v gfsk_demodulation.v search_unique_bit_sequence.v scramble_core.v crc24_core.v serial_in_ram_out.v sdpram_two_clk.v
 // vvp btle_rx_tb
 // Check verilog outputs to see whether test pass.
 
 `timescale 1ns / 1ps
 module btle_rx_tb #
 (
-  parameter SAMPLE_PER_SYMBOL = 8,
-  parameter GFSK_DEMODULATION_BIT_WIDTH = 16,
-  parameter LEN_UNIQUE_BIT_SEQUENCE = 32,
-  parameter CHANNEL_NUMBER_BIT_WIDTH = 6,
-  parameter CRC_STATE_BIT_WIDTH = 24
+  parameter integer SAMPLE_PER_SYMBOL = 8,
+  parameter integer GFSK_DEMODULATION_BIT_WIDTH = 16,
+  parameter integer LEN_UNIQUE_BIT_SEQUENCE = 32,
+  parameter integer CHANNEL_NUMBER_BIT_WIDTH = 6,
+  parameter integer CRC_STATE_BIT_WIDTH = 24
 ) (
 );
 
@@ -233,8 +233,10 @@ always @ (posedge clk) begin
     end
 
     if (read_start) begin
-      if (pdu_octet_mem_addr < (payload_length+2)) begin
-        btle_rx_test_output_mem[pdu_octet_mem_addr] <= pdu_octet_mem_data;
+      if (pdu_octet_mem_addr < (payload_length+2)+1) begin // +1 due to true dual port RAM reading latency
+        if (pdu_octet_mem_addr > 0) begin
+          btle_rx_test_output_mem[pdu_octet_mem_addr-1] <= pdu_octet_mem_data;
+        end
         pdu_octet_mem_addr <= pdu_octet_mem_addr + 1;
       end
     end
@@ -264,6 +266,8 @@ btle_rx # (
 ) btle_rx_i (
   .clk(clk),
   .rst(rst),
+
+  .clkb(clk),
 
   .unique_bit_sequence(unique_bit_sequence),
   .channel_number(channel_number),

@@ -9,9 +9,9 @@
 `timescale 1ns / 1ps
 module vco #
 (
-  parameter VCO_BIT_WIDTH = 16,
-  parameter SIN_COS_ADDR_BIT_WIDTH = 11,
-  parameter IQ_BIT_WIDTH = 8
+  parameter integer VCO_BIT_WIDTH = 16,
+  parameter integer SIN_COS_ADDR_BIT_WIDTH = 11,
+  parameter integer IQ_BIT_WIDTH = 8
 ) (
   input wire clk,
   input wire rst,
@@ -33,15 +33,24 @@ module vco #
 
 reg signed [(VCO_BIT_WIDTH-1) : 0] integral_voltage_signal;
 
+reg voltage_signal_valid_delay1;
+reg voltage_signal_valid_last_delay1;
+
 always @ (posedge clk) begin
   if (rst) begin
     sin_cos_out_valid <= 0;
     sin_cos_out_valid_last <= 0;
 
     integral_voltage_signal <= 0;
+
+    voltage_signal_valid_delay1 <= 0;
+    voltage_signal_valid_last_delay1 <= 0;
   end else begin
-    sin_cos_out_valid <= voltage_signal_valid;
-    sin_cos_out_valid_last <= voltage_signal_valid_last;
+    voltage_signal_valid_delay1 <= voltage_signal_valid;
+    voltage_signal_valid_last_delay1 <= voltage_signal_valid_last;
+
+    sin_cos_out_valid <= voltage_signal_valid_delay1;
+    sin_cos_out_valid_last <= voltage_signal_valid_last_delay1;
 
     if (voltage_signal_valid) begin
       integral_voltage_signal <= integral_voltage_signal + voltage_signal;
@@ -49,10 +58,10 @@ always @ (posedge clk) begin
   end
 end
 
-dpram # (
+sdpram_one_clk # (
   .DATA_WIDTH(IQ_BIT_WIDTH),
   .ADDRESS_WIDTH(SIN_COS_ADDR_BIT_WIDTH)
-) cos_table_dpram_i (
+) cos_table_sdpram_one_clk_i (
   .clk(clk),
   .rst(rst),
 
@@ -64,10 +73,10 @@ dpram # (
   .read_data(cos_out)
 );
 
-dpram # (
+sdpram_one_clk # (
   .DATA_WIDTH(IQ_BIT_WIDTH),
   .ADDRESS_WIDTH(SIN_COS_ADDR_BIT_WIDTH)
-) sin_table_dpram_i (
+) sin_table_sdpram_one_clk_i (
   .clk(clk),
   .rst(rst),
 

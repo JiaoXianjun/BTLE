@@ -13,8 +13,8 @@
 `timescale 1ns / 1ps
 module gauss_filter_tb #
 (
-  parameter GAUSS_FILTER_BIT_WIDTH = 16,
-  parameter NUM_TAP_GAUSS_FILTER = 17
+  parameter integer GAUSS_FILTER_BIT_WIDTH = 16,
+  parameter integer NUM_TAP_GAUSS_FILTER = 17
   // parameter NUM_BIT_INPUT = 3008
 ) (
 );

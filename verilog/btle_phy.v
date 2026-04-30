@@ -2,26 +2,29 @@
 // SPDX-FileCopyrightText: 2024 Xianjun Jiao
 // SPDX-License-Identifier: Apache-2.0 license
 
-// iverilog -o btle_phy btle_phy.v btle_rx.v btle_rx_core_tb.v btle_rx_core.v gfsk_demodulation.v search_unique_bit_sequence.v scramble_core.v crc24_core.v serial_in_ram_out.v dpram.v btle_tx.v crc24.v scramble.v gfsk_modulation.v bit_repeat_upsample.v gauss_filter.v vco.v 
+// iverilog -o btle_phy btle_phy.v btle_rx.v btle_rx_core_tb.v btle_rx_core.v gfsk_demodulation.v search_unique_bit_sequence.v scramble_core.v crc24_core.v serial_in_ram_out.v sdpram_two_clk.v sdpram_one_clk.v btle_tx.v crc24.v scramble.v gfsk_modulation.v bit_repeat_upsample.v gauss_filter.v vco.v 
 
 `timescale 1ns / 1ps
 module btle_phy #
 (
-  parameter CRC_STATE_BIT_WIDTH = 24,
-  parameter CHANNEL_NUMBER_BIT_WIDTH = 6,
-  parameter SAMPLE_PER_SYMBOL = 8,
-  parameter GAUSS_FILTER_BIT_WIDTH = 16,
-  parameter NUM_TAP_GAUSS_FILTER = 17,
-  parameter VCO_BIT_WIDTH = 16,
-  parameter SIN_COS_ADDR_BIT_WIDTH = 11,
-  parameter IQ_BIT_WIDTH = 8,
-  parameter GAUSS_FIR_OUT_AMP_SCALE_DOWN_NUM_BIT_SHIFT = 1,
+  parameter integer CRC_STATE_BIT_WIDTH = 24,
+  parameter integer CHANNEL_NUMBER_BIT_WIDTH = 6,
+  parameter integer SAMPLE_PER_SYMBOL = 8,
+  parameter integer GAUSS_FILTER_BIT_WIDTH = 16,
+  parameter integer NUM_TAP_GAUSS_FILTER = 17,
+  parameter integer VCO_BIT_WIDTH = 16,
+  parameter integer SIN_COS_ADDR_BIT_WIDTH = 11,
+  parameter integer IQ_BIT_WIDTH = 8,
+  parameter integer GAUSS_FIR_OUT_AMP_SCALE_DOWN_NUM_BIT_SHIFT = 1,
 
-  parameter GFSK_DEMODULATION_BIT_WIDTH = 16,
-  parameter LEN_UNIQUE_BIT_SEQUENCE = 32
+  parameter integer GFSK_DEMODULATION_BIT_WIDTH = 16,
+  parameter integer LEN_UNIQUE_BIT_SEQUENCE = 32,
+  parameter integer NUM_BIT_PAYLOAD_LENGTH = 8 // 8 bit in the core spec 6.2
 ) (
   input wire clk,
   input wire rst,
+
+  input wire clkb,
 
   // for tx
   input wire [3:0] tx_gauss_filter_tap_index, // only need to set 0~8, 9~16 will be mirror of 0~7
@@ -41,7 +44,7 @@ module btle_phy #
   input wire tx_channel_number_load,
 
   input wire [7:0] tx_pdu_octet_mem_data,
-  input wire [5:0] tx_pdu_octet_mem_addr,
+  input wire [NUM_BIT_PAYLOAD_LENGTH:0] tx_pdu_octet_mem_addr,
 
   input wire tx_start,
 
@@ -77,25 +80,28 @@ module btle_phy #
   output wire  rx_decode_end,
   output wire  rx_crc_ok,
   output wire  [2:0] rx_best_phase,
-  output wire  [6:0] rx_payload_length,
+  output wire  [(NUM_BIT_PAYLOAD_LENGTH-1):0] rx_payload_length,
 
-  input  wire  [5:0] rx_pdu_octet_mem_addr,
+  input  wire  [NUM_BIT_PAYLOAD_LENGTH:0] rx_pdu_octet_mem_addr,
   output wire  [7:0] rx_pdu_octet_mem_data
 );
 
 btle_tx # (
-.CRC_STATE_BIT_WIDTH(CRC_STATE_BIT_WIDTH),
-.CHANNEL_NUMBER_BIT_WIDTH(CHANNEL_NUMBER_BIT_WIDTH),
-.SAMPLE_PER_SYMBOL(SAMPLE_PER_SYMBOL),
-.GAUSS_FILTER_BIT_WIDTH(GAUSS_FILTER_BIT_WIDTH),
-.NUM_TAP_GAUSS_FILTER(NUM_TAP_GAUSS_FILTER),
-.VCO_BIT_WIDTH(VCO_BIT_WIDTH),
-.SIN_COS_ADDR_BIT_WIDTH(SIN_COS_ADDR_BIT_WIDTH),
-.IQ_BIT_WIDTH(IQ_BIT_WIDTH),
-.GAUSS_FIR_OUT_AMP_SCALE_DOWN_NUM_BIT_SHIFT(GAUSS_FIR_OUT_AMP_SCALE_DOWN_NUM_BIT_SHIFT)
+  .NUM_BIT_PAYLOAD_LENGTH(NUM_BIT_PAYLOAD_LENGTH),
+  .CRC_STATE_BIT_WIDTH(CRC_STATE_BIT_WIDTH),
+  .CHANNEL_NUMBER_BIT_WIDTH(CHANNEL_NUMBER_BIT_WIDTH),
+  .SAMPLE_PER_SYMBOL(SAMPLE_PER_SYMBOL),
+  .GAUSS_FILTER_BIT_WIDTH(GAUSS_FILTER_BIT_WIDTH),
+  .NUM_TAP_GAUSS_FILTER(NUM_TAP_GAUSS_FILTER),
+  .VCO_BIT_WIDTH(VCO_BIT_WIDTH),
+  .SIN_COS_ADDR_BIT_WIDTH(SIN_COS_ADDR_BIT_WIDTH),
+  .IQ_BIT_WIDTH(IQ_BIT_WIDTH),
+  .GAUSS_FIR_OUT_AMP_SCALE_DOWN_NUM_BIT_SHIFT(GAUSS_FIR_OUT_AMP_SCALE_DOWN_NUM_BIT_SHIFT)
 ) btle_tx_i (
   .clk(clk),
   .rst(rst),
+
+  .clkb(clkb),
 
   .gauss_filter_tap_index(tx_gauss_filter_tap_index),
   .gauss_filter_tap_value(tx_gauss_filter_tap_value),
@@ -142,11 +148,14 @@ btle_rx # (
   .GFSK_DEMODULATION_BIT_WIDTH(GFSK_DEMODULATION_BIT_WIDTH),
   .LEN_UNIQUE_BIT_SEQUENCE(LEN_UNIQUE_BIT_SEQUENCE),
   .CHANNEL_NUMBER_BIT_WIDTH(CHANNEL_NUMBER_BIT_WIDTH),
-  .CRC_STATE_BIT_WIDTH(CRC_STATE_BIT_WIDTH)
+  .CRC_STATE_BIT_WIDTH(CRC_STATE_BIT_WIDTH),
+  .NUM_BIT_PAYLOAD_LENGTH(NUM_BIT_PAYLOAD_LENGTH)
 ) btle_rx_i (
   .clk(clk),
   .rst(rst),
 
+  .clkb(clkb),
+  
   .unique_bit_sequence(rx_unique_bit_sequence),
   .channel_number(rx_channel_number),
   .crc_state_init_bit(rx_crc_state_init_bit),

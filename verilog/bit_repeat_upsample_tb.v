@@ -15,8 +15,8 @@
 `timescale 1ns / 1ps
 module bit_repeat_upsample_tb #
 (
-  parameter SAMPLE_PER_SYMBOL = 8,
-  parameter NUM_BIT_INPUT = 11
+  parameter integer SAMPLE_PER_SYMBOL = 8,
+  parameter integer NUM_BIT_INPUT = 11
 ) (
 );
 

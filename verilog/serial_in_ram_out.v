@@ -5,8 +5,8 @@
 `timescale 1ns / 1ps
 module serial_in_ram_out #
 (
-  parameter DATA_WIDTH = 8,
-  parameter ADDRESS_WIDTH = 6
+  parameter integer DATA_WIDTH = 8,
+  parameter integer ADDRESS_WIDTH = 6
 ) (
   input wire clk,
   input wire rst,
@@ -14,6 +14,7 @@ module serial_in_ram_out #
   input  wire [(DATA_WIDTH-1) : 0] data_in,
   input  wire data_in_valid,
 
+  input  wire clkb,
   input  wire [(ADDRESS_WIDTH-1) : 0] addr,
   output wire [(DATA_WIDTH-1) : 0] data
 );
@@ -30,10 +31,10 @@ always @ (posedge clk) begin
   end
 end
 
-dpram # (
+sdpram_two_clk # (
   .DATA_WIDTH(DATA_WIDTH),
   .ADDRESS_WIDTH(ADDRESS_WIDTH)
-) cos_table_dpram_i (
+) serial_in_ram_out_sdpram_two_clk_i (
   .clk(clk),
   .rst(rst),
 
@@ -41,6 +42,7 @@ dpram # (
   .write_data(data_in),
   .write_enable(1'b1),
 
+  .clkb(clkb),
   .read_address(addr),
   .read_data(data)
 );

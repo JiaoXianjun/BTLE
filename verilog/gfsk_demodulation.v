@@ -2,29 +2,31 @@
 // SPDX-FileCopyrightText: 2024 Xianjun Jiao
 // SPDX-License-Identifier: Apache-2.0 license
 
+`define KEEP_FOR_DBG (*mark_debug="true",DONT_TOUCH="TRUE"*)
+
 `timescale 1ns / 1ps
 module gfsk_demodulation #
 (
-  parameter GFSK_DEMODULATION_BIT_WIDTH = 16
+  parameter integer GFSK_DEMODULATION_BIT_WIDTH = 16
 ) (
   input wire clk,
   input wire rst,
 
-  input wire signed [(GFSK_DEMODULATION_BIT_WIDTH-1) : 0] i,
-  input wire signed [(GFSK_DEMODULATION_BIT_WIDTH-1) : 0] q,
-  input wire iq_valid,
+  `KEEP_FOR_DBG input wire signed [(GFSK_DEMODULATION_BIT_WIDTH-1) : 0] i,
+  `KEEP_FOR_DBG input wire signed [(GFSK_DEMODULATION_BIT_WIDTH-1) : 0] q,
+  `KEEP_FOR_DBG input wire iq_valid,
 
-  output reg signed [(2*GFSK_DEMODULATION_BIT_WIDTH-1) : 0] signal_for_decision,
-  output wire signal_for_decision_valid,
+  `KEEP_FOR_DBG output reg signed [(2*GFSK_DEMODULATION_BIT_WIDTH-1) : 0] signal_for_decision,
+  `KEEP_FOR_DBG output wire signal_for_decision_valid,
 
-  output reg  phy_bit,
-  output wire bit_valid
+  `KEEP_FOR_DBG output reg  phy_bit,
+  `KEEP_FOR_DBG output wire bit_valid
 );
 
-reg signed [(2*GFSK_DEMODULATION_BIT_WIDTH-1) : 0] i0;
-reg signed [(2*GFSK_DEMODULATION_BIT_WIDTH-1) : 0] i1;
-reg signed [(2*GFSK_DEMODULATION_BIT_WIDTH-1) : 0] q0;
-reg signed [(2*GFSK_DEMODULATION_BIT_WIDTH-1) : 0] q1;
+`KEEP_FOR_DBG reg signed [(2*GFSK_DEMODULATION_BIT_WIDTH-1) : 0] i0;
+`KEEP_FOR_DBG reg signed [(2*GFSK_DEMODULATION_BIT_WIDTH-1) : 0] i1;
+`KEEP_FOR_DBG reg signed [(2*GFSK_DEMODULATION_BIT_WIDTH-1) : 0] q0;
+`KEEP_FOR_DBG reg signed [(2*GFSK_DEMODULATION_BIT_WIDTH-1) : 0] q1;
 
 reg iq_valid_delay1;
 reg iq_valid_delay2;

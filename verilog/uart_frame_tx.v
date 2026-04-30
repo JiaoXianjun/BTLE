@@ -14,10 +14,10 @@
 `timescale 1ns / 1ps
 module uart_frame_tx
 #(
-	parameter	CLK_FREQUENCE	= 50_000_000,		//hz
-				BAUD_RATE		= 9600		,		//9600、19200 、38400 、57600 、115200、230400、460800、921600
-				PARITY			= "NONE"	,		//"NONE","EVEN","ODD"
-				FRAME_WD		= 8					//if PARITY="NONE",it can be 5~9;else 5~8
+	parameter	integer CLK_FREQUENCE	= 50_000_000,		//hz
+				integer BAUD_RATE		= 9600		,		//9600、19200 、38400 、57600 、115200、230400、460800、921600
+				        PARITY			= "NONE"	,		//"NONE","EVEN","ODD"
+				integer FRAME_WD		= 8					//if PARITY="NONE",it can be 5~9;else 5~8
 )
 (
 	input						clk			,	//system_clk

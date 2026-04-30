@@ -2,16 +2,19 @@
 // SPDX-FileCopyrightText: 2024 Xianjun Jiao
 // SPDX-License-Identifier: Apache-2.0 license
 
+`define KEEP_FOR_DBG (*mark_debug="true",DONT_TOUCH="TRUE"*)
+
 `timescale 1ns / 1ps
 module btle_rx_core #
 (
-  parameter GFSK_DEMODULATION_BIT_WIDTH = 16,
-  parameter LEN_UNIQUE_BIT_SEQUENCE = 32,
-  parameter CHANNEL_NUMBER_BIT_WIDTH = 6,
-  parameter CRC_STATE_BIT_WIDTH = 24
+  parameter integer GFSK_DEMODULATION_BIT_WIDTH = 16,
+  parameter integer LEN_UNIQUE_BIT_SEQUENCE = 32,
+  parameter integer CHANNEL_NUMBER_BIT_WIDTH = 6,
+  parameter integer CRC_STATE_BIT_WIDTH = 24,
+  parameter integer NUM_BIT_PAYLOAD_LENGTH = 8 // 8 bit in the core spec 6.2
 ) (
   input wire clk,
-  input wire rst,
+  `KEEP_FOR_DBG input wire rst,
 
   input wire [(LEN_UNIQUE_BIT_SEQUENCE-1) : 0] unique_bit_sequence,
   input wire [(CHANNEL_NUMBER_BIT_WIDTH-1) : 0] channel_number,
@@ -21,42 +24,45 @@ module btle_rx_core #
   input wire signed [(GFSK_DEMODULATION_BIT_WIDTH-1) : 0] q,
   input wire iq_valid,
 
-  output wire hit_flag,
-  output reg  [6:0] payload_length,
-  output reg  payload_length_valid,
+  `KEEP_FOR_DBG output wire hit_flag,
+  `KEEP_FOR_DBG output wire [(NUM_BIT_PAYLOAD_LENGTH-1) : 0] payload_length_out,
+  `KEEP_FOR_DBG output reg  payload_length_valid,
 
-  output wire info_bit,
-  output wire bit_valid,
+  `KEEP_FOR_DBG output wire info_bit,
+  `KEEP_FOR_DBG output wire bit_valid,
 
-  output reg  [7:0] octet,
-  output reg  octet_valid,
+  `KEEP_FOR_DBG output reg  [7:0] octet,
+  `KEEP_FOR_DBG output reg  octet_valid,
 
-  output reg  decode_end,
-  output reg  crc_ok
+  `KEEP_FOR_DBG output reg  decode_end,
+  `KEEP_FOR_DBG output reg  crc_ok
 );
 
 localparam [1:0] IDLE           = 0,
                  EXTRACT_LENGTH = 1,
                  CHECK_CRC      = 2;
 
-wire adv_pdu_flag;
+reg [NUM_BIT_PAYLOAD_LENGTH : 0] payload_length;
+// `KEEP_FOR_DBG wire adv_pdu_flag; // not needed. according to core spec 6.2 all pdu has the same payload length field position
 // wire hit_flag;
-wire phy_bit;
-wire phy_bit_valid;
+`KEEP_FOR_DBG wire phy_bit;
+`KEEP_FOR_DBG wire phy_bit_valid;
 wire [(CRC_STATE_BIT_WIDTH-1) : 0] lfsr;
 wire [(CRC_STATE_BIT_WIDTH-1) : 0] crc24_bit;
 
-reg        bit_valid_delay;
-reg  [1:0] phy_rx_state;
-reg  [9:0] bit_count;
-wire [6:0] octet_count;
+`KEEP_FOR_DBG reg        bit_valid_delay;
+`KEEP_FOR_DBG reg  [1:0] phy_rx_state;
+`KEEP_FOR_DBG reg  [(NUM_BIT_PAYLOAD_LENGTH+3):0] bit_count;
+`KEEP_FOR_DBG wire [NUM_BIT_PAYLOAD_LENGTH:0] octet_count;
 // reg  [6:0] payload_length;
 
-assign adv_pdu_flag = (channel_number==37 || channel_number==38 || channel_number==39);
+// assign adv_pdu_flag = (channel_number==37 || channel_number==38 || channel_number==39);
 
-assign octet_count = bit_count[9:3];
+assign octet_count = bit_count[(NUM_BIT_PAYLOAD_LENGTH+3):3];
 
 assign crc24_bit = lfsr;
+
+assign payload_length_out = payload_length[(NUM_BIT_PAYLOAD_LENGTH-1) : 0];
 
 // state machine to extract payload length and check crc
 always @ (posedge clk) begin
@@ -94,7 +100,8 @@ always @ (posedge clk) begin
           bit_count <= bit_count + 1;
         end
         if (octet_count == 2) begin
-          payload_length <= (adv_pdu_flag? octet[5:0] : octet[4:0]);
+          // payload_length <= (adv_pdu_flag? octet[5:0] : octet[4:0]);
+          payload_length <= octet;
           payload_length_valid <= 1;
           bit_count <= 0;
           phy_rx_state <= CHECK_CRC;
@@ -113,6 +120,8 @@ always @ (posedge clk) begin
           bit_count <= bit_count + 1;
         end
 
+        octet_valid <= (bit_valid_delay && bit_count[2:0] == 0);
+
         if (octet_count == (payload_length+3)) begin
           // $display("payload_length %d", payload_length);
           // $display("crc24_bit    %06h", crc24_bit);
@@ -121,11 +130,12 @@ always @ (posedge clk) begin
           crc_ok <= (crc24_bit == 0);
 
           phy_rx_state <= IDLE;
-        end else if (octet_count >= 1 && octet_count <= payload_length) begin
-          octet_valid <= (bit_valid_delay && bit_count[2:0] == 0);
-        end else begin
-          octet_valid <= 0;
-        end
+        end 
+        // else if (octet_count <= payload_length) begin
+        //   octet_valid <= (bit_valid_delay && bit_count[2:0] == 0);
+        // end else begin
+        //   octet_valid <= 0;
+        // end
       end
     endcase
   end

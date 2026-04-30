@@ -13,7 +13,7 @@
 `timescale 1ns / 1ps
 module crc24_tb #
 (
-  parameter CRC_STATE_BIT_WIDTH = 24
+  parameter integer CRC_STATE_BIT_WIDTH = 24
 ) (
 );
 

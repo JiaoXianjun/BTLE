@@ -8,7 +8,7 @@
 `timescale 1ns / 1ps
 module bit_repeat_upsample #
 (
-  parameter SAMPLE_PER_SYMBOL = 8
+  parameter integer SAMPLE_PER_SYMBOL = 8
 ) (
   input wire clk,
   input wire rst,

@@ -2,31 +2,33 @@
 // SPDX-FileCopyrightText: 2024 Xianjun Jiao
 // SPDX-License-Identifier: Apache-2.0 license
 
-// iverilog -o btle_controller_wrapper btle_controller_wrapper.v btle_controller.v btle_ll.v uart_frame_rx.v uart_frame_tx.v rx_clk_gen.v tx_clk_gen.v btle_phy.v btle_rx.v btle_rx_core.v gfsk_demodulation.v search_unique_bit_sequence.v scramble_core.v crc24_core.v serial_in_ram_out.v dpram.v btle_tx.v crc24.v scramble.v gfsk_modulation.v bit_repeat_upsample.v gauss_filter.v vco.v
+// iverilog -o btle_controller_wrapper btle_controller_wrapper.v btle_controller.v btle_ll.v uart_frame_rx.v uart_frame_tx.v rx_clk_gen.v tx_clk_gen.v btle_phy.v btle_rx.v btle_rx_core.v gfsk_demodulation.v search_unique_bit_sequence.v scramble_core.v crc24_core.v serial_in_ram_out.v sdpram_two_clk.v sdpram_one_clk.v btle_tx.v crc24.v scramble.v gfsk_modulation.v bit_repeat_upsample.v gauss_filter.v vco.v
 
 `timescale 1ns / 1ps
 module btle_controller_wrapper #
 (
-	parameter	CLK_FREQUENCE	= 16_000_000,	//hz
-  parameter BAUD_RATE		= 115200		,		  //9600、19200 、38400 、57600 、115200、230400、460800、921600
-  parameter PARITY			= "NONE"	,		  //"NONE","EVEN","ODD"
-  parameter FRAME_WD		= 8,					    //if PARITY="NONE",it can be 5~9;else 5~8
+	parameter	integer CLK_FREQUENCE	= 16_000_000,	//hz
+  parameter integer BAUD_RATE		= 115200		,		  //9600、19200 、38400 、57600 、115200、230400、460800、921600
+  parameter         PARITY			= "NONE"	,		  //"NONE","EVEN","ODD"
+  parameter integer FRAME_WD		= 8,					    //if PARITY="NONE",it can be 5~9;else 5~8
 
-  parameter CRC_STATE_BIT_WIDTH = 24,
-  parameter CHANNEL_NUMBER_BIT_WIDTH = 6,
-  parameter SAMPLE_PER_SYMBOL = 8,
-  parameter GAUSS_FILTER_BIT_WIDTH = 16,
-  parameter NUM_TAP_GAUSS_FILTER = 17,
-  parameter VCO_BIT_WIDTH = 16,
-  parameter SIN_COS_ADDR_BIT_WIDTH = 11,
-  parameter IQ_BIT_WIDTH = 8,
-  parameter GAUSS_FIR_OUT_AMP_SCALE_DOWN_NUM_BIT_SHIFT = 1,
+  parameter integer CRC_STATE_BIT_WIDTH = 24,
+  parameter integer CHANNEL_NUMBER_BIT_WIDTH = 6,
+  parameter integer SAMPLE_PER_SYMBOL = 8,
+  parameter integer GAUSS_FILTER_BIT_WIDTH = 16,
+  parameter integer NUM_TAP_GAUSS_FILTER = 17,
+  parameter integer VCO_BIT_WIDTH = 16,
+  parameter integer SIN_COS_ADDR_BIT_WIDTH = 11,
+  parameter integer IQ_BIT_WIDTH = 8,
+  parameter integer GAUSS_FIR_OUT_AMP_SCALE_DOWN_NUM_BIT_SHIFT = 1,
 
-  parameter GFSK_DEMODULATION_BIT_WIDTH = 16,
-  parameter LEN_UNIQUE_BIT_SEQUENCE = 32
+  parameter integer GFSK_DEMODULATION_BIT_WIDTH = 16,
+  parameter integer LEN_UNIQUE_BIT_SEQUENCE = 32
 ) (
   input clk,
   input rst,
+
+  input wire clkb,
 
   // ============================to host: UART HCI=========================
   input  uart_rx,
@@ -46,8 +48,8 @@ module btle_controller_wrapper #
   output wire [31:0] fake_pins
 );
 
-  // ====baremetal phy interface. should be via uart in the future====
-  // for phy tx
+// ====baremetal phy interface. should be via uart in the future====
+// for phy tx
 (*mark_debug="true",DONT_TOUCH="TRUE"*) reg [3:0] ext_tx_gauss_filter_tap_index; // only need to set 0~8, 9~16 will be mirror of 0~7
 (*mark_debug="true",DONT_TOUCH="TRUE"*) reg signed [(GAUSS_FILTER_BIT_WIDTH-1) : 0] ext_tx_gauss_filter_tap_value;
 
@@ -69,7 +71,7 @@ module btle_controller_wrapper #
 
 (*mark_debug="true",DONT_TOUCH="TRUE"*) reg ext_tx_start;
 
-  // for phy tx debug purpose
+// for phy tx debug purpose
 (*mark_debug="true",DONT_TOUCH="TRUE"*) wire ext_tx_phy_bit;
 (*mark_debug="true",DONT_TOUCH="TRUE"*) wire ext_tx_phy_bit_valid;
 (*mark_debug="true",DONT_TOUCH="TRUE"*) wire ext_tx_phy_bit_valid_last;
@@ -82,7 +84,7 @@ module btle_controller_wrapper #
 (*mark_debug="true",DONT_TOUCH="TRUE"*) wire ext_tx_bit_upsample_gauss_filter_valid;
 (*mark_debug="true",DONT_TOUCH="TRUE"*) wire ext_tx_bit_upsample_gauss_filter_valid_last;
 
-  // for phy rx
+// for phy rx
 (*mark_debug="true",DONT_TOUCH="TRUE"*) reg [(LEN_UNIQUE_BIT_SEQUENCE-1) : 0]  ext_rx_unique_bit_sequence;
 (*mark_debug="true",DONT_TOUCH="TRUE"*) reg [(CHANNEL_NUMBER_BIT_WIDTH-1) : 0] ext_rx_channel_number;
 (*mark_debug="true",DONT_TOUCH="TRUE"*) reg [(CRC_STATE_BIT_WIDTH-1) : 0]      ext_rx_crc_state_init_bit;
@@ -185,11 +187,13 @@ btle_controller #
   .clk(clk),
   .rst(rst),
 
-    // ============================to host: UART HCI=========================
+  .clkb(clkb),
+
+  // ============================to host: UART HCI=========================
   .uart_rx(uart_rx),
   .uart_tx(uart_tx),
 
-    // =========================to zero-IF RF transceiver====================
+  // =========================to zero-IF RF transceiver====================
   .tx_i_signal(tx_i_signal),
   .tx_q_signal(tx_q_signal),
   .tx_iq_valid(tx_iq_valid),
@@ -199,9 +203,9 @@ btle_controller #
   .rx_q_signal(rx_q_signal),
   .rx_iq_valid(rx_iq_valid),
 
-    // ====baremetal phy interface. should be via uart in the future====
+  // ====baremetal phy interface. should be via uart in the future====
   .baremetal_phy_intf_mode(baremetal_phy_intf_mode), //currently 1 for external access. should be 0 in the future to let btle_ll control phy
-    // for phy tx
+  // for phy tx
   .ext_tx_gauss_filter_tap_index(ext_tx_gauss_filter_tap_index), // only need to set 0~8, 9~16 will be mirror of 0~7
   .ext_tx_gauss_filter_tap_value(ext_tx_gauss_filter_tap_value),
 
@@ -223,7 +227,7 @@ btle_controller #
 
   .ext_tx_start(ext_tx_start),
 
-    // for phy tx debug purpose
+  // for phy tx debug purpose
   .ext_tx_phy_bit(ext_tx_phy_bit),
   .ext_tx_phy_bit_valid(ext_tx_phy_bit_valid),
   .ext_tx_phy_bit_valid_last(ext_tx_phy_bit_valid_last),
@@ -236,7 +240,7 @@ btle_controller #
   .ext_tx_bit_upsample_gauss_filter_valid(ext_tx_bit_upsample_gauss_filter_valid),
   .ext_tx_bit_upsample_gauss_filter_valid_last(ext_tx_bit_upsample_gauss_filter_valid_last),
 
-    // for phy rx
+  // for phy rx
   .ext_rx_unique_bit_sequence(ext_rx_unique_bit_sequence),
   .ext_rx_channel_number(ext_rx_channel_number),
   .ext_rx_crc_state_init_bit(ext_rx_crc_state_init_bit),

@@ -6,16 +6,16 @@
 // python3 test_vector_for_btle_verilog.py
 // (arguments can be added: example_idx snr ppm_value)
 // Run verilog simulation:
-// iverilog -o vco_tb vco_tb.v vco.v dpram.v
+// iverilog -o vco_tb vco_tb.v vco.v sdpram_one_clk.v
 // vvp vco_tb
 // Check verilog outputs to see whether test pass.
 
 `timescale 1ns / 1ps
 module vco_tb #
 (
-  parameter VCO_BIT_WIDTH = 16,
-  parameter SIN_COS_ADDR_BIT_WIDTH = 11,
-  parameter IQ_BIT_WIDTH = 8
+  parameter integer VCO_BIT_WIDTH = 16,
+  parameter integer SIN_COS_ADDR_BIT_WIDTH = 11,
+  parameter integer IQ_BIT_WIDTH = 8
 ) (
 );
 

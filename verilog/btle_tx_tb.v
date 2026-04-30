@@ -6,24 +6,24 @@
 // python3 test_vector_for_btle_verilog.py
 // (arguments can be added: example_idx snr ppm_value)
 // Run verilog simulation:
-// iverilog -o btle_tx_tb btle_tx_tb.v btle_tx.v dpram.v crc24.v crc24_core.v scramble.v scramble_core.v gfsk_modulation.v bit_repeat_upsample.v gauss_filter.v vco.v
+// iverilog -o btle_tx_tb btle_tx_tb.v btle_tx.v sdpram_one_clk.v sdpram_two_clk.v crc24.v crc24_core.v scramble.v scramble_core.v gfsk_modulation.v bit_repeat_upsample.v gauss_filter.v vco.v
 // vvp btle_tx_tb
 // Check verilog outputs to see whether test pass.
 
 `timescale 1ns / 1ps
 module btle_tx_tb #
 (
-  parameter CRC_STATE_BIT_WIDTH = 24,
-  parameter CHANNEL_NUMBER_BIT_WIDTH = 6,
-  parameter LEN_UNIQUE_BIT_SEQUENCE = 32,
-  parameter PREAMBLE_BIT_WIDTH = 8,
-  parameter SAMPLE_PER_SYMBOL = 8,
-  parameter GAUSS_FILTER_BIT_WIDTH = 16,
-  parameter NUM_TAP_GAUSS_FILTER = 17,
-  parameter VCO_BIT_WIDTH = 16,
-  parameter SIN_COS_ADDR_BIT_WIDTH = 11,
-  parameter IQ_BIT_WIDTH = 8,
-  parameter GAUSS_FIR_OUT_AMP_SCALE_DOWN_NUM_BIT_SHIFT = 1
+  parameter integer CRC_STATE_BIT_WIDTH = 24,
+  parameter integer CHANNEL_NUMBER_BIT_WIDTH = 6,
+  parameter integer LEN_UNIQUE_BIT_SEQUENCE = 32,
+  parameter integer PREAMBLE_BIT_WIDTH = 8,
+  parameter integer SAMPLE_PER_SYMBOL = 8,
+  parameter integer GAUSS_FILTER_BIT_WIDTH = 16,
+  parameter integer NUM_TAP_GAUSS_FILTER = 17,
+  parameter integer VCO_BIT_WIDTH = 16,
+  parameter integer SIN_COS_ADDR_BIT_WIDTH = 11,
+  parameter integer IQ_BIT_WIDTH = 8,
+  parameter integer GAUSS_FIR_OUT_AMP_SCALE_DOWN_NUM_BIT_SHIFT = 1
 ) (
 );
 
@@ -390,6 +390,8 @@ btle_tx # (
 ) btle_tx_i (
   .clk(clk),
   .rst(rst),
+
+  .clkb(clk),
 
   .gauss_filter_tap_index(gauss_filter_tap_index),
   .gauss_filter_tap_value(gauss_filter_tap_value),

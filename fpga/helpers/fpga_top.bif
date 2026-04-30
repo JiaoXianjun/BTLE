@@ -1,0 +1,5 @@
+all:
+{
+        ./tmp/system_top.bit /* Bitstream file name */
+}
+

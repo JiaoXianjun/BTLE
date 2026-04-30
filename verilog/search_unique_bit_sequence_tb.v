@@ -13,7 +13,7 @@
 `timescale 1ns / 1ps
 module search_unique_bit_sequence_tb #
 (
-  parameter LEN_UNIQUE_BIT_SEQUENCE = 32
+  parameter integer LEN_UNIQUE_BIT_SEQUENCE = 32
 ) (
 );
 
