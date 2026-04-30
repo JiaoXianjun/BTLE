@@ -275,7 +275,7 @@ always begin
 end
 
 always begin
-  #((1000.0/16.0)/2.0) s00_axi_aclk = !s00_axi_aclk; //128MHz
+  #((1000.0/16.0)/2.0) s00_axi_aclk = !s00_axi_aclk; //16MHz
 end
 
 // always begin
