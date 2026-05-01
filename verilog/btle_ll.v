@@ -1056,8 +1056,8 @@ localparam ADDR_WIDTH_DPRAM = NUM_BIT_PAYLOAD_LENGTH+1;
 
 `KEEP_FOR_DBG wire [(ADDR_WIDTH_DPRAM-1) : 0] header_payload_crc_len;
 
-`KEEP_FOR_DBG assign write_data = word_out;
-`KEEP_FOR_DBG assign write_enable = word_out_strobe;
+assign write_data = word_out;
+assign write_enable = word_out_strobe;
 assign header_payload_crc_len = 2 + rx_payload_length_axi_lock + 3; // 2 bytes header, payload length, 3 bytes CRC
 
 // 5'd40 means slv_reg40 read signal
@@ -2215,6 +2215,7 @@ end
 
 endmodule
 
+`ifdef AVOID_DUPLICATION
 // ===============================================================================
 // --------------------------------------------------------------------
 // >>>>>>>>>>>>>>>>>>>>>>>>> COPYRIGHT NOTICE <<<<<<<<<<<<<<<<<<<<<<<<<
@@ -2234,7 +2235,7 @@ endmodule
 module uart_frame_rx
 #(
   parameter integer CLK_FREQUENCE  = 50_000_000,    //hz
-  parameter integer BAUD_RATE    = 9600    ,    //9600、19200 、38400 、57600 、115200、230400、460800、921600
+  parameter integer BAUD_RATE    = 9600    ,    //9600,19200,38400,57600,115200,230400,460800,921600
   parameter         PARITY      = "NONE"  ,    //"NONE","EVEN","ODD"
   parameter integer FRAME_WD    = 8            //if PARITY="NONE",it can be 5~9;else 5~8
 )
@@ -2462,9 +2463,9 @@ endmodule
 module uart_frame_tx
 #(
   parameter integer CLK_FREQUENCE  = 50_000_000,    //hz
-            integer BAUD_RATE    = 9600    ,    //9600、19200 、38400 、57600 、115200、230400、460800、921600
-                    PARITY      = "NONE"  ,    //"NONE","EVEN","ODD"
-            integer FRAME_WD    = 8          //if PARITY="NONE",it can be 5~9;else 5~8
+  parameter integer BAUD_RATE    = 9600    ,    //9600,19200,38400,57600,115200,230400,460800,921600
+  parameter         PARITY      = "NONE"  ,    //"NONE","EVEN","ODD"
+  parameter integer FRAME_WD    = 8          //if PARITY="NONE",it can be 5~9;else 5~8
 )
 (
   input clk      ,  //system_clk
@@ -2630,7 +2631,7 @@ endmodule
 module tx_clk_gen
 #(
   parameter integer CLK_FREQUENCE  = 50_000_000,    //hz
-            integer BAUD_RATE    = 9600         //9600、19200 、38400 、57600 、115200、230400、460800、921600
+  parameter integer BAUD_RATE    = 9600         //9600、19200 、38400 、57600 、115200、230400、460800、921600
 )
 (
   input       clk,      //system_clk
@@ -2714,7 +2715,7 @@ endmodule
 module rx_clk_gen
 #(
   parameter integer CLK_FREQUENCE  = 50_000_000,  //hz
-            integer BAUD_RATE    = 9600       //9600、19200 、38400 、57600 、115200、230400、460800、921600
+  parameter integer BAUD_RATE    = 9600       //9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600
 )
 (
   input       clk,
@@ -2778,6 +2779,8 @@ function integer log2(input integer v);
 endfunction
 
 endmodule
+
+`endif
 
 module clk_cross_bus #
 (
