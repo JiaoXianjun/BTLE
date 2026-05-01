@@ -83,6 +83,7 @@ always @ (posedge bb_clk) begin
   end
 end
 
+`ifdef XILINX_XPM
 sdpram_two_clk_xilinx #
 (
   .DATA_WIDTH(BRAM_DATA_WIDTH),
@@ -100,5 +101,23 @@ sdpram_two_clk_xilinx #
   .read_address(bram_addr_a[(BRAM_ADDR_WIDTH_IN_BYTE-1) : $clog2(BRAM_DATA_WIDTH/8)]),
   .read_data(bram_rddata_a)
 );
+`else
+sdpram_two_clk #
+(
+  .DATA_WIDTH(BRAM_DATA_WIDTH),
+  .ADDRESS_WIDTH(BRAM_ADDR_WIDTH)
+) sdpram_two_clk_auxiliary_daemon_i (
+  .clk(bb_clk),
+  .rst(bb_rst),
+
+  .write_address(bram_addr_b),
+  .write_data({rx_q_signal, rx_i_signal}),
+  .write_enable(1'd1),
+
+  .clkb(bram_clk_a),
+  .read_address(bram_addr_a[(BRAM_ADDR_WIDTH_IN_BYTE-1) : $clog2(BRAM_DATA_WIDTH/8)]),
+  .read_data(bram_rddata_a)
+);
+`endif
 
 endmodule
