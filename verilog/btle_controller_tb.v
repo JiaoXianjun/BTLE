@@ -18,7 +18,7 @@ module btle_controller_tb #
   // Width of S_AXI address bus
   parameter integer S_AXI_ADDR_WIDTH  = 8,
 
-	parameter	integer CLK_FREQUENCE	= 16_000_000,	//hz
+	parameter	integer CLK_FREQUENCE	= 100_000_000,	//hz
   parameter integer BAUD_RATE		= 115200		,		  //9600、19200 、38400 、57600 、115200、230400、460800、921600
   parameter         PARITY			= "NONE"	,		  //"NONE","EVEN","ODD"
   parameter integer FRAME_WD		= 8,					    //if PARITY="NONE",it can be 5~9;else 5~8
@@ -34,6 +34,15 @@ module btle_controller_tb #
   parameter integer GAUSS_FIR_OUT_AMP_SCALE_DOWN_NUM_BIT_SHIFT = 1,
   parameter integer GFSK_DEMODULATION_BIT_WIDTH = 16,
   parameter integer LEN_UNIQUE_BIT_SEQUENCE = 32,
+  parameter integer NUM_BIT_PAYLOAD_LENGTH = 8,
+
+  parameter integer RF_IQ_BIT_WIDTH = 64,
+  parameter integer RF_I_OR_Q_BIT_WIDTH = (RF_IQ_BIT_WIDTH/4),
+
+  parameter integer BRAM_DEPTH = 32768,
+  parameter integer BRAM_ADDR_WIDTH = $clog2(BRAM_DEPTH),
+  parameter integer BRAM_DATA_WIDTH = (2*RF_I_OR_Q_BIT_WIDTH),
+  parameter integer BRAM_ADDR_WIDTH_IN_BYTE = $clog2(BRAM_DEPTH*BRAM_DATA_WIDTH/8),
 
   parameter integer PREAMBLE_BIT_WIDTH = 8
 ) (
@@ -44,8 +53,10 @@ localparam [1:0] TEST_TX     = 0,
                  TEST_FINISH = 2;
 reg [1:0] test_state;
 
-reg clk;
-reg rst;
+reg bb_clk;
+reg rf_clk;
+reg bb_rst;
+reg rf_rst;
 
 reg s00_axi_aclk;
 reg s00_axi_aresetn;
@@ -257,25 +268,41 @@ initial begin
   end
   $fclose(sin_table_fd);
 
-  clk = 0;
-  rst = 0;
+  bb_clk = 0;
+  rf_clk = 0;
+  bb_rst = 0;
+  rf_rst = 0;
 
   s00_axi_aclk = 0;
   s00_axi_aresetn = 0;
 
-  #200 rst = 1;
+  gpio = 0;
+  rf_gpio = 0;
+  bram_clk_a = 0;
+  bram_addr_a = 0;
+  bram_wrdata_a = 0;
+  bram_en_a = 0;
+  bram_rst_a = 0;
+  bram_we_a = 0;
+
+  #200 bb_rst = 1; rf_rst = 1;
 
   #200 
-  rst = 0;
+  bb_rst = 0;
+  rf_rst = 0;
   s00_axi_aresetn = 1;
 end
 
 always begin
-  #((1000.0/16.0)/2.0) clk = !clk; //16MHz
+  #((1000.0/16.0)/2.0) bb_clk = !bb_clk; //16MHz
 end
 
 always begin
-  #((1000.0/16.0)/2.0) s00_axi_aclk = !s00_axi_aclk; //16MHz
+  #((1000.0/8.0)/2.0) rf_clk = !rf_clk; //8MHz
+end
+
+always begin
+  #((1000.0/100.0)/2.0) s00_axi_aclk = !s00_axi_aclk; //100MHz (PS/ARM AXI-lite)
 end
 
 // always begin
@@ -305,14 +332,14 @@ reg [(CHANNEL_NUMBER_BIT_WIDTH-1) : 0] channel_number;
 reg channel_number_load;
 
 reg [7:0] tx_pdu_octet_mem_data;
-reg [5:0] tx_pdu_octet_mem_addr;
+reg [NUM_BIT_PAYLOAD_LENGTH:0] tx_pdu_octet_mem_addr;
 
 wire tx_start;
 
-wire signed [(IQ_BIT_WIDTH-1) : 0] tx_i_signal;
-wire signed [(IQ_BIT_WIDTH-1) : 0] tx_q_signal;
-wire tx_iq_valid;
-wire tx_iq_valid_last;
+// TX IQ: RF-domain packed 64-bit output
+wire [(RF_IQ_BIT_WIDTH-1) : 0] tx_iq_signal_ext;
+wire tx_iq_valid_ext;
+wire tx_iq_valid_last_ext;
 reg  tx_iq_valid_last_delay;
 
 wire tx_phy_bit;
@@ -327,10 +354,9 @@ wire signed [(GAUSS_FILTER_BIT_WIDTH-1) : 0] tx_bit_upsample_gauss_filter;
 wire tx_bit_upsample_gauss_filter_valid;
 wire tx_bit_upsample_gauss_filter_valid_last;
 
-// for rx
-reg signed [(GFSK_DEMODULATION_BIT_WIDTH-1) : 0] rx_i_signal;
-reg signed [(GFSK_DEMODULATION_BIT_WIDTH-1) : 0] rx_q_signal;
-reg rx_iq_valid;
+// for rx: RF-domain packed 64-bit input
+reg  [(RF_IQ_BIT_WIDTH-1) : 0] rx_iq_signal_ext;
+reg  rx_iq_valid_ext;
 
 wire rx_hit_flag;
 wire rx_decode_run;
@@ -338,10 +364,10 @@ wire rx_decode_end;
 wire rx_crc_ok;
 reg  rx_crc_ok_store;
 wire [2:0] rx_best_phase;
-wire [6:0] rx_payload_length;
+wire [(NUM_BIT_PAYLOAD_LENGTH-1):0] rx_payload_length;
 
 wire [7:0] rx_pdu_octet_mem_data;
-reg  [5:0] rx_pdu_octet_mem_addr;
+reg  [NUM_BIT_PAYLOAD_LENGTH:0] rx_pdu_octet_mem_addr;
 
 reg [S_AXI_ADDR_WIDTH-1 : 0] s00_axi_awaddr;
 reg [2 : 0] s00_axi_awprot;
@@ -365,6 +391,24 @@ wire s00_axi_rready;
 
 assign baremetal_phy_intf_mode = 1;
 
+// Auxiliary signals
+reg  [7:0]  gpio;
+wire [15:0] ll_gpio;
+wire ll_itrpt0, ll_itrpt1, ll_itrpt2, ll_itrpt3;
+wire ll_itrpt4, ll_itrpt5, ll_itrpt6, ll_itrpt7;
+
+// BRAM ports (tied off in baremetal mode)
+reg  [BRAM_ADDR_WIDTH_IN_BYTE-1:0] bram_addr_a;
+reg  bram_clk_a;
+reg  [BRAM_DATA_WIDTH-1:0]         bram_wrdata_a;
+wire [BRAM_DATA_WIDTH-1:0]         bram_rddata_a;
+reg  bram_en_a;
+reg  bram_rst_a;
+reg  bram_we_a;
+
+// RF GPIO
+reg [7:0] rf_gpio;
+
 // test process
 reg [31:0] clk_count;
 reg [31:0] sample_in_count;
@@ -387,8 +431,8 @@ reg  [31:0] bit_upsample_gauss_filter_count;
 assign tx_all_init_done = (tx_gauss_filter_tap_init_done&tx_sin_cos_table_init_done&tx_pkt_mem_init_done);
 assign tx_start = (tx_all_init_done == 1 && tx_all_init_done_delay == 0);
 
-always @ (posedge clk) begin
-  if (rst) begin
+always @ (posedge bb_clk) begin
+  if (bb_rst) begin
     s00_axi_awaddr  <= 0;
     s00_axi_awprot  <= 0;
     s00_axi_awvalid <= 0;
@@ -407,13 +451,9 @@ always @ (posedge clk) begin
 
     uart_rx <= 0;
 
-    rx_i_signal <= 0;
-    rx_q_signal <= 0;
-    rx_iq_valid <= 0;
     rx_pdu_octet_mem_addr <= 0;
 
     clk_count <= 0;
-    sample_in_count <= 0;
     read_start <= 0;
 
     rx_crc_ok_store <= 0;
@@ -441,10 +481,6 @@ always @ (posedge clk) begin
     tx_pkt_mem_init_done <= 0;
     tx_all_init_done_delay <= 0;
 
-    sample_out_count <= 0;
-
-    tx_iq_valid_last_delay <= 0;
-
     phy_bit_count <= 0;
     bit_upsample_count <= 0;
     bit_upsample_gauss_filter_count <= 0;
@@ -465,8 +501,6 @@ always @ (posedge clk) begin
     case(test_state)
       TEST_TX: begin
         tx_all_init_done_delay <= tx_all_init_done;
-
-        tx_iq_valid_last_delay <= tx_iq_valid_last;
 
         if (clk_count < 9) begin
           tx_gauss_filter_tap_index <= clk_count;
@@ -561,13 +595,6 @@ always @ (posedge clk) begin
           $display("Start TEST RX ...");
         end
 
-        // record the result
-        if (tx_iq_valid) begin
-          btle_tx_test_output_i_mem[sample_out_count] <= tx_i_signal;
-          btle_tx_test_output_q_mem[sample_out_count] <= tx_q_signal;
-          sample_out_count <= sample_out_count + 1;
-        end
-
         if (tx_phy_bit_valid) begin
           phy_bit_count <= phy_bit_count + 1;
         end
@@ -582,21 +609,6 @@ always @ (posedge clk) begin
       end
 
       TEST_RX: begin
-        if (clk_count[0] == 0) begin // speed 8M
-          if (sample_in_count < NUM_SAMPLE_INPUT) begin
-            rx_i_signal <= btle_rx_test_input_i_mem[sample_in_count];
-            rx_q_signal <= btle_rx_test_input_q_mem[sample_in_count];
-            rx_iq_valid <= 1;
-          end else begin
-            rx_i_signal <= 0;
-            rx_q_signal <= 0;
-            rx_iq_valid <= 1;
-          end
-          sample_in_count <= sample_in_count + 1;
-        end else begin
-          rx_iq_valid <= 0;
-        end
-
         if (sample_in_count == (NUM_SAMPLE_INPUT+800)) begin
           $display("rx %d NUM_SAMPLE_INPUT", NUM_SAMPLE_INPUT);
           $display("rx %d sample_in_count", sample_in_count);
@@ -671,6 +683,39 @@ always @ (posedge clk) begin
   end
 end
 
+// RF clock domain: drive RX IQ input and record TX IQ output
+always @ (posedge rf_clk) begin
+  if (rf_rst) begin
+    rx_iq_signal_ext       <= 0;
+    rx_iq_valid_ext        <= 1;
+    sample_in_count        <= 0;
+    sample_out_count       <= 0;
+    tx_iq_valid_last_delay <= 0;
+  end else begin
+    tx_iq_valid_last_delay <= tx_iq_valid_last_ext;
+
+    // TX output recording
+    if (tx_iq_valid_ext) begin
+      btle_tx_test_output_i_mem[sample_out_count] <= tx_iq_signal_ext[(IQ_BIT_WIDTH-1):0];
+      btle_tx_test_output_q_mem[sample_out_count] <= tx_iq_signal_ext[(RF_I_OR_Q_BIT_WIDTH+IQ_BIT_WIDTH-1):RF_I_OR_Q_BIT_WIDTH];
+      sample_out_count <= sample_out_count + 1;
+    end
+
+    // RX input injection
+    if (test_state == TEST_RX) begin
+      if (sample_in_count < NUM_SAMPLE_INPUT) begin
+        rx_iq_signal_ext[(RF_I_OR_Q_BIT_WIDTH-1):0]                     <= btle_rx_test_input_i_mem[sample_in_count];
+        rx_iq_signal_ext[(2*RF_I_OR_Q_BIT_WIDTH-1):RF_I_OR_Q_BIT_WIDTH] <= btle_rx_test_input_q_mem[sample_in_count];
+        rx_iq_signal_ext[(RF_IQ_BIT_WIDTH-1):(2*RF_I_OR_Q_BIT_WIDTH)]   <= 0;
+      end else begin
+        rx_iq_signal_ext <= 0;
+      end
+      rx_iq_valid_ext <= 1;
+      sample_in_count <= sample_in_count + 1;
+    end
+  end
+end
+
 btle_controller # (
   .C_S00_AXI_DATA_WIDTH(S_AXI_DATA_WIDTH),
   .C_S00_AXI_ADDR_WIDTH(S_AXI_ADDR_WIDTH),
@@ -679,6 +724,9 @@ btle_controller # (
   .BAUD_RATE(BAUD_RATE),
   .PARITY(PARITY),
   .FRAME_WD(FRAME_WD),
+
+  .RF_IQ_BIT_WIDTH(RF_IQ_BIT_WIDTH),
+  .RF_I_OR_Q_BIT_WIDTH(RF_I_OR_Q_BIT_WIDTH),
 
   .CRC_STATE_BIT_WIDTH(CRC_STATE_BIT_WIDTH),
   .CHANNEL_NUMBER_BIT_WIDTH(CHANNEL_NUMBER_BIT_WIDTH),
@@ -691,24 +739,48 @@ btle_controller # (
   .GAUSS_FIR_OUT_AMP_SCALE_DOWN_NUM_BIT_SHIFT(GAUSS_FIR_OUT_AMP_SCALE_DOWN_NUM_BIT_SHIFT),
 
   .GFSK_DEMODULATION_BIT_WIDTH(GFSK_DEMODULATION_BIT_WIDTH),
-  .LEN_UNIQUE_BIT_SEQUENCE(LEN_UNIQUE_BIT_SEQUENCE)
+  .LEN_UNIQUE_BIT_SEQUENCE(LEN_UNIQUE_BIT_SEQUENCE),
+  .NUM_BIT_PAYLOAD_LENGTH(NUM_BIT_PAYLOAD_LENGTH),
+
+  .BRAM_DEPTH(BRAM_DEPTH)
 ) btle_controller_i (
-  .clk(clk),
-  .rst(rst),
-  
+  .rf_clk(rf_clk),
+  .rf_rst(rf_rst),
+  .bb_clk(bb_clk),
+  .bb_rst(bb_rst),
+
+  // ===============Auxiliary Signals================
+  .gpio(gpio),
+  .ll_gpio(ll_gpio),
+  .ll_itrpt0(ll_itrpt0),
+  .ll_itrpt1(ll_itrpt1),
+  .ll_itrpt2(ll_itrpt2),
+  .ll_itrpt3(ll_itrpt3),
+  .ll_itrpt4(ll_itrpt4),
+  .ll_itrpt5(ll_itrpt5),
+  .ll_itrpt6(ll_itrpt6),
+  .ll_itrpt7(ll_itrpt7),
+
+  // bram related
+  .bram_addr_a(bram_addr_a),
+  .bram_clk_a(bram_clk_a),
+  .bram_wrdata_a(bram_wrdata_a),
+  .bram_rddata_a(bram_rddata_a),
+  .bram_en_a(bram_en_a),
+  .bram_rst_a(bram_rst_a),
+  .bram_we_a(bram_we_a),
+
   // ============================to host: UART HCI=========================
   .uart_rx(uart_rx),
   .uart_tx(uart_tx),
 
   // =========================to zero-IF RF transceiver====================
-  .tx_i_signal(tx_i_signal),
-  .tx_q_signal(tx_q_signal),
-  .tx_iq_valid(tx_iq_valid),
-  .tx_iq_valid_last(tx_iq_valid_last),
-
-  .rx_i_signal(rx_i_signal),
-  .rx_q_signal(rx_q_signal),
-  .rx_iq_valid(rx_iq_valid),
+  .rf_gpio(rf_gpio),
+  .tx_iq_signal_ext(tx_iq_signal_ext),
+  .tx_iq_valid_ext(tx_iq_valid_ext),
+  .tx_iq_valid_last_ext(tx_iq_valid_last_ext),
+  .rx_iq_signal_ext(rx_iq_signal_ext),
+  .rx_iq_valid_ext(rx_iq_valid_ext),
 
   .s00_axi_aclk(s00_axi_aclk),
   .s00_axi_aresetn(s00_axi_aresetn),
