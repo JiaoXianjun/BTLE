@@ -16,7 +16,8 @@ module btle_rx_core_tb #
   parameter integer GFSK_DEMODULATION_BIT_WIDTH = 16,
   parameter integer LEN_UNIQUE_BIT_SEQUENCE = 32,
   parameter integer CHANNEL_NUMBER_BIT_WIDTH = 6,
-  parameter integer CRC_STATE_BIT_WIDTH = 24
+  parameter integer CRC_STATE_BIT_WIDTH = 24,
+  parameter integer NUM_BIT_PAYLOAD_LENGTH = 8 // 8 bit in the core spec 6.2
 ) (
 );
 
@@ -150,7 +151,7 @@ reg signed [(GFSK_DEMODULATION_BIT_WIDTH-1) : 0] q_signal;
 reg iq_valid;
 
 wire hit_flag;
-wire [6:0] payload_length;
+wire [(NUM_BIT_PAYLOAD_LENGTH-1):0] payload_length;
 wire payload_length_valid;
 wire info_bit;
 wire bit_valid;
@@ -280,7 +281,8 @@ btle_rx_core # (
   .GFSK_DEMODULATION_BIT_WIDTH(GFSK_DEMODULATION_BIT_WIDTH),
   .LEN_UNIQUE_BIT_SEQUENCE(LEN_UNIQUE_BIT_SEQUENCE),
   .CHANNEL_NUMBER_BIT_WIDTH(CHANNEL_NUMBER_BIT_WIDTH),
-  .CRC_STATE_BIT_WIDTH(CRC_STATE_BIT_WIDTH)
+  .CRC_STATE_BIT_WIDTH(CRC_STATE_BIT_WIDTH),
+  .NUM_BIT_PAYLOAD_LENGTH(NUM_BIT_PAYLOAD_LENGTH)
 ) btle_rx_core_i (
   .clk(clk),
   .rst(rst),
@@ -294,7 +296,7 @@ btle_rx_core # (
   .iq_valid(iq_valid),
 
   .hit_flag(hit_flag),
-  .payload_length(payload_length),
+  .payload_length_out(payload_length),
   .payload_length_valid(payload_length_valid),
 
   .info_bit(info_bit),
