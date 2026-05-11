@@ -17,7 +17,8 @@ module btle_rx_tb #
   parameter integer GFSK_DEMODULATION_BIT_WIDTH = 16,
   parameter integer LEN_UNIQUE_BIT_SEQUENCE = 32,
   parameter integer CHANNEL_NUMBER_BIT_WIDTH = 6,
-  parameter integer CRC_STATE_BIT_WIDTH = 24
+  parameter integer CRC_STATE_BIT_WIDTH = 24,
+  parameter integer NUM_BIT_PAYLOAD_LENGTH = 8 // 8 bit in the core spec 6.2
 ) (
 );
 
@@ -150,10 +151,10 @@ wire decode_end;
 wire crc_ok;
 reg  crc_ok_store;
 wire [2:0] best_phase;
-wire [6:0] payload_length;
+wire [(NUM_BIT_PAYLOAD_LENGTH-1):0] payload_length;
 
 wire [7:0] pdu_octet_mem_data;
-reg  [5:0] pdu_octet_mem_addr;
+reg  [NUM_BIT_PAYLOAD_LENGTH:0] pdu_octet_mem_addr;
 
 // test process
 reg [31:0] clk_count;
