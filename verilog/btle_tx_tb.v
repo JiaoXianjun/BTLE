@@ -13,6 +13,7 @@
 `timescale 1ns / 1ps
 module btle_tx_tb #
 (
+  parameter integer NUM_BIT_PAYLOAD_LENGTH = 8,
   parameter integer CRC_STATE_BIT_WIDTH = 24,
   parameter integer CHANNEL_NUMBER_BIT_WIDTH = 6,
   parameter integer LEN_UNIQUE_BIT_SEQUENCE = 32,
@@ -185,7 +186,7 @@ reg [(CHANNEL_NUMBER_BIT_WIDTH-1) : 0] channel_number;
 reg channel_number_load;
 
 reg [7:0] pdu_octet_mem_data;
-reg [5:0] pdu_octet_mem_addr;
+reg [NUM_BIT_PAYLOAD_LENGTH:0] pdu_octet_mem_addr;
 
 wire tx_start;
 
@@ -378,6 +379,7 @@ always @ (posedge clk) begin
 end
 
 btle_tx # (
+.NUM_BIT_PAYLOAD_LENGTH(NUM_BIT_PAYLOAD_LENGTH),
 .CRC_STATE_BIT_WIDTH(CRC_STATE_BIT_WIDTH),
 .CHANNEL_NUMBER_BIT_WIDTH(CHANNEL_NUMBER_BIT_WIDTH),
 .SAMPLE_PER_SYMBOL(SAMPLE_PER_SYMBOL),
