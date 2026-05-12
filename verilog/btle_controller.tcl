@@ -189,6 +189,10 @@ set files [list \
  [file normalize "${origin_dir}/search_unique_bit_sequence.v"] \
  [file normalize "${origin_dir}/serial_in_ram_out.v"] \
  [file normalize "${origin_dir}/vco.v"] \
+ [file normalize "${origin_dir}/uart_frame_tx.v"] \
+ [file normalize "${origin_dir}/uart_frame_rx.v"] \
+ [file normalize "${origin_dir}/tx_clk_gen.v"] \
+ [file normalize "${origin_dir}/rx_clk_gen.v"] \
 ]
 add_files -norecurse -fileset $obj $files
 
@@ -479,6 +483,58 @@ set_property -name "used_in_simulation" -value "1" -objects $file_obj
 set_property -name "used_in_synthesis" -value "1" -objects $file_obj
 
 set file "$origin_dir/vco.v"
+set file [file normalize $file]
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "Verilog" -objects $file_obj
+set_property -name "is_enabled" -value "1" -objects $file_obj
+set_property -name "is_global_include" -value "0" -objects $file_obj
+set_property -name "library" -value "xil_defaultlib" -objects $file_obj
+set_property -name "path_mode" -value "RelativeFirst" -objects $file_obj
+set_property -name "used_in" -value "synthesis implementation simulation" -objects $file_obj
+set_property -name "used_in_implementation" -value "1" -objects $file_obj
+set_property -name "used_in_simulation" -value "1" -objects $file_obj
+set_property -name "used_in_synthesis" -value "1" -objects $file_obj
+
+set file "$origin_dir/uart_frame_tx.v"
+set file [file normalize $file]
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "Verilog" -objects $file_obj
+set_property -name "is_enabled" -value "1" -objects $file_obj
+set_property -name "is_global_include" -value "0" -objects $file_obj
+set_property -name "library" -value "xil_defaultlib" -objects $file_obj
+set_property -name "path_mode" -value "RelativeFirst" -objects $file_obj
+set_property -name "used_in" -value "synthesis implementation simulation" -objects $file_obj
+set_property -name "used_in_implementation" -value "1" -objects $file_obj
+set_property -name "used_in_simulation" -value "1" -objects $file_obj
+set_property -name "used_in_synthesis" -value "1" -objects $file_obj
+
+set file "$origin_dir/uart_frame_rx.v"
+set file [file normalize $file]
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "Verilog" -objects $file_obj
+set_property -name "is_enabled" -value "1" -objects $file_obj
+set_property -name "is_global_include" -value "0" -objects $file_obj
+set_property -name "library" -value "xil_defaultlib" -objects $file_obj
+set_property -name "path_mode" -value "RelativeFirst" -objects $file_obj
+set_property -name "used_in" -value "synthesis implementation simulation" -objects $file_obj
+set_property -name "used_in_implementation" -value "1" -objects $file_obj
+set_property -name "used_in_simulation" -value "1" -objects $file_obj
+set_property -name "used_in_synthesis" -value "1" -objects $file_obj
+
+set file "$origin_dir/tx_clk_gen.v"
+set file [file normalize $file]
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "Verilog" -objects $file_obj
+set_property -name "is_enabled" -value "1" -objects $file_obj
+set_property -name "is_global_include" -value "0" -objects $file_obj
+set_property -name "library" -value "xil_defaultlib" -objects $file_obj
+set_property -name "path_mode" -value "RelativeFirst" -objects $file_obj
+set_property -name "used_in" -value "synthesis implementation simulation" -objects $file_obj
+set_property -name "used_in_implementation" -value "1" -objects $file_obj
+set_property -name "used_in_simulation" -value "1" -objects $file_obj
+set_property -name "used_in_synthesis" -value "1" -objects $file_obj
+
+set file "$origin_dir/rx_clk_gen.v"
 set file [file normalize $file]
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "Verilog" -objects $file_obj
