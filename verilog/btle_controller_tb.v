@@ -58,7 +58,8 @@ reg rf_clk;
 reg bb_rst;
 reg rf_rst;
 
-reg s00_axi_aclk;
+// reg s00_axi_aclk;
+wire s00_axi_aclk;
 reg s00_axi_aresetn;
 
 reg [64*8:0] BTLE_CONFIG_FILENAME  = "btle_config.txt";
@@ -268,12 +269,12 @@ initial begin
   end
   $fclose(sin_table_fd);
 
-  bb_clk = 0;
+  bb_clk = 1; // to have rising edge aligned with rf_clk rising edge
   rf_clk = 0;
   bb_rst = 0;
   rf_rst = 0;
 
-  s00_axi_aclk = 0;
+  // s00_axi_aclk = 0;
   s00_axi_aresetn = 0;
 
   gpio = 0;
@@ -301,9 +302,10 @@ always begin
   #((1000.0/8.0)/2.0) rf_clk = !rf_clk; //8MHz
 end
 
-always begin
-  #((1000.0/100.0)/2.0) s00_axi_aclk = !s00_axi_aclk; //100MHz (PS/ARM AXI-lite)
-end
+assign s00_axi_aclk = bb_clk;
+// always begin
+//   #((1000.0/100.0)/2.0) s00_axi_aclk = !s00_axi_aclk; //100MHz (PS/ARM AXI-lite)
+// end
 
 // always begin
 //   #((1000.0/128.0)/2.0) s00_axi_aclk = !s00_axi_aclk; //128MHz
