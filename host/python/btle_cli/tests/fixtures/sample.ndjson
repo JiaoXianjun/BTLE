@@ -1,0 +1,10 @@
+BLE sniffer. Xianjun Jiao. putaoshu@msn.com
+
+{"v":1,"t":"status","ts":1715680000.0,"event":"start","board":"HackRF","ch":37,"freq_hz":2402000000,"gain":40,"lna":32,"amp":0,"filter_adva":null,"msg":null}
+Setting VGA gain to 40
+Setting LNA gain to 32
+{"v":1,"t":"pkt","ts":1715680000.123,"pkt":1,"ch":37,"aa":"8e89bed6","crc_ok":true,"kind":"adv","pdu_type":0,"pdu_name":"ADV_IND","tx_add":1,"rx_add":0,"plen":25,"adv_a":"aa:bb:cc:dd:ee:01","payload_hex":"01eeddccbbaa02011a020a070cff4c0010075e1f2e0365853801","rssi_est":-58}
+{"v":1,"t":"pkt","ts":1715680000.234,"pkt":2,"ch":37,"aa":"8e89bed6","crc_ok":false,"kind":"adv","pdu_type":0,"pdu_name":"ADV_IND","tx_add":1,"rx_add":0,"plen":25,"adv_a":"aa:bb:cc:dd:ee:02","payload_hex":"02eeddccbbaa02011a020a070cff4c0010075e1f2e0365853802","rssi_est":-62}
+{"v":1,"t":"hop","ts":1715680001.0,"event":"track_start","state_from":0,"state_to":1,"ch":7,"freq_mhz":2410,"aa":"60850a1b","crc_init":"a77b22","interval_us":18750,"hop":5,"chm":"1fffffffff"}
+{"v":1,"t":"pkt","ts":1715680001.1,"pkt":3,"ch":7,"aa":"60850a1b","crc_ok":true,"kind":"data","ll_pdu_type":1,"ll_pdu_name":"LL_DATA","nesn":0,"sn":1,"md":0,"plen":4,"payload_hex":"03000000","rssi_est":null}
+{"v":1,"t":"status","ts":1715680002.0,"event":"stop","board":"HackRF","ch":7,"freq_hz":2410000000,"gain":40,"lna":32,"amp":0,"filter_adva":null,"msg":null}
