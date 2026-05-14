@@ -1,7 +1,9 @@
 // Bluetooth Low Energy SDR sniffer by Xianjun Jiao (putaoshu@msn.com)
 
 #include <pthread.h>
+#include <limits.h>
 #include "common.h"
+#include "btle_json.h"
 
 #ifdef USE_BLADERF
 #include <libbladeRF.h>
@@ -111,6 +113,57 @@ const int PCAP_HDR_TCPDUMP_LEN = 24;
 char* filename_pcap = NULL;
 FILE *fh_pcap_store;
 
+// --------- v2 extension flags / state (filled by parse_commandline) ---------
+int json_flag = 0;
+int quiet_text_flag = 0;
+int rssi_est_flag = 0;
+int filter_adva_set = 0;
+uint8_t filter_adva[6] = {0, 0, 0, 0, 0, 0};
+uint16_t filter_pdu_mask = 0xFFFF; // bit i = allow ADV PDU type i; default all
+// ---------------------------------------------------------------------------
+
+// Parse "AA:BB:CC:DD:EE:FF" or 12 contiguous hex chars into out[6]. Returns 0 on
+// success, -1 on malformed input.
+static int parse_mac_string(const char *s, uint8_t out[6]) {
+    if (!s) return -1;
+    int i = 0, n = 0;
+    unsigned int v;
+    if (strchr(s, ':') != NULL) {
+        if (sscanf(s, "%2x:%2x:%2x:%2x:%2x:%2x%n",
+                   &v, &v, &v, &v, &v, &v, &n) < 6) {
+            // re-scan into out
+        }
+        if (sscanf(s, "%2hhx:%2hhx:%2hhx:%2hhx:%2hhx:%2hhx",
+                   &out[0], &out[1], &out[2], &out[3], &out[4], &out[5]) != 6)
+            return -1;
+        return 0;
+    }
+    if (strlen(s) != 12) return -1;
+    for (i = 0; i < 6; i++) {
+        if (sscanf(s + 2*i, "%2hhx", &out[i]) != 1) return -1;
+    }
+    return 0;
+}
+
+// Parse a CSV of PDU type ints (e.g. "0,3,4") into a bitmask. Returns 0 ok.
+static int parse_pdu_type_csv(const char *s, uint16_t *mask) {
+    if (!s || !mask) return -1;
+    uint16_t m = 0;
+    const char *p = s;
+    while (*p) {
+        char *end;
+        long v = strtol(p, &end, 10);
+        if (end == p || v < 0 || v > 15) return -1;
+        m |= (uint16_t)(1u << v);
+        p = end;
+        if (*p == ',') p++;
+        else if (*p != '\0') return -1;
+    }
+    if (m == 0) return -1;
+    *mask = m;
+    return 0;
+}
+
 void init_pcap_file() {
     fh_pcap_store = fopen(filename_pcap, "wb");
     fwrite(PCAP_HDR_TCPDUMP, 1, PCAP_HDR_TCPDUMP_LEN, fh_pcap_store);
@@ -127,25 +180,36 @@ const uint8_t BTLE_HEADER_LEN = 10;
 
 // http://www.whiterocker.com/bt/LINKTYPE_BLUETOOTH_LE_LL_WITH_PHDR.html
 // num_demod_byte -- LE packet: header + data
-void write_packet_to_file(FILE *fh, int packet_len, uint8_t *packet, uint8_t channel, uint32_t access_addr){
+// rssi_dbm: pass INT_MIN to signal "unknown" (writes -127 per the spec)
+void write_packet_to_file(FILE *fh, int packet_len, uint8_t *packet, uint8_t channel, uint32_t access_addr, int rssi_dbm){
    // flags: 0x0001 indicates the LE Packet is de-whitened
-   // pcap header: tv_sec tv_usec caplen len
+   // pcap header: tv_sec tv_usec caplen len  (all stored network-byte-order
+   // because the global pcap magic is BE 0xA1B2C3D4).
    pcap_header header_pcap;
-   //header_pcap.sec = packetcount++;
+   struct timeval now;
+   gettimeofday(&now, NULL);
+   header_pcap.sec = htonl((uint32_t)now.tv_sec);
+   header_pcap.usec = htonl((uint32_t)now.tv_usec);
    header_pcap.caplen = htonl(BTLE_HEADER_LEN + 4 + packet_len);
    header_pcap.len = htonl(BTLE_HEADER_LEN + 4 + packet_len);
    fwrite(&header_pcap, 16, 1, fh_pcap_store);
    // BTLE header: RF_Channel:1 Signal_Power:1 Noise_Power:1 Access_address_off:1 Reference_access_address (receiver):4 flags:2 packet
-   uint8_t header_btle[10] = {channel, 0, 0, 0, 0, 0, 0, 0, 1, 0};
+   int8_t sig_power = -127;
+   if (rssi_dbm != INT_MIN) {
+       if (rssi_dbm > 20)  sig_power = 20;
+       else if (rssi_dbm < -126) sig_power = -126;
+       else sig_power = (int8_t)rssi_dbm;
+   }
+   uint8_t header_btle[10] = {channel, (uint8_t)sig_power, 0, 0, 0, 0, 0, 0, 1, 0};
    fwrite(header_btle, 1, 10, fh);
    fwrite(&access_addr, 1, 4, fh);
    fwrite(packet, 1, packet_len, fh);
 }
 void write_dummy_entry(){
     uint8_t pkt[10] = {7,7,7,7,7,7,7,7,7,7};
-    write_packet_to_file(fh_pcap_store, 10, pkt, 1, 0xFFFFFFF1);
-    write_packet_to_file(fh_pcap_store, 10, pkt, 2, 0xFFFFFFF2);
-    write_packet_to_file(fh_pcap_store, 10, pkt, 3, 0xFFFFFFF3);
+    write_packet_to_file(fh_pcap_store, 10, pkt, 1, 0xFFFFFFF1, INT_MIN);
+    write_packet_to_file(fh_pcap_store, 10, pkt, 2, 0xFFFFFFF2, INT_MIN);
+    write_packet_to_file(fh_pcap_store, 10, pkt, 3, 0xFFFFFFF3, INT_MIN);
 }
 
 
@@ -675,6 +739,16 @@ static void print_usage() {
   printf("      This will turn on data channel tracking (frequency hopping) after link setup information is captured in ADV_CONNECT_REQ packet\n");
   printf("    -s --filename\n");
   printf("      Store packets to pcap file.\n");
+  printf("    -j --json\n");
+  printf("      Emit one NDJSON event per packet/hop/status to stdout (schema v1).\n");
+  printf("    -Q --quiet-text\n");
+  printf("      Suppress legacy plain-text per-packet printf. Use with --json for clean NDJSON stdout.\n");
+  printf("    -R --rssi-est\n");
+  printf("      Enable coarse RSSI estimate from |I|+|Q| magnitude. Written into pcap sig_power & NDJSON rssi_est.\n");
+  printf("    -F --filter-adva AA:BB:CC:DD:EE:FF\n");
+  printf("      Only keep ADV-channel packets whose AdvA matches. Affects printf, pcap write and NDJSON.\n");
+  printf("    -T --filter-pdu-type 0,3,4\n");
+  printf("      Only keep ADV-channel packets whose PDU type is in the CSV list (0..15).\n");
   printf("\nSee README for detailed information.\n");
 }
 //----------------------------------print_usage----------------------------------
@@ -1180,13 +1254,20 @@ void parse_commandline(
   uint32_t* crc_init,
   int* verbose_flag,
   int* raw_flag,
-  uint64_t* freq_hz, 
-  uint32_t* access_mask, 
+  uint64_t* freq_hz,
+  uint32_t* access_mask,
   int* hop_flag,
-  char** filename_pcap
+  char** filename_pcap,
+  // v2 extension outputs (route to global flags)
+  int* json_flag_out,
+  int* quiet_text_flag_out,
+  int* rssi_est_flag_out,
+  int* filter_adva_set_out,
+  uint8_t* filter_adva_out,
+  uint16_t* filter_pdu_mask_out
 ) {
   printf("BLE sniffer. Xianjun Jiao. putaoshu@msn.com\n\n");
-  
+
   // Default values
   (*chan) = DEFAULT_CHANNEL;
 
@@ -1195,22 +1276,29 @@ void parse_commandline(
   (*lnaGain) = 32;
 
   (*amp) = 0;
-  
+
   (*access_addr) = DEFAULT_ACCESS_ADDR;
-  
+
   (*crc_init) = 0x555555;
-  
+
   (*verbose_flag) = 0;
-  
+
   (*raw_flag) = 0;
-  
+
   (*freq_hz) = 123;
-  
+
   (*access_mask) = 0xFFFFFFFF;
-  
+
   (*hop_flag) = 0;
-  
+
   (*filename_pcap) = 0;
+
+  (*json_flag_out) = 0;
+  (*quiet_text_flag_out) = 0;
+  (*rssi_est_flag_out) = 0;
+  (*filter_adva_set_out) = 0;
+  memset(filter_adva_out, 0, 6);
+  (*filter_pdu_mask_out) = 0xFFFF;
 
   while (1) {
     static struct option long_options[] = {
@@ -1227,11 +1315,16 @@ void parse_commandline(
       {"access_mask",         required_argument, 0, 'm'},
       {"hop",         no_argument, 0, 'o'},
       {"filename",         required_argument, 0, 's'},
+      {"json",            no_argument,       0, 'j'},
+      {"quiet-text",      no_argument,       0, 'Q'},
+      {"rssi-est",        no_argument,       0, 'R'},
+      {"filter-adva",     required_argument, 0, 'F'},
+      {"filter-pdu-type", required_argument, 0, 'T'},
       {0, 0, 0, 0}
     };
     /* getopt_long stores the option index here. */
     int option_index = 0;
-    int c = getopt_long (argc, argv, "hc:g:l:ba:k:vrf:m:os:",
+    int c = getopt_long (argc, argv, "hc:g:l:ba:k:vrf:m:os:jQRF:T:",
                      long_options, &option_index);
 
     /* Detect the end of the options. */
@@ -1298,7 +1391,34 @@ void parse_commandline(
       case 's':
         (*filename_pcap) = (char*)optarg;
         break;
-        
+
+      case 'j':
+        (*json_flag_out) = 1;
+        break;
+
+      case 'Q':
+        (*quiet_text_flag_out) = 1;
+        break;
+
+      case 'R':
+        (*rssi_est_flag_out) = 1;
+        break;
+
+      case 'F':
+        if (parse_mac_string(optarg, filter_adva_out) != 0) {
+          printf("Invalid --filter-adva value: %s (expect AA:BB:CC:DD:EE:FF or 12 hex chars)\n", optarg);
+          goto abnormal_quit;
+        }
+        (*filter_adva_set_out) = 1;
+        break;
+
+      case 'T':
+        if (parse_pdu_type_csv(optarg, filter_pdu_mask_out) != 0) {
+          printf("Invalid --filter-pdu-type value: %s (expect CSV of ints 0..15, e.g. 0,3,4)\n", optarg);
+          goto abnormal_quit;
+        }
+        break;
+
       case '?':
         /* getopt_long already printed an error message. */
         goto abnormal_quit;
@@ -1587,8 +1707,35 @@ int parse_adv_pdu_payload_byte(uint8_t *payload_byte, int num_payload_byte, ADV_
       //printf("Warning: Reserved PDU type %d\n", pdu_type);
       //return(-1);
   }
-  
+
   return(0);
+}
+
+// Extract the advertiser address (AdvA) appropriate for filtering.
+//   PDU 0/2/4/6 (ADV_IND/ADV_NONCONN_IND/SCAN_RSP/ADV_SCAN_IND): payload's AdvA
+//   PDU 5      (CONNECT_REQ):                                    payload's AdvA
+//   PDU 1/3    (ADV_DIRECT_IND/SCAN_REQ):                        payload's A0 (advertiser)
+//   others:    -1 (AdvA not available for this PDU type)
+// Returns 0 on success and writes out[6]. On -1, out[6] is untouched.
+static int extract_adv_a(ADV_PDU_TYPE pdu_type, const void *parsed_payload, uint8_t out[6]) {
+    if (!parsed_payload || !out) return -1;
+    if (pdu_type == ADV_IND || pdu_type == ADV_NONCONN_IND ||
+        pdu_type == SCAN_RSP || pdu_type == ADV_SCAN_IND) {
+        const ADV_PDU_PAYLOAD_TYPE_0_2_4_6 *p = parsed_payload;
+        memcpy(out, p->AdvA, 6);
+        return 0;
+    }
+    if (pdu_type == ADV_DIRECT_IND || pdu_type == SCAN_REQ) {
+        const ADV_PDU_PAYLOAD_TYPE_1_3 *p = parsed_payload;
+        memcpy(out, p->A0, 6);
+        return 0;
+    }
+    if (pdu_type == CONNECT_REQ) {
+        const ADV_PDU_PAYLOAD_TYPE_5 *p = parsed_payload;
+        memcpy(out, p->AdvA, 6);
+        return 0;
+    }
+    return -1;
 }
 
 int parse_ll_pdu_payload_byte(uint8_t *payload_byte, int num_payload_byte, LL_PDU_TYPE pdu_type, void *ll_pdu_payload) {
@@ -2053,6 +2200,10 @@ void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number, uint32_t access_
   int num_symbol_left = buf_len/(SAMPLE_PER_SYMBOL*2); //2 for IQ
   bool crc_flag;
   bool adv_flag = (channel_number==37 || channel_number==38 || channel_number==39);
+  int rssi_dbm = INT_MIN; // INT_MIN means "no estimate"
+  int access_addr_sample_off = 0; // offset into rxp_in where access addr samples start
+  uint8_t pkt_adv_a[6];
+  int pkt_adv_a_valid = 0;
   
   if (pkt_count == 0) { // the 1st time run
     gettimeofday(&time_current_pkt, NULL);
@@ -2074,9 +2225,31 @@ void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number, uint32_t access_
 
     buf_len_eaten = buf_len_eaten + hit_idx;
     //printf("%d\n", buf_len_eaten);
-    
+    // remember where access addr samples begin (used for RSSI estimate)
+    access_addr_sample_off = buf_len_eaten;
+
     buf_len_eaten = buf_len_eaten + 8*NUM_ACCESS_ADDR_BYTE*2*SAMPLE_PER_SYMBOL;// move to beginning of PDU header
     rxp = rxp_in + buf_len_eaten;
+
+    if (rssi_est_flag) {
+        // Sum |I|+|Q| over the access address window (128 IQ pairs = 256 entries).
+        const int n_samples = 8*NUM_ACCESS_ADDR_BYTE*SAMPLE_PER_SYMBOL; // 128 IQ pairs
+        long mag_sum = 0;
+        IQ_TYPE *p = rxp_in + access_addr_sample_off;
+        for (int k = 0; k < n_samples; k++) {
+            int I = p[2*k];
+            int Q = p[2*k + 1];
+            mag_sum += (I < 0 ? -I : I) + (Q < 0 ? -Q : Q);
+        }
+        double mean = (double)mag_sum / n_samples;
+        if (mean < 1.0) mean = 1.0;
+        // rough mapping: 8-bit IQ peak ~256 → 0 dB; offset -50 to land in typical BLE range.
+        rssi_dbm = (int)(20.0 * log10(mean / 256.0) - 50.0);
+        if (rssi_dbm < -127) rssi_dbm = -127;
+        if (rssi_dbm > 20) rssi_dbm = 20;
+    } else {
+        rssi_dbm = INT_MIN;
+    }
     
     if (raw_flag)
       num_demod_byte = 42;
@@ -2146,29 +2319,73 @@ void receiver(IQ_TYPE *rxp_in, int buf_len, int channel_number, uint32_t access_
     pkt_count++;
     receiver_status.pkt_avaliable = 1;
     receiver_status.crc_ok = (crc_flag==0);
-    
+
     gettimeofday(&time_current_pkt, NULL);
     time_diff = TimevalDiff(&time_current_pkt, &time_pre_pkt);
     time_pre_pkt = time_current_pkt;
-    
-    printf("%07dus Pkt%03d Ch%d AA:%08x ", time_diff, pkt_count, channel_number, access_addr);
-    if(filename_pcap != NULL)
-        write_packet_to_file(fh_pcap_store, payload_len+2, tmp_byte, channel_number, access_addr);
+
+    pkt_adv_a_valid = 0;
+    ll_ctrl_pdu_type = 0;
 
     if (adv_flag) {
-      printf("ADV_PDU_t%d:%s T%d R%d PloadL%d ", adv_pdu_type, ADV_PDU_TYPE_STR[adv_pdu_type], adv_tx_add, adv_rx_add, payload_len);
-    
-      if (parse_adv_pdu_payload_byte(tmp_byte+2, payload_len, adv_pdu_type, (void *)(&adv_pdu_payload) ) != 0 ) {
+      // PDU-type bitmask filter (ADV branch only)
+      if ((filter_pdu_mask & (uint16_t)(1u << (adv_pdu_type & 0x0F))) == 0) {
         continue;
       }
-      print_adv_pdu_payload((void *)(&adv_pdu_payload), adv_pdu_type, payload_len, crc_flag);
+      // parse payload first so we have AdvA for filtering
+      if (parse_adv_pdu_payload_byte(tmp_byte+2, payload_len, adv_pdu_type,
+                                      (void *)(&adv_pdu_payload)) != 0) {
+        continue;
+      }
+      if (extract_adv_a(adv_pdu_type, &adv_pdu_payload, pkt_adv_a) == 0) {
+        pkt_adv_a_valid = 1;
+      }
+      // AdvA filter: only drop when filter is set AND AdvA is available AND mismatches.
+      // (Unknown-AdvA PDUs are passed through so the user can still see them.)
+      if (filter_adva_set && pkt_adv_a_valid &&
+          memcmp(pkt_adv_a, filter_adva, 6) != 0) {
+        continue;
+      }
     } else {
-      printf("LL_PDU_t%d:%s NESN%d SN%d MD%d PloadL%d ", ll_pdu_type, LL_PDU_TYPE_STR[ll_pdu_type], ll_nesn, ll_sn, ll_md, payload_len);
-      
-      if ( ( ll_ctrl_pdu_type=parse_ll_pdu_payload_byte(tmp_byte+2, payload_len, ll_pdu_type, (void *)(&ll_data_pdu_payload) )  ) < 0 ) {
+      if ((ll_ctrl_pdu_type = parse_ll_pdu_payload_byte(tmp_byte+2, payload_len, ll_pdu_type,
+                                                       (void *)(&ll_data_pdu_payload))) < 0) {
         continue;
       }
-      print_ll_pdu_payload((void *)(&ll_data_pdu_payload), ll_pdu_type, ll_ctrl_pdu_type, payload_len, crc_flag);
+      // AdvA filter set on a DATA channel: drop everything (data PDUs have no AdvA).
+      if (filter_adva_set) {
+        continue;
+      }
+    }
+
+    // -------- packet survived filters: write/print/emit --------
+    if (filename_pcap != NULL)
+      write_packet_to_file(fh_pcap_store, payload_len+2, tmp_byte, channel_number, access_addr, rssi_dbm);
+
+    if (!quiet_text_flag) {
+      printf("%07dus Pkt%03d Ch%d AA:%08x ", time_diff, pkt_count, channel_number, access_addr);
+    }
+
+    if (adv_flag) {
+      if (!quiet_text_flag) {
+        printf("ADV_PDU_t%d:%s T%d R%d PloadL%d ", adv_pdu_type, ADV_PDU_TYPE_STR[adv_pdu_type], adv_tx_add, adv_rx_add, payload_len);
+        print_adv_pdu_payload((void *)(&adv_pdu_payload), adv_pdu_type, payload_len, crc_flag);
+      }
+      btj_emit_pkt_adv(&time_current_pkt, pkt_count, channel_number, access_addr,
+                       (crc_flag == 0), (int)adv_pdu_type,
+                       ADV_PDU_TYPE_STR[adv_pdu_type],
+                       adv_tx_add, adv_rx_add, payload_len,
+                       pkt_adv_a_valid ? pkt_adv_a : NULL,
+                       tmp_byte + 2, rssi_dbm);
+    } else {
+      if (!quiet_text_flag) {
+        printf("LL_PDU_t%d:%s NESN%d SN%d MD%d PloadL%d ", ll_pdu_type, LL_PDU_TYPE_STR[ll_pdu_type], ll_nesn, ll_sn, ll_md, payload_len);
+        print_ll_pdu_payload((void *)(&ll_data_pdu_payload), ll_pdu_type, ll_ctrl_pdu_type, payload_len, crc_flag);
+      }
+      btj_emit_pkt_data(&time_current_pkt, pkt_count, channel_number, access_addr,
+                        (crc_flag == 0), (int)ll_pdu_type,
+                        LL_PDU_TYPE_STR[ll_pdu_type],
+                        ll_nesn, ll_sn, ll_md, payload_len,
+                        tmp_byte + 2, rssi_dbm);
     }
   }
 }
@@ -2191,19 +2408,24 @@ int receiver_controller(void *rf_dev, int verbose_flag, int *chan, uint32_t *acc
   static int interval_us, target_us, target_us1, hop;
   static struct timeval time_run, time_mark;
   uint64_t freq_hz;
+  struct timeval now;
 
   switch(state) {
     case 0: // wait for track
       if ( receiver_status.crc_ok && receiver_status.hop!=-1 ) { //start track unless you ctrl+c
-      
+
         if ( !chm_is_full_map(receiver_status.chm) ) {
-          printf("Hop: Not full ChnMap 1FFFFFFFFF! (%02x%02x%02x%02x%02x) Stay in ADV Chn\n", receiver_status.chm[0], receiver_status.chm[1], receiver_status.chm[2], receiver_status.chm[3], receiver_status.chm[4]);
+          if (!quiet_text_flag) printf("Hop: Not full ChnMap 1FFFFFFFFF! (%02x%02x%02x%02x%02x) Stay in ADV Chn\n", receiver_status.chm[0], receiver_status.chm[1], receiver_status.chm[2], receiver_status.chm[3], receiver_status.chm[4]);
+          gettimeofday(&now, NULL);
+          btj_emit_hop(&now, "track_drop", 0, 0, *chan, 0,
+                       receiver_status.access_addr, receiver_status.crc_init,
+                       0, receiver_status.hop, receiver_status.chm);
           receiver_status.hop = -1;
           return(0);
         }
-        
-        printf("Hop: track start ...\n");
-        
+
+        if (!quiet_text_flag) printf("Hop: track start ...\n");
+
         hop = receiver_status.hop;
         interval_us = receiver_status.interval*1250;
         target_us = interval_us - guard_us;
@@ -2212,83 +2434,96 @@ int receiver_controller(void *rf_dev, int verbose_flag, int *chan, uint32_t *acc
         hop_chan = ((hop_chan + hop)%37);
         (*chan) = hop_chan;
         freq_hz = get_freq_by_channel_number( hop_chan );
-        
+
         if( board_set_freq(rf_dev, freq_hz) != 0 ) {
           return(-1);
         }
-        
+
         (*crc_init_internal) = crc_init_reorder(receiver_status.crc_init);
         (*access_addr) = receiver_status.access_addr;
-        
-        printf("Hop: next ch %d freq %ldMHz access %08x crcInit %06x\n", hop_chan, freq_hz/1000000, receiver_status.access_addr, receiver_status.crc_init);
-        
+
+        if (!quiet_text_flag) printf("Hop: next ch %d freq %ldMHz access %08x crcInit %06x\n", hop_chan, freq_hz/1000000, receiver_status.access_addr, receiver_status.crc_init);
+
+        gettimeofday(&now, NULL);
+        btj_emit_hop(&now, "track_start", 0, 1, hop_chan, freq_hz/1000000,
+                     receiver_status.access_addr, receiver_status.crc_init,
+                     interval_us, hop, receiver_status.chm);
+
         state = 1;
-        printf("Hop: next state %d\n", state);
+        if (!quiet_text_flag) printf("Hop: next state %d\n", state);
       }
       receiver_status.crc_ok = false;
-      
+
       break;
-    
+
     case 1: // wait for the 1st packet in data channel
       if ( receiver_status.crc_ok ) {// we capture the 1st data channel packet
         gettimeofday(&time_mark, NULL);
-        printf("Hop: 1st data pdu\n");
+        if (!quiet_text_flag) printf("Hop: 1st data pdu\n");
         state = 2;
-        printf("Hop: next state %d\n", state);
+        if (!quiet_text_flag) printf("Hop: next state %d\n", state);
       }
       receiver_status.crc_ok = false;
-      
+
       break;
-      
+
     case 2: // wait for time is up. let hop to next chan
       gettimeofday(&time_run, NULL);
       if ( TimevalDiff(&time_run, &time_mark)>target_us ) {// time is up. let's hop
-      
+
         gettimeofday(&time_mark, NULL);
-        
+
         hop_chan = ((hop_chan + hop)%37);
         (*chan) = hop_chan;
         freq_hz = get_freq_by_channel_number( hop_chan );
-        
+
         if( board_set_freq(rf_dev, freq_hz) != 0 ) {
           return(-1);
         }
-       
-        if (verbose_flag) printf("Hop: next ch %d freq %ldMHz\n", hop_chan, freq_hz/1000000);
-        
+
+        if (verbose_flag && !quiet_text_flag) printf("Hop: next ch %d freq %ldMHz\n", hop_chan, freq_hz/1000000);
+
+        btj_emit_hop(&time_mark, "chan_change", 2, 3, hop_chan, freq_hz/1000000,
+                     receiver_status.access_addr, receiver_status.crc_init,
+                     interval_us, hop, receiver_status.chm);
+
         state = 3;
-        if (verbose_flag) printf("Hop: next state %d\n", state);
+        if (verbose_flag && !quiet_text_flag) printf("Hop: next state %d\n", state);
       }
       receiver_status.crc_ok = false;
-      
+
       break;
-    
+
     case 3: // wait for the 1st packet in new data channel
       if ( receiver_status.crc_ok ) {// we capture the 1st data channel packet in new data channel
-        gettimeofday(&time_mark, NULL);        
+        gettimeofday(&time_mark, NULL);
         state = 2;
-        if (verbose_flag) printf("Hop: next state %d\n", state);
+        if (verbose_flag && !quiet_text_flag) printf("Hop: next state %d\n", state);
       }
-      
+
       gettimeofday(&time_run, NULL);
       if ( TimevalDiff(&time_run, &time_mark)>target_us1 ) {
-        if (verbose_flag) printf("Hop: skip\n");
-        
+        if (verbose_flag && !quiet_text_flag) printf("Hop: skip\n");
+
         gettimeofday(&time_mark, NULL);
-        
+
         hop_chan = ((hop_chan + hop)%37);
         (*chan) = hop_chan;
         freq_hz = get_freq_by_channel_number( hop_chan );
-        
+
         if( board_set_freq(rf_dev, freq_hz) != 0 ) {
           return(-1);
         }
-       
-        if (verbose_flag) printf("Hop: next ch %d freq %ldMHz\n", hop_chan, freq_hz/1000000);
-        
-        if (verbose_flag) printf("Hop: next state %d\n", state);
+
+        if (verbose_flag && !quiet_text_flag) printf("Hop: next ch %d freq %ldMHz\n", hop_chan, freq_hz/1000000);
+
+        btj_emit_hop(&time_mark, "chan_change", 3, 3, hop_chan, freq_hz/1000000,
+                     receiver_status.access_addr, receiver_status.crc_init,
+                     interval_us, hop, receiver_status.chm);
+
+        if (verbose_flag && !quiet_text_flag) printf("Hop: next state %d\n", state);
       }
-      
+
       receiver_status.crc_ok = false;
       break;
 
@@ -2296,7 +2531,7 @@ int receiver_controller(void *rf_dev, int verbose_flag, int *chan, uint32_t *acc
       printf("Hop: unknown state!\n");
       return(-1);
   }
-  
+
   return(0);
 }
 
@@ -2313,18 +2548,32 @@ int main(int argc, char** argv) {
   void* rf_dev;
   IQ_TYPE *rxp;
 
-  parse_commandline(argc, argv, &chan, &gain, &lnaGain, &amp, &access_addr, &crc_init, &verbose_flag, &raw_flag, &freq_hz, &access_addr_mask, &hop_flag, &filename_pcap);
+  parse_commandline(argc, argv, &chan, &gain, &lnaGain, &amp, &access_addr, &crc_init,
+                    &verbose_flag, &raw_flag, &freq_hz, &access_addr_mask, &hop_flag, &filename_pcap,
+                    &json_flag, &quiet_text_flag, &rssi_est_flag,
+                    &filter_adva_set, filter_adva, &filter_pdu_mask);
+
+  btj_init(json_flag);
 
   if (freq_hz == 123)
     freq_hz = get_freq_by_channel_number(chan);
-  
+
   uint32_to_bit_array(access_addr_mask, access_bit_mask);
-  
-  printf("Cmd line input: chan %d, freq %ldMHz, access addr %08x, crc init %06x raw %d verbose %d rx %ddB (%s) file=%s\n", chan, freq_hz/1000000, access_addr, crc_init, raw_flag, verbose_flag, gain, board_name, filename_pcap);
+
+  if (!quiet_text_flag) {
+    printf("Cmd line input: chan %d, freq %ldMHz, access addr %08x, crc init %06x raw %d verbose %d rx %ddB (%s) file=%s\n", chan, freq_hz/1000000, access_addr, crc_init, raw_flag, verbose_flag, gain, board_name, filename_pcap);
+  }
 
   if(filename_pcap != NULL) {
-    printf("will store packets to: %s\n", filename_pcap);
+    if (!quiet_text_flag) printf("will store packets to: %s\n", filename_pcap);
     init_pcap_file();
+  }
+
+  {
+    struct timeval now;
+    gettimeofday(&now, NULL);
+    btj_emit_status(&now, "start", board_name, chan, freq_hz, gain, lnaGain, amp,
+                    filter_adva_set ? filter_adva : NULL, NULL);
   }
   
   // run cyclic recv in background
@@ -2413,9 +2662,20 @@ int main(int argc, char** argv) {
   }
 
 program_quit:
-  printf("Exit main loop ...\n");
+  if (!quiet_text_flag) printf("Exit main loop ...\n");
+  {
+    struct timeval now;
+    gettimeofday(&now, NULL);
+    btj_emit_status(&now, "stop", board_name, chan, freq_hz, gain, lnaGain, amp,
+                    filter_adva_set ? filter_adva : NULL, NULL);
+  }
   stop_close_board(rf_dev);
 
   if(fh_pcap_store) fclose(fh_pcap_store);
   return(0);
 }
+
+// Merge btle_json into the same translation unit. This avoids cross-TU linker
+// fallout from `-Dinline=` (which would otherwise turn `extern inline` defs in
+// system headers into duplicated symbols).
+#include "btle_json.c"
