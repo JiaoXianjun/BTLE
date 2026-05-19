@@ -2585,49 +2585,64 @@
         "inst_hier_path": "clk_wiz_1",
         "parameters": {
           "CLKIN1_JITTER_PS": {
-            "value": "156.25"
+            "value": "312.5"
           },
           "CLKOUT1_JITTER": {
-            "value": "222.903"
+            "value": "434.696"
           },
           "CLKOUT1_PHASE_ERROR": {
-            "value": "108.152"
+            "value": "213.874"
           },
           "CLKOUT1_REQUESTED_OUT_FREQ": {
-            "value": "16"
+            "value": "8"
           },
           "CLKOUT2_JITTER": {
-            "value": "191.527"
+            "value": "379.346"
           },
           "CLKOUT2_PHASE_ERROR": {
-            "value": "108.152"
+            "value": "213.874"
           },
           "CLKOUT2_REQUESTED_OUT_FREQ": {
-            "value": "32"
+            "value": "16"
           },
           "CLKOUT2_USED": {
             "value": "true"
           },
+          "CLKOUT3_JITTER": {
+            "value": "185.867"
+          },
+          "CLKOUT3_PHASE_ERROR": {
+            "value": "213.874"
+          },
+          "CLKOUT3_REQUESTED_OUT_FREQ": {
+            "value": "192"
+          },
+          "CLKOUT3_USED": {
+            "value": "true"
+          },
           "MMCM_CLKFBOUT_MULT_F": {
-            "value": "15.500"
+            "value": "30.000"
           },
           "MMCM_CLKIN1_PERIOD": {
-            "value": "15.625"
+            "value": "31.250"
           },
           "MMCM_CLKIN2_PERIOD": {
             "value": "10.0"
           },
           "MMCM_CLKOUT0_DIVIDE_F": {
-            "value": "62.000"
+            "value": "120.000"
           },
           "MMCM_CLKOUT1_DIVIDE": {
-            "value": "31"
+            "value": "60"
+          },
+          "MMCM_CLKOUT2_DIVIDE": {
+            "value": "5"
           },
           "NUM_OUT_CLKS": {
-            "value": "2"
+            "value": "3"
           },
           "PRIM_IN_FREQ": {
-            "value": "64"
+            "value": "32"
           }
         }
       },
@@ -3213,6 +3228,15 @@
           "btle_controller_0/bb_clk"
         ]
       },
+      "clk_wiz_1_clk_out3": {
+        "ports": [
+          "clk_wiz_1/clk_out3",
+          "sys_rstgen1/slowest_sync_clk",
+          "smartconnect_0/aclk",
+          "axi_bram_ctrl_0/s_axi_aclk",
+          "sys_ps7/M_AXI_GP1_ACLK"
+        ]
+      },
       "gp_in_0_1": {
         "ports": [
           "gp_in_0",
@@ -3331,11 +3355,7 @@
       "sys_200m_clk": {
         "ports": [
           "sys_ps7/FCLK_CLK1",
-          "axi_ad9361/delay_clk",
-          "sys_ps7/M_AXI_GP1_ACLK",
-          "smartconnect_0/aclk",
-          "axi_bram_ctrl_0/s_axi_aclk",
-          "sys_rstgen1/slowest_sync_clk"
+          "axi_ad9361/delay_clk"
         ]
       },
       "sys_concat_intc_dout": {
@@ -3378,7 +3398,8 @@
           "axi_cpu_interconnect/M02_ARESETN",
           "axi_iic_main/s_axi_aresetn",
           "axi_cpu_interconnect/M03_ARESETN",
-          "btle_controller_0/s00_axi_aresetn"
+          "btle_controller_0/s00_axi_aresetn",
+          "sys_rstgen1/ext_reset_in"
         ]
       },
       "sys_logic_inv_Res": {
@@ -3397,12 +3418,6 @@
         "ports": [
           "sys_ps7/FCLK_RESET0_N",
           "sys_rstgen/ext_reset_in"
-        ]
-      },
-      "sys_ps7_FCLK_RESET1_N": {
-        "ports": [
-          "sys_ps7/FCLK_RESET1_N",
-          "sys_rstgen1/ext_reset_in"
         ]
       },
       "sys_ps7_GPIO_O": {
