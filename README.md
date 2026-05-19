@@ -5,7 +5,7 @@ BTLE is a free and open-source Bluetooth Low Energy (BLE) Software Defined Radio
 
 It includes:
   * BTLE baseband [algorithms description, Python and Verilog implementation, FPGA and SkyWater 130 PDK (OpenLane2 workflow) results](https://github.com/JiaoXianjun/BTLE/tree/master/open_btle_baseband_chip).
-  * Analog Devices AD9361 + Xilinx Zynq FPGA implementation: [FPGA Bluetooth](https://github.com/JiaoXianjun/BTLE/tree/fpga_dev/fpga) (All works are in fpga_dev branch)
+  * Analog Devices AD9361 + Xilinx Zynq FPGA implementation: [FPGA Bluetooth](https://github.com/JiaoXianjun/BTLE/tree/master/fpga)
   * **btle_rx** - BLE sniffer. Besides sniff broadcasting/fixed channel, it can also track channel hopping of a communication link.
   * **btle_tx** - Universal BLE packet transmitter. Besides BLE standard, it supports also raw bit mode to generate arbitrary GFSK packet. In this way, you can test non-standard protocol or standard under discussion before chip in the market.
 
