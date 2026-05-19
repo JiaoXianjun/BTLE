@@ -1,0 +1,45 @@
+[build-system]
+requires = ["hatchling>=1.18"]
+build-backend = "hatchling.build"
+
+[project]
+name = "btle-cli"
+version = "0.1.0"
+description = "CLI + TUI front-end for the HackRF BTLE sniffer (btle_rx) — scan, capture, analyze. MCP-ready."
+requires-python = ">=3.11"
+license = "GPL-2.0-or-later"
+authors = [{ name = "btle-cli contributors" }]
+readme = "README.md"
+dependencies = [
+    "typer>=0.12",
+    "rich>=13.7",
+    "pydantic>=2.5",
+    "textual>=0.60",
+    "scapy>=2.5",
+    "matplotlib>=3.8",
+    "mcp>=1.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.4",
+    "mypy>=1.10",
+]
+
+[project.scripts]
+btle-cli = "btle_cli.__main__:main"
+btle-cli-mcp = "btle_cli.mcp_server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/btle_cli"]
+include = ["src/btle_cli/data/*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
