@@ -41,7 +41,8 @@
       "clk_wiz_1": "",
       "axi_bram_ctrl_0": "",
       "smartconnect_0": "",
-      "sys_rstgen1": ""
+      "sys_rstgen1": "",
+      "sys_rstgen2": ""
     },
     "interface_ports": {
       "ddr": {
@@ -2378,49 +2379,64 @@
         "inst_hier_path": "clk_wiz_1",
         "parameters": {
           "CLKIN1_JITTER_PS": {
-            "value": "156.25"
+            "value": "312.5"
           },
           "CLKOUT1_JITTER": {
-            "value": "222.903"
+            "value": "434.696"
           },
           "CLKOUT1_PHASE_ERROR": {
-            "value": "108.152"
+            "value": "213.874"
           },
           "CLKOUT1_REQUESTED_OUT_FREQ": {
-            "value": "16"
+            "value": "8"
           },
           "CLKOUT2_JITTER": {
-            "value": "191.527"
+            "value": "379.346"
           },
           "CLKOUT2_PHASE_ERROR": {
-            "value": "108.152"
+            "value": "213.874"
           },
           "CLKOUT2_REQUESTED_OUT_FREQ": {
-            "value": "32"
+            "value": "16"
           },
           "CLKOUT2_USED": {
             "value": "true"
           },
+          "CLKOUT3_JITTER": {
+            "value": "185.867"
+          },
+          "CLKOUT3_PHASE_ERROR": {
+            "value": "213.874"
+          },
+          "CLKOUT3_REQUESTED_OUT_FREQ": {
+            "value": "192"
+          },
+          "CLKOUT3_USED": {
+            "value": "true"
+          },
           "MMCM_CLKFBOUT_MULT_F": {
-            "value": "15.500"
+            "value": "30.000"
           },
           "MMCM_CLKIN1_PERIOD": {
-            "value": "15.625"
+            "value": "31.250"
           },
           "MMCM_CLKIN2_PERIOD": {
             "value": "10.0"
           },
           "MMCM_CLKOUT0_DIVIDE_F": {
-            "value": "62.000"
+            "value": "120.000"
           },
           "MMCM_CLKOUT1_DIVIDE": {
-            "value": "31"
+            "value": "60"
+          },
+          "MMCM_CLKOUT2_DIVIDE": {
+            "value": "5"
           },
           "NUM_OUT_CLKS": {
-            "value": "2"
+            "value": "3"
           },
           "PRIM_IN_FREQ": {
-            "value": "64"
+            "value": "32"
           }
         }
       },
@@ -2506,6 +2522,17 @@
         "xci_name": "system_sys_rstgen1_0",
         "xci_path": "ip/system_sys_rstgen1_0/system_sys_rstgen1_0.xci",
         "inst_hier_path": "sys_rstgen1",
+        "parameters": {
+          "C_EXT_RST_WIDTH": {
+            "value": "1"
+          }
+        }
+      },
+      "sys_rstgen2": {
+        "vlnv": "xilinx.com:ip:proc_sys_reset:5.0",
+        "xci_name": "system_sys_rstgen2_0",
+        "xci_path": "ip/system_sys_rstgen2_0/system_sys_rstgen2_0.xci",
+        "inst_hier_path": "sys_rstgen2",
         "parameters": {
           "C_EXT_RST_WIDTH": {
             "value": "1"
@@ -2978,6 +3005,15 @@
           "btle_controller_0/bb_clk"
         ]
       },
+      "clk_wiz_1_clk_out3": {
+        "ports": [
+          "clk_wiz_1/clk_out3",
+          "sys_ps7/M_AXI_GP1_ACLK",
+          "sys_rstgen1/slowest_sync_clk",
+          "smartconnect_0/aclk",
+          "axi_bram_ctrl_0/s_axi_aclk"
+        ]
+      },
       "clk_wiz_1_locked": {
         "ports": [
           "clk_wiz_1/locked",
@@ -3102,11 +3138,8 @@
       "sys_200m_clk": {
         "ports": [
           "sys_ps7/FCLK_CLK1",
-          "sys_rstgen1/slowest_sync_clk",
-          "smartconnect_0/aclk",
-          "sys_ps7/M_AXI_GP1_ACLK",
-          "axi_bram_ctrl_0/s_axi_aclk",
-          "gmii_to_rgmii_0/clkin"
+          "gmii_to_rgmii_0/clkin",
+          "sys_rstgen2/slowest_sync_clk"
         ]
       },
       "sys_concat_intc_dout": {
@@ -3173,7 +3206,7 @@
       "sys_ps7_FCLK_RESET1_N": {
         "ports": [
           "sys_ps7/FCLK_RESET1_N",
-          "sys_rstgen1/ext_reset_in"
+          "sys_rstgen2/ext_reset_in"
         ]
       },
       "sys_ps7_GPIO_O": {
@@ -3255,9 +3288,9 @@
           "axi_bram_ctrl_0/s_axi_aresetn"
         ]
       },
-      "sys_rstgen1_peripheral_reset": {
+      "sys_rstgen2_bus_struct_reset": {
         "ports": [
-          "sys_rstgen1/peripheral_reset",
+          "sys_rstgen2/bus_struct_reset",
           "gmii_to_rgmii_0/rx_reset",
           "gmii_to_rgmii_0/tx_reset"
         ]
@@ -3412,7 +3445,8 @@
         "ports": [
           "util_ad9361_divclk_reset/peripheral_aresetn",
           "util_ad9361_adc_fifo/dout_rstn",
-          "axi_ad9361_dac_fifo/din_rstn"
+          "axi_ad9361_dac_fifo/din_rstn",
+          "sys_rstgen1/ext_reset_in"
         ]
       },
       "util_ad9361_divclk_reset_peripheral_reset": {
